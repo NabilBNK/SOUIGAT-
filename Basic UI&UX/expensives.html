@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Record Expense - SOUIGAT</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2463eb",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#111621",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom styles to hide scrollbar but keep functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased text-slate-900 dark:text-white">
+<div class="relative flex h-full min-h-screen w-full flex-col overflow-hidden max-w-md mx-auto shadow-xl bg-white dark:bg-[#1a202c]">
+<!-- Header -->
+<header class="flex items-center px-4 py-3 pb-2 justify-between bg-white dark:bg-[#1a202c] sticky top-0 z-10">
+<button class="text-slate-900 dark:text-white flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Record Expense</h2>
+</header>
+<!-- Main Scrollable Content -->
+<main class="flex-1 overflow-y-auto no-scrollbar pb-24">
+<!-- Amount Input Section (Hero) -->
+<div class="flex flex-col items-center justify-center pt-8 pb-6 px-4 bg-white dark:bg-[#1a202c]">
+<label class="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider mb-2" for="amount-input">Total Amount (DZD)</label>
+<div class="relative flex items-center justify-center w-full">
+<input class="w-full text-center text-5xl font-bold bg-transparent border-none focus:ring-0 p-0 text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 caret-primary h-20" id="amount-input" inputmode="decimal" placeholder="0.00" type="number"/>
+</div>
+</div>
+<div class="h-2 bg-background-light dark:bg-background-dark w-full"></div>
+<!-- Category Section -->
+<div class="px-4 py-6 bg-white dark:bg-[#1a202c]">
+<h3 class="text-slate-900 dark:text-white tracking-tight text-lg font-bold leading-tight mb-4">Category</h3>
+<div class="grid grid-cols-2 gap-3">
+<!-- Fuel -->
+<label class="group relative cursor-pointer">
+<input checked="" class="peer sr-only" name="category" type="radio"/>
+<div class="flex flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4 h-28 transition-all peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary peer-checked:ring-1 peer-checked:ring-primary">
+<span class="material-symbols-outlined text-[32px] mb-2 text-slate-500 dark:text-slate-400 group-hover:text-primary peer-checked:text-primary transition-colors">local_gas_station</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200 peer-checked:text-primary">Fuel</span>
+</div>
+</label>
+<!-- Maintenance -->
+<label class="group relative cursor-pointer">
+<input class="peer sr-only" name="category" type="radio"/>
+<div class="flex flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4 h-28 transition-all peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary peer-checked:ring-1 peer-checked:ring-primary">
+<span class="material-symbols-outlined text-[32px] mb-2 text-slate-500 dark:text-slate-400 group-hover:text-primary peer-checked:text-primary transition-colors">build</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200 peer-checked:text-primary">Maintenance</span>
+</div>
+</label>
+<!-- Tolls -->
+<label class="group relative cursor-pointer">
+<input class="peer sr-only" name="category" type="radio"/>
+<div class="flex flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4 h-28 transition-all peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary peer-checked:ring-1 peer-checked:ring-primary">
+<span class="material-symbols-outlined text-[32px] mb-2 text-slate-500 dark:text-slate-400 group-hover:text-primary peer-checked:text-primary transition-colors">toll</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200 peer-checked:text-primary">Tolls</span>
+</div>
+</label>
+<!-- Other -->
+<label class="group relative cursor-pointer">
+<input class="peer sr-only" name="category" type="radio"/>
+<div class="flex flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4 h-28 transition-all peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary peer-checked:ring-1 peer-checked:ring-primary">
+<span class="material-symbols-outlined text-[32px] mb-2 text-slate-500 dark:text-slate-400 group-hover:text-primary peer-checked:text-primary transition-colors">more_horiz</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200 peer-checked:text-primary">Other</span>
+</div>
+</label>
+</div>
+</div>
+<div class="h-2 bg-background-light dark:bg-background-dark w-full"></div>
+<!-- Details Section -->
+<div class="px-4 py-6 bg-white dark:bg-[#1a202c] space-y-6">
+<!-- Description -->
+<div>
+<label class="block text-slate-900 dark:text-white text-base font-bold mb-2" for="description">Description</label>
+<textarea class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-primary focus:ring-primary resize-none" id="description" placeholder="Add notes (optional)..." rows="3"></textarea>
+</div>
+<!-- Receipt Upload -->
+<div>
+<label class="block text-slate-900 dark:text-white text-base font-bold mb-2">Receipt</label>
+<button class="w-full flex items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-4 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group">
+<div class="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:text-primary group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+<span class="material-symbols-outlined">add_a_photo</span>
+</div>
+<span class="text-sm font-semibold text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">Add Receipt Photo</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Sticky Action Bar -->
+<div class="fixed bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-[#1a202c]/90 backdrop-blur-sm border-t border-slate-100 dark:border-slate-800 max-w-md mx-auto">
+<button class="w-full h-14 rounded-xl bg-primary hover:bg-blue-700 text-white font-bold text-lg shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined">check</span>
+                Save Expense
+            </button>
+</div>
+</div>
+</body></html>

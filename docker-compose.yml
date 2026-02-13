@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: souigat_db
+      POSTGRES_USER: souigat_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: pg_isready -U souigat_user -d souigat_db
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: redis-cli ping
+      interval: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    command: >
+      gunicorn souigat.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 4
+      --timeout 120
+      --reload
+    # NOTE: --reload is DEV MODE only. For production: remove --reload, add --preload
+    ports: ["8000:8000"]
+    volumes: [./backend:/app]
+    env_file: .env
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  celery:
+    build: ./backend
+    command: >
+      celery -A souigat worker
+      -l info
+      --concurrency=2
+      --max-tasks-per-child=50
+    volumes: [./backend:/app]
+    env_file: .env
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  celery-beat:
+    build: ./backend
+    command: >
+      celery -A souigat beat
+      -l info
+      --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes: [./backend:/app]
+    env_file: .env
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  pgdata:

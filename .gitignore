@@ -1,0 +1,42 @@
+# Environment
+.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker
+pgdata/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node (Phase 2)
+node_modules/
+web/dist/
+web/.vite/
+
+# Exports
+/exports/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
