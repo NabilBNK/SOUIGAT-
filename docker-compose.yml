@@ -5,8 +5,8 @@ services:
       POSTGRES_DB: souigat_db
       POSTGRES_USER: souigat_user
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports: ["127.0.0.1:5432:5432"]
-    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: [ "127.0.0.1:5432:5432" ]
+    volumes: [ pgdata:/var/lib/postgresql/data ]
     healthcheck:
       test: pg_isready -U souigat_user -d souigat_db
       interval: 5s
@@ -14,6 +14,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: redis-server --appendonly yes --appendfsync always
+    volumes: [ redis_data:/data ]
     healthcheck:
       test: redis-cli ping
       interval: 5s
@@ -22,14 +24,10 @@ services:
   backend:
     build: ./backend
     command: >
-      gunicorn souigat.wsgi:application
-      --bind 0.0.0.0:8000
-      --workers 4
-      --timeout 120
-      --reload
+      gunicorn souigat.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120 --reload
     # NOTE: --reload is DEV MODE only. For production: remove --reload, add --preload
-    ports: ["8000:8000"]
-    volumes: [./backend:/app]
+    ports: [ "8000:8000" ]
+    volumes: [ ./backend:/app ]
     env_file: .env
     depends_on:
       db: { condition: service_healthy }
@@ -38,11 +36,8 @@ services:
   celery:
     build: ./backend
     command: >
-      celery -A souigat worker
-      -l info
-      --concurrency=2
-      --max-tasks-per-child=50
-    volumes: [./backend:/app]
+      celery -A souigat worker -l info --concurrency=2 --max-tasks-per-child=50
+    volumes: [ ./backend:/app ]
     env_file: .env
     depends_on:
       db: { condition: service_healthy }
@@ -55,10 +50,8 @@ services:
   celery-beat:
     build: ./backend
     command: >
-      celery -A souigat beat
-      -l info
-      --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    volumes: [./backend:/app]
+      celery -A souigat beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes: [ ./backend:/app ]
     env_file: .env
     depends_on:
       db: { condition: service_healthy }
@@ -66,3 +59,6 @@ services:
 
 volumes:
   pgdata:
+  redis_data:
+
+
