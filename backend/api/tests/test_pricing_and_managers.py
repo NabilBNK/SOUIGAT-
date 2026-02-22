@@ -108,13 +108,13 @@ class PricingOverlapTests(TestCase):
         result = PricingConfig.objects.get_active_pricing(
             self.office_a, self.office_b, for_date=date(2026, 5, 15),
         )
-        self.assertEqual(result.passenger_price, 1000)
+        self.assertEqual(result['passenger_price'], 1000)
 
         # July → new pricing
         result = PricingConfig.objects.get_active_pricing(
             self.office_a, self.office_b, for_date=date(2026, 7, 1),
         )
-        self.assertEqual(result.passenger_price, 1200)
+        self.assertEqual(result['passenger_price'], 1200)
 
     def test_get_active_pricing_returns_none_for_no_match(self):
         """No pricing exists for route → returns None."""

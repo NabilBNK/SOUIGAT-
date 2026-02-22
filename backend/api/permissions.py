@@ -59,7 +59,7 @@ class RBACPermission(BasePermission):
     """
 
     def has_permission(self, request, view):
-        required_roles = getattr(view, 'required_roles', None)
+        required_roles = getattr(view, 'required_roles', None) or getattr(self, 'required_roles', None)
         if not required_roles:
             return True
         return request.user.role in required_roles

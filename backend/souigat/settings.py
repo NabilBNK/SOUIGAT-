@@ -34,7 +34,7 @@ INSTALLED_APPS = [
     'api',
 ]
 
-# Middleware (CORS must be first)
+# Middleware (CORS must be first, Audit must be last)
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -44,6 +44,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.middleware.audit_middleware.AuditMiddleware',
 ]
 
 ROOT_URLCONF = 'souigat.urls'
@@ -162,7 +163,21 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'api.tasks.cleanup_expired_tokens',
         'schedule': crontab(hour=3, minute=0),  # 3:00 AM daily
     },
+    'cleanup-old-exports': {
+        'task': 'api.tasks.cleanup_old_exports',
+        'schedule': crontab(hour=4, minute=0),  # 4:00 AM daily
+    },
+    'cleanup-old-synclogs': {
+        'task': 'api.tasks.cleanup_old_synclogs',
+        'schedule': crontab(hour=5, minute=0, day_of_week=0),  # Sunday 5 AM
+    },
 }
+
+# ---------------------
+# Media (exports)
+# ---------------------
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
 
 # ---------------------
 # Cache (Redis)

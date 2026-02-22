@@ -24,7 +24,10 @@ PID_FILE = AGENT_DIR / "preview.pid"
 LOG_FILE = AGENT_DIR / "preview.log"
 
 def get_project_root():
-    return Path(".").resolve()
+    root = Path(".").resolve()
+    if (root / "web" / "package.json").exists():
+        return root / "web"
+    return root
 
 def is_running(pid):
     try:

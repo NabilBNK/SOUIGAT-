@@ -30,6 +30,10 @@ class AuditLog(TimestampMixin, models.Model):
                 fields=['-created_at', 'user'],
                 name='idx_audit_timestamp',
             ),
+            models.Index(
+                fields=['table_name', 'record_id'],
+                name='idx_audit_table_record',
+            ),
         ]
 
     def __str__(self):

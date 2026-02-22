@@ -1,17 +1,32 @@
+import logging
 from datetime import date
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
 from .mixins import SoftDeleteManager, TimestampMixin, SoftDeleteMixin
 
+logger = logging.getLogger(__name__)
+
+PRICING_CACHE_TTL = 3600  # 1 hour
+
 
 class PricingConfigManager(SoftDeleteManager):
     def get_active_pricing(self, origin, destination, for_date=None):
-        """Return the active pricing for a route on a given date."""
+        """Return the active pricing for a route on a given date. Redis-cached."""
         for_date = for_date or date.today()
-        return self.get_queryset().filter(
+
+        origin_id = origin.id if hasattr(origin, 'id') else origin
+        dest_id = destination.id if hasattr(destination, 'id') else destination
+        cache_key = f'pricing:{origin_id}:{dest_id}:{for_date}'
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        pricing = self.get_queryset().filter(
             origin_office=origin,
             destination_office=destination,
             effective_from__lte=for_date,
@@ -19,6 +34,20 @@ class PricingConfigManager(SoftDeleteManager):
         ).filter(
             Q(effective_until__isnull=True) | Q(effective_until__gte=for_date),
         ).order_by('-effective_from').first()
+
+        if pricing:
+            pricing_data = {
+                'id': pricing.id,
+                'passenger_price': pricing.passenger_price,
+                'cargo_small_price': pricing.cargo_small_price,
+                'cargo_medium_price': pricing.cargo_medium_price,
+                'cargo_large_price': pricing.cargo_large_price,
+                'currency': pricing.currency,
+            }
+            cache.set(cache_key, pricing_data, timeout=PRICING_CACHE_TTL)
+            return pricing_data
+
+        return None
 
 
 class PricingConfig(TimestampMixin, SoftDeleteMixin, models.Model):
