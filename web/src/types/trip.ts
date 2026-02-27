@@ -28,7 +28,7 @@ export interface Trip {
 export interface TripCreate {
     origin_office: number
     destination_office: number
-    bus: string
+    bus: number
     conductor: number
     departure_datetime: string
 }

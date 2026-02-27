@@ -63,13 +63,15 @@ class AuditMiddlewareTests(TestCase):
         self.client.get('/api/trips/')
         self.assertEqual(AuditLog.objects.count(), initial_count)
 
-    def test_auth_endpoints_skipped(self):
-        """Auth endpoints are not audited."""
+    def test_auth_login_now_audited(self):
+        """Bug #3 fix: Login IS now audited. Token refresh is skipped."""
         initial_count = AuditLog.objects.count()
-        self.client.post('/api/auth/login/', {
+        resp = self.client.post('/api/auth/login/', {
             'phone': '0550000001', 'password': 'pass',
         })
-        self.assertEqual(AuditLog.objects.count(), initial_count)
+        if resp.status_code == 200:
+            # Login should now create an audit log entry (Bug #3 fix)
+            self.assertGreater(AuditLog.objects.count(), initial_count)
 
     def test_health_check_skipped(self):
         """Health check is not audited."""

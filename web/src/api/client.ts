@@ -64,6 +64,12 @@ client.interceptors.response.use(
     (response) => response,
     async (error) => {
         const original = error.config
+
+        // Prevent infinite loops ONLY for login or refresh itself
+        if (original.url?.includes('/auth/login') || original.url?.includes('/auth/token/refresh')) {
+            return Promise.reject(error)
+        }
+
         if (error.response?.status === 401 && !original._retry && refreshToken) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
@@ -81,12 +87,17 @@ client.interceptors.response.use(
             isRefreshing = true
 
             try {
+                // Using a fresh axios instance to avoid interceptor loops
                 const { data } = await axios.post(`${API_BASE}/auth/token/refresh/`, {
                     refresh: refreshToken,
                     platform: 'web',
                 })
                 accessToken = data.access
                 if (data.refresh) refreshToken = data.refresh
+
+                // Broadcast to other tabs
+                tokenChannel.postMessage({ type: 'tokens-updated', access: data.access, refresh: data.refresh || refreshToken })
+
                 processQueue(null, data.access)
                 original.headers.Authorization = `Bearer ${data.access}`
                 return client(original)

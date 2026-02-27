@@ -60,8 +60,9 @@ def daily_report(request):
     _check_report_perm(request)
     date_from, date_to = _parse_date_range(request)
 
-    # Redis cache key: report:daily:{office}:{from}:{to}
-    cache_key = f'report:daily:{request.user.role}:{request.user.office_id}:{date_from}:{date_to}'
+    # Bug fix: cache key uses office_id not role (avoids duplicate computation)
+    office_scope = 'all' if request.user.role == 'admin' else str(request.user.office_id)
+    cache_key = f'report:daily:{office_scope}:{date_from}:{date_to}'
     cached = cache.get(cache_key)
     if cached:
         return Response(cached)
@@ -71,46 +72,64 @@ def daily_report(request):
         departure_datetime__date__lte=date_to,
     )
     trips = _scope_trips(request.user, trips)
-
     trip_ids = list(trips.values_list('id', flat=True))
 
-    passenger_rev = PassengerTicket.objects.filter(
-        trip_id__in=trip_ids, status='active',
-    ).aggregate(total=Coalesce(Sum('price'), Value(0)))['total']
+    if not trip_ids:
+        data = {
+            'date_from': date_from,
+            'date_to': date_to,
+            'passenger_revenue': 0,
+            'cargo_revenue': 0,
+            'total_revenue': 0,
+            'expense_total': 0,
+            'net': 0,
+            'ticket_count': 0,
+            'cargo_count': 0,
+            'trip_count': 0,
+        }
+        cache.set(cache_key, data, timeout=900)
+        return Response(data)
 
-    cargo_rev = CargoTicket.objects.filter(
+    # 3 targeted subqueries eliminate multi-join Cartesian product inflation
+    p_agg = PassengerTicket.objects.filter(
+        trip_id__in=trip_ids, status='active',
+    ).aggregate(
+        rev=Coalesce(Sum('price'), Value(0)),
+        cnt=Count('id'),
+    )
+    c_agg = CargoTicket.objects.filter(
         trip_id__in=trip_ids,
     ).exclude(status='cancelled').aggregate(
-        total=Coalesce(Sum('price'), Value(0)),
-    )['total']
-
-    expense_total = TripExpense.objects.filter(
+        rev=Coalesce(Sum('price'), Value(0)),
+        cnt=Count('id'),
+    )
+    e_agg = TripExpense.objects.filter(
         trip_id__in=trip_ids,
-    ).aggregate(total=Coalesce(Sum('amount'), Value(0)))['total']
+    ).aggregate(
+        total=Coalesce(Sum('amount'), Value(0)),
+    )
 
-    ticket_count = PassengerTicket.objects.filter(
-        trip_id__in=trip_ids, status='active',
-    ).count()
-
-    cargo_count = CargoTicket.objects.filter(
-        trip_id__in=trip_ids,
-    ).exclude(status='cancelled').count()
+    p_rev = p_agg['rev']
+    c_rev = c_agg['rev']
+    exp = e_agg['total']
+    trip_count = trips.count()
 
     data = {
         'date_from': date_from,
         'date_to': date_to,
-        'passenger_revenue': passenger_rev,
-        'cargo_revenue': cargo_rev,
-        'total_revenue': passenger_rev + cargo_rev,
-        'expense_total': expense_total,
-        'net': passenger_rev + cargo_rev - expense_total,
-        'ticket_count': ticket_count,
-        'cargo_count': cargo_count,
-        'trip_count': len(trip_ids),
+        'passenger_revenue': p_rev,
+        'cargo_revenue': c_rev,
+        'total_revenue': p_rev + c_rev,
+        'expense_total': exp,
+        'net': p_rev + c_rev - exp,
+        'ticket_count': p_agg['cnt'],
+        'cargo_count': c_agg['cnt'],
+        'trip_count': trip_count,
     }
 
     cache.set(cache_key, data, timeout=900)  # 15-min cache
     return Response(data)
+
 
 
 @api_view(['GET'])
@@ -182,8 +201,14 @@ def route_report(request):
 
     ?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
     Groups by origin→destination pair.
+    Admin only (Bug #5 fix).
     """
     _check_report_perm(request)
+
+    # Bug #5 fix: route reports are admin-only (cross-office data)
+    if request.user.role != 'admin':
+        raise PermissionDenied('Route reports are admin-only.')
+
     date_from, date_to = _parse_date_range(request)
 
     trips = Trip.objects.filter(

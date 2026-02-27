@@ -24,16 +24,16 @@ export async function createTrip(data: TripCreate): Promise<Trip> {
 }
 
 export async function startTrip(id: number): Promise<Trip> {
-    const response = await client.patch<Trip>(`/trips/${id}/start/`)
+    const response = await client.post<Trip>(`/trips/${id}/start/`)
     return response.data
 }
 
 export async function completeTrip(id: number): Promise<Trip> {
-    const response = await client.patch<Trip>(`/trips/${id}/complete/`)
+    const response = await client.post<Trip>(`/trips/${id}/complete/`)
     return response.data
 }
 
 export async function cancelTrip(id: number): Promise<Trip> {
-    const response = await client.patch<Trip>(`/trips/${id}/cancel/`)
+    const response = await client.post<Trip>(`/trips/${id}/cancel/`)
     return response.data
 }

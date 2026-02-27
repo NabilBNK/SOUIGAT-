@@ -27,16 +27,21 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
     serializer_class = CargoTicketSerializer
 
     def get_permissions(self):
+        from rest_framework.permissions import IsAuthenticated
         perm = RBACPermission()
         perm.required_roles = ['admin', 'office_staff', 'conductor']
-        return [perm, OfficeScopePermission()]
+        return [IsAuthenticated(), perm, OfficeScopePermission()]
 
     def get_queryset(self):
         """Filter cargo by user scope to prevent data leaks."""
         user = self.request.user
         qs = CargoTicket.objects.select_related(
             'trip__origin_office', 'trip__destination_office',
-        )
+        ).order_by('-id')
+
+        trip_id = self.request.query_params.get('trip')
+        if trip_id:
+            qs = qs.filter(trip_id=trip_id)
 
         if user.role == 'admin':
             return qs
@@ -56,9 +61,9 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
         """
         Atomic cargo ticket creation.
 
-        1. Lock Trip row (prevents race on ticket_number).
+        1. Lock Trip row via select_for_update (serializes concurrent creation).
         2. Set price from Trip tier snapshot.
-        3. Auto-generate ticket number.
+        3. Auto-generate ticket number (safe: Trip row lock prevents race).
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -67,6 +72,7 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
         tier = serializer.validated_data['cargo_tier']
 
         with transaction.atomic():
+            # Row lock serializes concurrent ticket creation for this trip
             trip = Trip.objects.select_for_update().get(pk=trip_id)
 
             valid_tiers = {'small', 'medium', 'large'}
@@ -107,6 +113,11 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
     def transition(self, request, pk=None):
         """Generic state transition via model's transition_to()."""
         cargo = self.get_object()
+        # Capture old_values for audit trail (state transitions are POSTs)
+        # Use request._request to bypass DRF Request wrapper so middleware can read it
+        request._request._audit_old_values = {
+            'status': cargo.status, 'version': cargo.version,
+        }
         ser = CargoTransitionSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
@@ -125,17 +136,27 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def deliver(self, request, pk=None):
-        """Shortcut for marking cargo as delivered."""
+        """Shortcut for marking cargo as delivered (Bug #8 fix: single save)."""
         cargo = self.get_object()
+        # Capture old_values for audit trail
+        request._request._audit_old_values = {
+            'status': cargo.status, 'version': cargo.version,
+            'delivered_by_id': cargo.delivered_by_id,
+        }
         self._enforce_destination_office(request.user, cargo)
 
-        try:
-            cargo.transition_to('delivered', request.user)
-        except DjangoValidationError as e:
-            raise ValidationError(e.messages if hasattr(e, 'messages') else str(e))
+        # Bug #8 fix: set delivered_by/delivered_at BEFORE save to avoid
+        # inconsistent state window where status=delivered but no delivery metadata
+        valid_next = cargo.VALID_TRANSITIONS.get(cargo.status, [])
+        if 'delivered' not in valid_next:
+            raise ValidationError(
+                f"Cannot transition from '{cargo.status}' to 'delivered'."
+            )
 
+        cargo.status = 'delivered'
         cargo.delivered_by = request.user
         cargo.delivered_at = timezone.now()
+        cargo.version += 1
         cargo.save(skip_transition_check=True)
 
         return Response({

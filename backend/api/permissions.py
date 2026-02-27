@@ -13,11 +13,12 @@ PERMISSION_MATRIX = {
     'admin': [
         'view_all_offices', 'manage_users', 'manage_buses',
         'manage_pricing', 'view_audit_log', 'override_status',
-        'approve_quarantine', 'revoke_devices',
+        'approve_quarantine', 'revoke_devices', 'start_trip', 'complete_trip',
     ],
     'office_staff': {
         'all': [
             'create_trip', 'view_office_trips', 'cancel_trip',
+            'start_trip', 'complete_trip',
             'create_passenger_ticket', 'create_cargo_ticket',
             'receive_cargo', 'view_office_reports', 'export_excel',
         ],
@@ -62,6 +63,8 @@ class RBACPermission(BasePermission):
         required_roles = getattr(view, 'required_roles', None) or getattr(self, 'required_roles', None)
         if not required_roles:
             return True
+        if not request.user or not request.user.is_authenticated:
+            return False
         return request.user.role in required_roles
 
 
@@ -77,6 +80,8 @@ class DepartmentPermission(BasePermission):
         required_dept = getattr(view, 'required_department', None)
         if not required_dept:
             return True
+        if not request.user or not request.user.is_authenticated:
+            return False
         if request.user.role != 'office_staff':
             return True  # Non-office roles not subject to dept filter
         user_dept = request.user.department or 'all'

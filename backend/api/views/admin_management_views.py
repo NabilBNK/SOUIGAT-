@@ -22,9 +22,10 @@ class AdminViewSetMixin:
     """Common config for admin-only ViewSets."""
 
     def get_permissions(self):
+        from rest_framework.permissions import IsAuthenticated
         perm = RBACPermission()
         perm.required_roles = ['admin']
-        return [perm]
+        return [IsAuthenticated(), perm]
 
 
 class UserManagementViewSet(AdminViewSetMixin, viewsets.ModelViewSet):

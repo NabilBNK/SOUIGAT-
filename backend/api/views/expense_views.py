@@ -18,8 +18,12 @@ class TripExpenseViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         perm = RBACPermission()
-        perm.required_roles = ['conductor']
-        return [perm, TripStatusPermission()]
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            perm.required_roles = ['conductor']
+            return [perm, TripStatusPermission()]
+        # Bug #14 fix: admin and office_staff can view expenses
+        perm.required_roles = ['admin', 'office_staff', 'conductor']
+        return [perm]
 
     def get_queryset(self):
         """Conductors see only their own expenses. Includes select_related."""

@@ -11,6 +11,7 @@ from api.models import (
     CargoTicket, PassengerTicket, SyncLog, QuarantinedSync, Trip, TripExpense,
 )
 from api.serializers.sync import SyncBatchSerializer
+from api.signals import suppress_report_signals, _invalidate_report_cache
 
 logger = logging.getLogger(__name__)
 
@@ -47,94 +48,137 @@ def batch_sync(request):
     # Bug #7 fix: track last processed index (accepted + duplicate), not just accepted
     last_processed_index = resume_from - 1
 
-    with transaction.atomic():
-        try:
-            trip = Trip.objects.select_for_update().get(pk=trip_id)
-        except Trip.DoesNotExist:
-            raise ValidationError({'trip_id': 'Trip does not exist.'})
-
-        if trip.conductor_id != request.user.id:
-            raise ValidationError(
-                {'trip_id': 'You are not the assigned conductor for this trip.'}
-            )
-
-        if trip.status not in ('scheduled', 'in_progress'):
-            raise ValidationError(
-                {'trip_id': f'Trip is not open for sync. Status: {trip.status}'}
-            )
-
-        for idx, item in enumerate(items):
-            if idx < resume_from:
-                continue
-
-            key = item['idempotency_key']
-
-            # Idempotency check
-            if SyncLog.objects.filter(key=key).exists():
-                results.append({
-                    'index': idx, 'status': 'duplicate', 'key': key,
-                })
-                duplicates += 1
-                last_processed_index = idx  # Bug #7 fix
-                continue
-
-            # Per-item savepoint
-            sid = transaction.savepoint()
+    # Suppress per-ticket signal-based cache invalidation during batch sync.
+    # Context manager guarantees flag is cleared even on exception (try/finally).
+    # Cache is invalidated once after the atomic block completes.
+    with suppress_report_signals():
+        with transaction.atomic():
             try:
-                record_id = _process_item(
-                    item_type=item['type'],
-                    payload=item['payload'],
-                    trip=trip,
-                    user=request.user,
+                trip = Trip.objects.select_for_update().get(pk=trip_id)
+            except Trip.DoesNotExist:
+                raise ValidationError({'trip_id': 'Trip does not exist.'})
+
+            if trip.conductor_id != request.user.id:
+                raise ValidationError(
+                    {'trip_id': 'You are not the assigned conductor for this trip.'}
                 )
-                transaction.savepoint_commit(sid)
 
-                results.append({
-                    'index': idx, 'status': 'accepted', 'id': record_id,
-                })
-                accepted += 1
-                last_processed_index = idx  # Bug #7 fix
+            # Bug #1 fix: quarantine ALL items instead of rejecting when trip is closed
+            trip_closed = trip.status not in ('scheduled', 'in_progress')
 
-            except Exception as e:
-                transaction.savepoint_rollback(sid)
-                reason = str(e)
+            for idx, item in enumerate(items):
+                if idx < resume_from:
+                    continue
 
-                # Bug #2 fix: protect QuarantinedSync.create with its own savepoint
-                quarantine_sid = transaction.savepoint()
-                try:
-                    QuarantinedSync.objects.create(
-                        conductor=request.user,
-                        trip=trip,
-                        original_data={
-                            'type': item['type'],
-                            'payload': item['payload'],
-                            'idempotency_key': key,
+                key = item['idempotency_key']
+
+                # Idempotency check
+                if SyncLog.objects.filter(key=key).exists():
+                    results.append({
+                        'index': idx, 'status': 'duplicate', 'key': key,
+                    })
+                    duplicates += 1
+                    last_processed_index = idx
+                    continue
+
+                # If trip is closed, quarantine instead of processing
+                if trip_closed:
+                    quarantine_sid = transaction.savepoint()
+                    try:
+                        QuarantinedSync.objects.create(
+                            conductor=request.user,
+                            trip=trip,
+                            original_data={
+                                'type': item['type'],
+                                'payload': item['payload'],
+                                'idempotency_key': key,
+                            },
+                            reason=f'Trip status is {trip.status} (not open for sync)',
+                        )
+                        transaction.savepoint_commit(quarantine_sid)
+                    except Exception:
+                        transaction.savepoint_rollback(quarantine_sid)
+                        logger.error(
+                            'Failed to quarantine item %d for closed trip %d',
+                            idx, trip.id, exc_info=True,
+                        )
+
+                    SyncLog.objects.get_or_create(
+                        key=key,
+                        defaults={
+                            'conductor': request.user, 'trip': trip,
+                            'accepted': 0, 'quarantined': 1,
                         },
-                        reason=reason,
                     )
-                    transaction.savepoint_commit(quarantine_sid)
-                except Exception:
-                    transaction.savepoint_rollback(quarantine_sid)
-                    logger.error(
-                        'Failed to quarantine item %d for trip %d: %s',
-                        idx, trip.id, reason, exc_info=True,
+                    results.append({
+                        'index': idx, 'status': 'quarantined',
+                        'reason': f'Trip {trip.status}',
+                    })
+                    quarantined += 1
+                    last_processed_index = idx
+                    continue
+
+                # Per-item savepoint for open trips
+                sid = transaction.savepoint()
+                try:
+                    record_id = _process_item(
+                        item_type=item['type'],
+                        payload=item['payload'],
+                        trip=trip,
+                        user=request.user,
                     )
+                    transaction.savepoint_commit(sid)
 
-                results.append({
-                    'index': idx, 'status': 'quarantined', 'reason': reason,
-                })
-                quarantined += 1
+                    results.append({
+                        'index': idx, 'status': 'accepted', 'id': record_id,
+                    })
+                    accepted += 1
+                    last_processed_index = idx
 
-            # Record idempotency key regardless of outcome
-            SyncLog.objects.get_or_create(
-                key=key,
-                defaults={
-                    'conductor': request.user,
-                    'trip': trip,
-                    'accepted': 1 if results[-1]['status'] == 'accepted' else 0,
-                    'quarantined': 1 if results[-1]['status'] == 'quarantined' else 0,
-                },
-            )
+                except Exception as e:
+                    transaction.savepoint_rollback(sid)
+                    reason = str(e)
+
+                    quarantine_sid = transaction.savepoint()
+                    try:
+                        QuarantinedSync.objects.create(
+                            conductor=request.user,
+                            trip=trip,
+                            original_data={
+                                'type': item['type'],
+                                'payload': item['payload'],
+                                'idempotency_key': key,
+                            },
+                            reason=reason,
+                        )
+                        transaction.savepoint_commit(quarantine_sid)
+                    except Exception:
+                        transaction.savepoint_rollback(quarantine_sid)
+                        logger.error(
+                            'Failed to quarantine item %d for trip %d: %s',
+                            idx, trip.id, reason, exc_info=True,
+                        )
+
+                    results.append({
+                        'index': idx, 'status': 'quarantined', 'reason': reason,
+                    })
+                    quarantined += 1
+
+                # Record idempotency key regardless of outcome
+                SyncLog.objects.get_or_create(
+                    key=key,
+                    defaults={
+                        'conductor': request.user,
+                        'trip': trip,
+                        'accepted': 1 if results[-1]['status'] == 'accepted' else 0,
+                        'quarantined': 1 if results[-1]['status'] == 'quarantined' else 0,
+                    },
+                )
+                last_processed_index = idx
+
+    # Invalidate report cache once for the entire batch (outside both context managers)
+    if accepted > 0 or quarantined > 0:
+        _invalidate_report_cache(trip)
 
     return Response({
         'sync_log_trip': trip_id,

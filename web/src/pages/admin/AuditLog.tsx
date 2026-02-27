@@ -51,7 +51,7 @@ export function AuditLog() {
         }
     }
 
-    const columns = [
+    const columns: any[] = [
         columnHelper.accessor('created_at', {
             header: 'Date d\'action',
             cell: info => <span className="text-sm font-medium">{formatDateTime(info.getValue())}</span>,

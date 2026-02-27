@@ -58,6 +58,7 @@ class Trip(TimestampMixin, SoftDeleteMixin, models.Model):
 
     class Meta:
         db_table = 'trips'
+        ordering = ['-departure_datetime']
         indexes = [
             models.Index(
                 fields=['origin_office', '-departure_datetime'],

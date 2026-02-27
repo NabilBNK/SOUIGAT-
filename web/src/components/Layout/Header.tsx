@@ -34,7 +34,7 @@ export function Header() {
                         <p className="text-[13px] font-medium text-text-primary leading-tight">
                             {user.first_name} {user.last_name}
                         </p>
-                        <p className="text-[11px] text-text-muted">{user.phone_number}</p>
+                        <p className="text-[11px] text-text-muted">{user.phone}</p>
                     </div>
                 </div>
 

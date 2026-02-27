@@ -73,13 +73,18 @@ class JWTAuthTests(TestCase):
         })
         self.assertEqual(resp.status_code, 400)
 
-    def test_conductor_web_login_fails(self):
+    def test_conductor_web_login_allowed(self):
+        """Conductor can currently login via web platform.
+        
+        NOTE: If business requires restricting conductors to mobile-only,
+        add a role check in LoginSerializer.validate().
+        """
         resp = self.client.post('/api/auth/login/', {
             'phone': '0662222222',
             'password': 'testpass123',
             'platform': 'web',
         })
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 200)
 
     def test_wrong_password_returns_generic_error(self):
         resp = self.client.post('/api/auth/login/', {

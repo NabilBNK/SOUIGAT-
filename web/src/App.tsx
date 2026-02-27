@@ -9,7 +9,9 @@ import { Login } from './pages/Login'
 import { NotFound, Unauthorized } from './pages/NotFound'
 import { OfficeDashboard } from './pages/office/Dashboard'
 import { TripList } from './pages/office/TripList'
+import { TripCreatePage as TripCreate } from './pages/office/TripCreate'
 import { TripDetailPage as TripDetail } from './pages/office/TripDetail'
+import { GlobalTicketList } from './pages/office/GlobalTicketList'
 import { ReportsPage as Reports } from './pages/office/Reports'
 import { CargoDashboard } from './pages/cargo/CargoDashboard'
 import { CargoDetail } from './pages/cargo/CargoDetail'
@@ -68,7 +70,9 @@ export default function App() {
                 <Route element={<RoleGuard allowedRoles={['admin', 'office_staff']} />}>
                   <Route path="/office" element={<OfficeDashboard />} />
                   <Route path="/office/trips" element={<TripList />} />
+                  <Route path="/office/trips/new" element={<TripCreate />} />
                   <Route path="/office/trips/:id" element={<TripDetail />} />
+                  <Route path="/office/tickets" element={<GlobalTicketList />} />
                   <Route path="/office/reports" element={<Reports />} />
                 </Route>
 

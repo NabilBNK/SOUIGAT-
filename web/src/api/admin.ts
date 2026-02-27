@@ -63,8 +63,8 @@ export async function updateOffice(id: number, data: Partial<Office>): Promise<O
 }
 
 // Pricing
-export async function getPricingConfigs(): Promise<PricingConfig[]> {
-    const response = await client.get<PricingConfig[]>('/admin/pricing/')
+export async function getPricingConfigs(params?: Record<string, unknown>): Promise<{ count: number; results: PricingConfig[] }> {
+    const response = await client.get('/admin/pricing/', { params })
     return response.data
 }
 

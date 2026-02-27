@@ -3,7 +3,6 @@ import { useAuth } from '../../hooks/useAuth'
 import {
     LayoutDashboard,
     Bus,
-    Ticket,
     Package,
     FileText,
     Users,
@@ -11,6 +10,7 @@ import {
     AlertTriangle,
     Settings,
     BarChart3,
+    Ticket,
 } from 'lucide-react'
 import type { Role } from '../../types/auth'
 
@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
     // Office
     { label: 'Tableau de bord', to: '/office', icon: LayoutDashboard, roles: ['admin', 'office_staff'] },
     { label: 'Voyages', to: '/office/trips', icon: Bus, roles: ['admin', 'office_staff'] },
-    { label: 'Billets Passagers', to: '/office/tickets', icon: Ticket, roles: ['admin', 'office_staff'], departments: ['all', 'passenger'] },
+    { label: 'Billets Passagers', to: '/office/tickets', icon: Ticket, roles: ['admin', 'office_staff'] },
     { label: 'Rapports', to: '/office/reports', icon: FileText, roles: ['admin', 'office_staff'] },
     // Cargo
     { label: 'Colis', to: '/cargo', icon: Package, roles: ['admin', 'office_staff'], departments: ['all', 'cargo'] },

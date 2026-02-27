@@ -32,8 +32,8 @@ def generate_excel_report(self, report_type, filters, user_id):
     - route: Route aggregation
     """
     from openpyxl import Workbook
-    from django.db.models import Sum
-    from django.db.models.functions import Coalesce, Value
+    from django.db.models import Sum, Value
+    from django.db.models.functions import Coalesce
 
     from api.models import (
         CargoTicket, PassengerTicket, Trip, TripExpense, User,

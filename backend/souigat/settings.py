@@ -16,6 +16,17 @@ SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = config('DJANGO_DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('DJANGO_ALLOWED_HOSTS', default='', cast=lambda v: [h.strip() for h in v.split(',') if h.strip()])
 
+# Production Security Headers
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 # Apps
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -74,8 +85,9 @@ DATABASES = {
         'NAME': config('POSTGRES_DB'),
         'USER': config('POSTGRES_USER'),
         'PASSWORD': config('DB_PASSWORD'),
-        'HOST': 'db',
+        'HOST': config('DB_HOST', default='db'),
         'PORT': '5432',
+        'CONN_MAX_AGE': 0,  # Requires PgBouncer for connection pooling. Without it, >0 risks holding stale connections.
     }
 }
 
@@ -111,6 +123,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
         'api.permissions.DeviceBoundPermission',
     ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',

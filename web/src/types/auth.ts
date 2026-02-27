@@ -3,7 +3,7 @@ export type Department = 'all' | 'cargo' | 'passenger' | null
 
 export interface User {
     id: number
-    phone_number: string // Changed from 'phone' to match backend serializer
+    phone: string // Matches backend serializer
     first_name: string
     last_name: string
     role: Role

@@ -26,16 +26,23 @@ class TripViewSet(viewsets.ModelViewSet):
             return TripListSerializer
         return TripSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            pass
+        return super().create(request, *args, **kwargs)
+
     def get_permissions(self):
+        from rest_framework.permissions import IsAuthenticated
         if self.action in ('create', 'update', 'partial_update', 'destroy', 'cancel'):
             perm = RBACPermission()
             perm.required_roles = ['admin', 'office_staff']
-            return [perm, OfficeScopePermission()]
+            return [IsAuthenticated(), perm, OfficeScopePermission()]
         if self.action in ('start', 'complete'):
             perm = RBACPermission()
-            perm.required_roles = ['conductor']
-            return [perm]
-        return [OfficeScopePermission()]
+            perm.required_roles = ['conductor', 'admin', 'office_staff']
+            return [IsAuthenticated(), perm]
+        return [IsAuthenticated(), OfficeScopePermission()]
 
     def get_queryset(self):
         """
@@ -46,7 +53,7 @@ class TripViewSet(viewsets.ModelViewSet):
         user = self.request.user
         qs = Trip.objects.select_related(
             'origin_office', 'destination_office', 'conductor', 'bus',
-        )
+        ).order_by('-id')
 
         if user.role == 'admin':
             return qs
@@ -63,7 +70,7 @@ class TripViewSet(viewsets.ModelViewSet):
         return qs.none()
 
     def perform_create(self, serializer):
-        """Enforce: staff can only create trips from their own office."""
+        """Enforce: staff can only create trips from their own office. Bus must match origin."""
         user = self.request.user
         if user.role == 'office_staff':
             origin = serializer.validated_data.get('origin_office')
@@ -71,6 +78,15 @@ class TripViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied(
                     'You can only create trips originating from your office.'
                 )
+
+        # Bug #9 fix: validate bus belongs to origin office
+        bus = serializer.validated_data.get('bus')
+        origin = serializer.validated_data.get('origin_office')
+        if bus and origin and bus.office_id != origin.id:
+            raise ValidationError(
+                {'bus': 'Bus must belong to the trip origin office.'}
+            )
+
         serializer.save()
 
     # ------------------------------------------------------------------
@@ -88,8 +104,15 @@ class TripViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             trip = Trip.objects.select_for_update().get(pk=pk)
 
-            if trip.conductor_id != request.user.id:
+            # Capture old_values for audit trail
+            request._request._audit_old_values = {'status': trip.status}
+
+            if request.user.role == 'conductor' and trip.conductor_id != request.user.id:
                 raise PermissionDenied('You are not the assigned conductor.')
+            elif request.user.role == 'office_staff' and trip.origin_office_id != request.user.office_id:
+                raise PermissionDenied('You can only start trips originating from your office.')
+            elif request.user.role not in ('conductor', 'office_staff', 'admin'):
+                raise PermissionDenied('You do not have permission to start trips.')
 
             if trip.status != 'scheduled':
                 raise ValidationError(
@@ -120,8 +143,18 @@ class TripViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             trip = Trip.objects.select_for_update().get(pk=pk)
 
-            if trip.conductor_id != request.user.id:
+            # Capture old_values for audit trail
+            request._request._audit_old_values = {
+                'status': trip.status,
+                'arrival_datetime': str(trip.arrival_datetime),
+            }
+
+            if request.user.role == 'conductor' and trip.conductor_id != request.user.id:
                 raise PermissionDenied('You are not the assigned conductor.')
+            elif request.user.role == 'office_staff' and trip.destination_office_id != request.user.office_id:
+                raise PermissionDenied('You can only complete trips arriving at your office.')
+            elif request.user.role not in ('conductor', 'office_staff', 'admin'):
+                raise PermissionDenied('You do not have permission to complete trips.')
 
             if trip.status != 'in_progress':
                 raise ValidationError(
@@ -144,6 +177,9 @@ class TripViewSet(viewsets.ModelViewSet):
         """Office staff cancels a scheduled trip."""
         with transaction.atomic():
             trip = Trip.objects.select_for_update().get(pk=pk)
+
+            # Capture old_values for audit trail
+            request._request._audit_old_values = {'status': trip.status}
 
             if trip.status not in ('scheduled',):
                 raise ValidationError(

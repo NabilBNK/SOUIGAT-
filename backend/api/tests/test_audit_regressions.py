@@ -146,7 +146,7 @@ class QuerysetIsolationTest(TestCase):
         self.client.force_authenticate(self.staff_a)
         resp = self.client.get('/api/trips/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(resp.data), 2)
+        self.assertEqual(len(resp.data['results']), 2)
 
     def test_admin_sees_all_trips(self):
         admin = User.objects.create_superuser(
@@ -156,7 +156,7 @@ class QuerysetIsolationTest(TestCase):
         self.client.force_authenticate(admin)
         resp = self.client.get('/api/trips/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(resp.data), 3)
+        self.assertEqual(len(resp.data['results']), 3)
 
 
 class CargoAtomicCreationTest(TestCase):

@@ -2,8 +2,8 @@ import client from './client'
 import type { CargoTicket, CargoStatus } from '../types/ticket'
 
 export async function getTripCargoTickets(tripId: number): Promise<CargoTicket[]> {
-    const response = await client.get<CargoTicket[]>(`/trips/${tripId}/cargo-tickets/`)
-    return response.data
+    const response = await client.get<{ count: number; results: CargoTicket[] }>(`/cargo/`, { params: { trip: tripId } })
+    return response.data.results
 }
 
 export async function getCargoTickets(params?: Record<string, string | number>): Promise<{
@@ -31,7 +31,7 @@ export async function createCargoTicket(
         payment_source: string
     }
 ): Promise<CargoTicket> {
-    const response = await client.post<CargoTicket>(`/trips/${tripId}/cargo-tickets/`, data)
+    const response = await client.post<CargoTicket>(`/cargo/`, { ...data, trip: tripId })
     return response.data
 }
 

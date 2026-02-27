@@ -19,9 +19,26 @@ export function PricingManagement() {
     const [editingPricing, setEditingPricing] = useState<PricingConfig | null>(null)
     const [formData, setFormData] = useState<Partial<PricingConfig>>({})
 
+    const extractErrorMsg = (err: unknown): string => {
+        if (!err) return "Une erreur est survenue."
+        const erra = err as any
+        if (erra.response?.data?.detail) return erra.response.data.detail
+
+        if (erra.response?.data && typeof erra.response.data === 'object') {
+            const values = Object.values(erra.response.data).flat()
+            if (values.length > 0 && typeof values[0] === 'string') {
+                return values.join(' | ')
+            }
+        }
+
+        return erra.message || "Une erreur est survenue."
+    }
+
     const { data: pricingData, isLoading: isPricingLoading } = useQuery({
         queryKey: ['pricing_configs'],
         queryFn: getPricingConfigs,
+        retry: (failureCount, error: any) => failureCount < 3 && error?.response?.status !== 400 && error?.response?.status !== 401,
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
     })
 
     const { data: officesData } = useQuery({
@@ -54,7 +71,7 @@ export function PricingManagement() {
 
     const openCreateModal = () => {
         setEditingPricing(null)
-        setFormData({ is_active: true, passenger_price: 1000, cargo_small_price: 200, cargo_medium_price: 500, cargo_large_price: 1500, currency: 'DZD' })
+        setFormData({ is_active: true, passenger_price: 1000, cargo_small_price: 200, cargo_medium_price: 500, cargo_large_price: 1500, currency: 'DZD', effective_from: new Date().toISOString().split('T')[0] })
         setIsModalOpen(true)
     }
 
@@ -72,9 +89,9 @@ export function PricingManagement() {
                 const p = info.getValue()
                 return (
                     <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
-                        <span>{p.origin_office_name}</span>
+                        <span>{p.origin_name}</span>
                         <ArrowRight className="w-3.5 h-3.5 text-text-muted" />
-                        <span>{p.destination_office_name}</span>
+                        <span>{p.destination_name}</span>
                     </div>
                 )
             },
@@ -155,9 +172,8 @@ export function PricingManagement() {
             </div>
 
             <div className="bg-surface-800 border border-surface-600/50 rounded-xl overflow-hidden min-h-[400px]">
-                {/* Note: In this simplified admin view, assuming getPricingConfigs returns an array without pagination in response. */}
                 <DataTable
-                    data={pricingData || []}
+                    data={pricingData?.results || []}
                     columns={columns}
                     isLoading={isPricingLoading}
                     pageCount={1}
@@ -176,7 +192,7 @@ export function PricingManagement() {
                     {pricingMutation.error && (
                         <div className="bg-status-error/10 border border-status-error/30 text-status-error p-3 rounded-lg text-sm flex items-start gap-2">
                             <ShieldAlert className="w-5 h-5 shrink-0" />
-                            <p>{(pricingMutation.error as any)?.response?.data?.detail || (pricingMutation.error as Error).message || "Une erreur est survenue."}</p>
+                            <p>{extractErrorMsg(pricingMutation.error)}</p>
                         </div>
                     )}
 
@@ -209,6 +225,17 @@ export function PricingManagement() {
                                 ))}
                             </select>
                         </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-surface-600/50">
+                        <label className="block text-sm font-medium text-text-primary mb-3">Date d'application *</label>
+                        <input
+                            required
+                            type="date"
+                            className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500 [color-scheme:dark]"
+                            value={formData.effective_from || ''}
+                            onChange={(e) => setFormData(p => ({ ...p, effective_from: e.target.value }))}
+                        />
                     </div>
 
                     <div className="pt-4 border-t border-surface-600/50">

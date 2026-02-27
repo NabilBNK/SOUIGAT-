@@ -69,7 +69,7 @@ class QuarantineReviewTests(TestCase):
         self.client.force_authenticate(self.admin)
         resp = self.client.get('/api/quarantine/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(resp.data), 2)
+        self.assertEqual(len(resp.data['results']), 2)
 
     def test_single_reject(self):
         """Reject a single quarantined item."""
@@ -115,7 +115,7 @@ class QuarantineReviewTests(TestCase):
         self.client.force_authenticate(self.staff)
         resp = self.client.get('/api/quarantine/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(resp.data), 2)
+        self.assertEqual(len(resp.data['results']), 2)
 
     def test_conductor_cannot_review(self):
         """Conductors don't have review access."""

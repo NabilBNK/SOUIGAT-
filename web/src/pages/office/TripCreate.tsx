@@ -22,7 +22,7 @@ export function TripCreatePage() {
     // Form State
     const [originId, setOriginId] = useState<string>(user?.office?.toString() || '')
     const [destinationId, setDestinationId] = useState<string>('')
-    const [busPlate, setBusPlate] = useState<string>('')
+    const [busId, setBusId] = useState<string>('')
     const [conductorId, setConductorId] = useState<string>('')
 
     // Date and Time (combining into ISO string later)
@@ -59,9 +59,23 @@ export function TripCreatePage() {
         onError: (err: unknown) => {
             let msg = 'Erreur lors de la création du voyage.'
             if (err && typeof err === 'object' && 'response' in err) {
-                const response = (err as { response?: { data?: { detail?: string } } }).response
-                if (response?.data?.detail) {
-                    msg = response.data.detail
+                const response = (err as any).response
+                if (response?.data) {
+                    if (typeof response.data === 'string') {
+                        msg = response.data
+                    } else if (response.data.detail) {
+                        msg = response.data.detail
+                    } else if (response.data.route) {
+                        msg = Array.isArray(response.data.route) ? response.data.route.join(' ') : response.data.route
+                    } else {
+                        // Extract first error from values
+                        const firstErrorKey = Object.keys(response.data)[0];
+                        if (firstErrorKey && Array.isArray(response.data[firstErrorKey])) {
+                            msg = `${firstErrorKey}: ${response.data[firstErrorKey].join(' ')}`;
+                        } else {
+                            msg = JSON.stringify(response.data)
+                        }
+                    }
                 }
             }
             setError(msg)
@@ -72,7 +86,7 @@ export function TripCreatePage() {
         e.preventDefault()
         setError(null)
 
-        if (!originId || !destinationId || !busPlate || !conductorId || !departureDate || !departureTime) {
+        if (!originId || !destinationId || !busId || !conductorId || !departureDate || !departureTime) {
             setError('Tous les champs sont requis.')
             return
         }
@@ -91,7 +105,7 @@ export function TripCreatePage() {
         mutate({
             origin_office: Number(originId),
             destination_office: Number(destinationId),
-            bus: busPlate,
+            bus: Number(busId),
             conductor: Number(conductorId),
             departure_datetime: isoDate,
         })
@@ -137,7 +151,7 @@ export function TripCreatePage() {
                                     value={originId}
                                     onChange={(e) => {
                                         setOriginId(e.target.value)
-                                        setBusPlate('') // Reset bus when origin changes
+                                        setBusId('') // Reset bus when origin changes
                                     }}
                                     className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-shadow disabled:opacity-50"
                                     required
@@ -212,8 +226,8 @@ export function TripCreatePage() {
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1.5">Bus</label>
                                 <select
-                                    value={busPlate}
-                                    onChange={(e) => setBusPlate(e.target.value)}
+                                    value={busId}
+                                    onChange={(e) => setBusId(e.target.value)}
                                     className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-shadow"
                                     required
                                     disabled={!originId}
@@ -222,7 +236,7 @@ export function TripCreatePage() {
                                         {!originId ? 'Sélectionnez un départ d\'abord' : 'Sélectionner un bus (Disponible)'}
                                     </option>
                                     {buses.map((b: Bus) => (
-                                        <option key={b.plate_number} value={b.plate_number}>
+                                        <option key={b.id} value={b.id}>
                                             {b.plate_number} - {b.model} ({b.capacity} places)
                                         </option>
                                     ))}
@@ -246,7 +260,7 @@ export function TripCreatePage() {
                                     <option value="" disabled>Sélectionner un conducteur</option>
                                     {conductors.map((c: User) => (
                                         <option key={c.id} value={c.id}>
-                                            {c.first_name} {c.last_name} ({c.phone_number})
+                                            {c.first_name} {c.last_name} ({c.phone})
                                         </option>
                                     ))}
                                 </select>

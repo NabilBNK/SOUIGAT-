@@ -42,9 +42,13 @@ export function UserManagement() {
 
     const userMutation = useMutation({
         mutationFn: (data: Partial<User> & { password?: string }) => {
-            if (editingUser) return updateUser(editingUser.id, data)
-            if (!data.password) throw new Error("Le mot de passe est requis.")
-            return createUser(data as Partial<User> & { password: string })
+            // Strip null/empty/undefined values to avoid DRF validation errors
+            const cleaned = Object.fromEntries(
+                Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== '')
+            )
+            if (editingUser) return updateUser(editingUser.id, cleaned)
+            if (!cleaned.password) throw new Error("Le mot de passe est requis.")
+            return createUser(cleaned as Partial<User> & { password: string })
         },
         onSuccess: () => {
             setIsModalOpen(false)
@@ -82,7 +86,7 @@ export function UserManagement() {
             header: 'Nom',
             cell: info => <span className="font-medium text-text-primary capitalize">{info.getValue()}</span>,
         }),
-        columnHelper.accessor('phone_number', {
+        columnHelper.accessor('phone', {
             header: 'Téléphone',
             cell: info => <span className="font-mono text-sm">{info.getValue()}</span>,
         }),
@@ -241,8 +245,8 @@ export function UserManagement() {
                             type="text"
                             placeholder="Ex: 0555001122"
                             className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
-                            value={formData.phone_number || ''}
-                            onChange={(e) => setFormData(p => ({ ...p, phone_number: e.target.value }))}
+                            value={formData.phone || ''}
+                            onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))}
                         />
                     </div>
 

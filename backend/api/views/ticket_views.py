@@ -27,14 +27,19 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
         return PassengerTicketSerializer
 
     def get_permissions(self):
+        from rest_framework.permissions import IsAuthenticated
         perm = RBACPermission()
         perm.required_roles = ['admin', 'office_staff', 'conductor']
-        return [perm, OfficeScopePermission()]
+        return [IsAuthenticated(), perm, OfficeScopePermission()]
 
     def get_queryset(self):
-        """Filter tickets by user scope."""
+        """Filter tickets by user scope and optional trip param."""
         user = self.request.user
         qs = PassengerTicket.objects.select_related('trip', 'trip__bus')
+
+        trip_id = self.request.query_params.get('trip')
+        if trip_id:
+            qs = qs.filter(trip_id=trip_id)
 
         if user.role == 'admin':
             return qs
@@ -54,10 +59,11 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
         """
         Atomic ticket creation.
 
-        1. Lock Trip row.
+        1. Lock Trip row via select_for_update (serializes concurrent creation).
         2. Validate status (scheduled / in_progress).
         3. Count active tickets vs bus capacity.
         4. Freeze price from Trip snapshot.
+        5. Assign ticket_number from total count (safe: Trip row lock prevents race).
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -65,6 +71,7 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
         trip_id = serializer.validated_data['trip'].id
 
         with transaction.atomic():
+            # Row lock serializes concurrent ticket creation for this trip
             trip = Trip.objects.select_for_update().get(pk=trip_id)
 
             if trip.status not in ('scheduled', 'in_progress'):
@@ -81,7 +88,6 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
             if active_count >= trip.bus.capacity:
                 raise ValidationError('Bus is at full capacity.')
 
-            # Use total count (all statuses) for numbering to avoid collision after cancellations
             total_count = PassengerTicket.objects.filter(trip=trip).count()
             ticket_number = f'PT-{trip.id}-{total_count + 1:03d}'
 

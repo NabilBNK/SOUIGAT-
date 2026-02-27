@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom'
 
 const columnHelper = createColumnHelper<CargoTicket>()
 
-const columns = [
+const columns: any[] = [
     columnHelper.accessor('ticket_number', {
         header: 'Réf.',
         cell: info => <span className="font-mono text-xs">{info.getValue()}</span>,

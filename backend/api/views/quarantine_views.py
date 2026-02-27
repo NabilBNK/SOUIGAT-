@@ -57,6 +57,12 @@ class QuarantineViewSet(viewsets.ReadOnlyModelViewSet):
         """Approve or reject a single quarantined item."""
         item = self.get_object()
 
+        # Capture old_values for audit trail
+        request._request._audit_old_values = {
+            'status': item.status,
+            'reviewed_by_id': item.reviewed_by_id,
+        }
+
         if item.status != 'pending':
             raise ValidationError(
                 f'Item already reviewed. Status: {item.status}'
@@ -135,10 +141,9 @@ class QuarantineViewSet(viewsets.ReadOnlyModelViewSet):
         except Trip.DoesNotExist:
             raise ValidationError('Trip no longer exists.')
 
-        if trip.status not in ('scheduled', 'in_progress'):
-            raise ValidationError(
-                f'Trip is not open for sync. Status: {trip.status}'
-            )
+        # Bug #13 fix: Admin explicitly approved this quarantined item.
+        # Allow processing regardless of trip status — the quarantine
+        # mechanism exists precisely for closed-trip data recovery.
 
         _process_item(
             item_type=item_type,

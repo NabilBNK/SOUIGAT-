@@ -19,9 +19,23 @@ export function Login() {
             await login(phone, password)
             navigate('/', { replace: true })
         } catch (err: unknown) {
-            const msg =
-                (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-                'Identifiants invalides'
+            const resp = (err as { response?: { data?: Record<string, unknown> } })?.response?.data
+            let msg = 'Identifiants invalides'
+            if (resp) {
+                if (typeof resp.detail === 'string') {
+                    msg = resp.detail
+                } else if (Array.isArray(resp.non_field_errors)) {
+                    msg = resp.non_field_errors.join(' ')
+                } else {
+                    // Collect field-level errors
+                    const parts: string[] = []
+                    for (const [key, val] of Object.entries(resp)) {
+                        if (Array.isArray(val)) parts.push(val.join(' '))
+                        else if (typeof val === 'string') parts.push(val)
+                    }
+                    if (parts.length) msg = parts.join(' ')
+                }
+            }
             setError(msg)
         } finally {
             setLoading(false)

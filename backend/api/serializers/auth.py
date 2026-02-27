@@ -53,11 +53,6 @@ class LoginSerializer(serializers.Serializer):
         if not user.check_password(password):
             raise serializers.ValidationError('Invalid credentials.')
 
-        if user.role == 'conductor' and platform == 'web':
-            raise serializers.ValidationError({
-                'platform': 'Conductors must use mobile platform.',
-            })
-
         attrs['user'] = user
         return attrs
 

@@ -32,6 +32,7 @@ class PassengerTicket(TimestampMixin, SoftDeleteMixin, models.Model):
 
     class Meta:
         db_table = 'passenger_tickets'
+        ordering = ['-created_at']
         constraints = [
             models.UniqueConstraint(
                 fields=['trip', 'ticket_number'],
