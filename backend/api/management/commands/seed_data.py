@@ -99,6 +99,6 @@ class Command(BaseCommand):
                 },
             )
             status = 'created' if created else 'exists'
-            self.stdout.write(f"  Pricing: {origin.city} → {dest.city} [{status}]")
+            self.stdout.write(f"  Pricing: {origin.city} -> {dest.city} [{status}]")
 
-        self.stdout.write(self.style.SUCCESS('\n✅ Seed complete!'))
+        self.stdout.write(self.style.SUCCESS('\n[OK] Seed complete!'))

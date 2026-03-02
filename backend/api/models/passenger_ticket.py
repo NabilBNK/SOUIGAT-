@@ -22,6 +22,8 @@ class PassengerTicket(TimestampMixin, SoftDeleteMixin, models.Model):
     price = models.PositiveIntegerField()
     currency = models.CharField(max_length=3, default='DZD')
     payment_source = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default='cash')
+    boarding_point = models.CharField(max_length=100, blank=True, null=True)
+    alighting_point = models.CharField(max_length=100, blank=True, null=True)
     seat_number = models.CharField(max_length=10, blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     created_by = models.ForeignKey(

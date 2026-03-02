@@ -51,6 +51,7 @@ urlpatterns = [
     path('reports/daily/', report_views.daily_report, name='report-daily'),
     path('reports/trip/<int:trip_id>/', report_views.trip_report, name='report-trip'),
     path('reports/route/', report_views.route_report, name='report-route'),
+    path('reports/conductors/', report_views.conductor_report, name='report-conductors'),
 
     # Excel export
     path('exports/', export_views.trigger_export, name='export-trigger'),

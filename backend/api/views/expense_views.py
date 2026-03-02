@@ -3,7 +3,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from api.models import TripExpense
 from api.serializers.expense import TripExpenseSerializer
-from api.permissions import RBACPermission, TripStatusPermission
+from api.permissions import RBACPermission, MatrixPermission, TripStatusPermission
 
 
 class TripExpenseViewSet(viewsets.ModelViewSet):
@@ -17,13 +17,20 @@ class TripExpenseViewSet(viewsets.ModelViewSet):
     serializer_class = TripExpenseSerializer
 
     def get_permissions(self):
-        perm = RBACPermission()
+        from rest_framework.permissions import IsAuthenticated
+        
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
-            perm.required_roles = ['conductor']
-            return [perm, TripStatusPermission()]
-        # Bug #14 fix: admin and office_staff can view expenses
-        perm.required_roles = ['admin', 'office_staff', 'conductor']
-        return [perm]
+            perm = MatrixPermission()
+            perm.required_actions = {
+                'POST': ['create_expense'],
+                'PUT': ['create_expense'],
+                'PATCH': ['create_expense'],
+                'DELETE': ['create_expense'],
+            }
+            return [IsAuthenticated(), perm, TripStatusPermission()]
+            
+        # retrieve/list: Anyone with access to the endpoint handles their scoping via get_queryset
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         """Conductors see only their own expenses. Includes select_related."""

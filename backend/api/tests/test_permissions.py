@@ -1,123 +1,90 @@
-from django.test import TestCase
+import pytest
+import datetime
+from django.utils import timezone
+from rest_framework import status
 
-from api.models import User
-from api.models.office import Office
-from api.permissions import (
-    DepartmentPermission,
-    OfficeScopePermission,
-    RBACPermission,
-    TripStatusPermission,
-    get_user_permissions,
-)
+from api.models import Trip, CargoTicket, PassengerTicket
 
+# Pytest markers for DB access
+pytestmark = pytest.mark.django_db
 
-class FakeRequest:
-    def __init__(self, user):
-        self.user = user
-        self.method = 'GET'
-        self.auth = None
+def test_guichetier_cannot_access_reports_and_trips(api_client, office_staff_cargo_user):
+    """
+    Test that a user with department='cargo' gets 403 on sensitive non-cargo endpoints
+    that require specific actions, even if they have the 'office_staff' role.
+    """
+    api_client.force_authenticate(user=office_staff_cargo_user)
 
+    # Scoping endpoints (List/Retrieve) rely on OfficeScopePermission, which might return 200 with empty list
+    # or the filtered list. Here we test ACTION endpoints which require explicit MatrixPermissions.
 
-class FakeView:
-    required_roles = None
-    required_department = None
+    # 1. POST /api/trips/ (requires 'create_trip')
+    response = api_client.post('/api/trips/', data={})
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
+    # 2. POST /api/tickets/ (requires 'create_passenger_ticket')
+    response = api_client.post('/api/tickets/', data={})
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
-class PermissionMatrixTests(TestCase):
-    """Tests for get_user_permissions and PERMISSION_MATRIX."""
+    # 3. GET /api/reports/daily/ (requires 'view_office_reports')
+    response = api_client.get('/api/reports/daily/')
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def setUp(self):
-        self.office = Office.objects.create(name='Oran', city='Oran')
+    # 4. POST /api/exports/ (requires 'export_excel')
+    response = api_client.post('/api/exports/', data={'report_type': 'daily'})
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_admin_gets_all_admin_permissions(self):
-        admin = User.objects.create_user(
-            phone='0550000001', password='p', first_name='A', last_name='A', role='admin',
-        )
-        perms = get_user_permissions(admin)
-        self.assertIn('manage_users', perms)
-        self.assertIn('revoke_devices', perms)
+def test_office_staff_all_can_access_reports_and_trips(api_client, office_staff_user, office):
+    """
+    Test that a general office staff user (department='all') CAN access these endpoints.
+    """
+    api_client.force_authenticate(user=office_staff_user)
 
-    def test_office_staff_cargo_dept(self):
-        user = User.objects.create_user(
-            phone='0550000002', password='p', first_name='B', last_name='B',
-            role='office_staff', department='cargo', office=self.office,
-        )
-        perms = get_user_permissions(user)
-        self.assertIn('create_cargo_ticket', perms)
-        self.assertNotIn('create_passenger_ticket', perms)
+    # 1. GET /api/reports/daily/
+    response = api_client.get('/api/reports/daily/')
+    assert response.status_code == status.HTTP_200_OK
 
-    def test_conductor_permissions(self):
-        user = User.objects.create_user(
-            phone='0550000003', password='p', first_name='C', last_name='C',
-            role='conductor', office=self.office,
-        )
-        perms = get_user_permissions(user)
-        self.assertIn('sync_batch', perms)
-        self.assertNotIn('manage_users', perms)
+    # 2. POST /api/trips/ (will 400 bad request due to missing data, but NOT 403)
+    response = api_client.post('/api/trips/', data={})
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-class RBACPermissionTests(TestCase):
+def test_admin_can_access_reports_and_trips(api_client, admin_user):
+    """
+    Test that an admin CAN access these endpoints.
+    """
+    api_client.force_authenticate(user=admin_user)
 
-    def setUp(self):
-        self.office = Office.objects.create(name='Test', city='Test')
-        self.perm = RBACPermission()
+    # 1. GET /api/reports/daily/
+    response = api_client.get('/api/reports/daily/')
+    assert response.status_code == status.HTTP_200_OK
 
-    def test_admin_passes_admin_required(self):
-        admin = User.objects.create_user(
-            phone='0550000010', password='p', first_name='A', last_name='A', role='admin',
-        )
-        view = FakeView()
-        view.required_roles = ['admin']
-        self.assertTrue(self.perm.has_permission(FakeRequest(admin), view))
+    # 2. POST /api/trips/ (will 400 bad request due to missing data, but NOT 403)
+    response = api_client.post('/api/trips/', data={})
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_office_staff_blocked_from_admin(self):
-        staff = User.objects.create_user(
-            phone='0550000011', password='p', first_name='B', last_name='B',
-            role='office_staff', department='all', office=self.office,
-        )
-        view = FakeView()
-        view.required_roles = ['admin']
-        self.assertFalse(self.perm.has_permission(FakeRequest(staff), view))
+def test_cargo_ticket_transitions(api_client, office_staff_cargo_user, office, bus, conductor_user):
+    """
+    Verify guichetier can manipulate cargo.
+    """
+    api_client.force_authenticate(user=office_staff_cargo_user)
+    
+    # Create trip in progress
+    trip = Trip.objects.create(
+        bus=bus, origin_office=office, conductor=conductor_user,
+        departure_datetime=timezone.now() + datetime.timedelta(hours=1),
+        status='in_progress',
+        passenger_base_price=100, cargo_small_price=50, cargo_medium_price=100, cargo_large_price=200,
+        currency='XYZ'
+    )
+    
+    cargo = CargoTicket.objects.create(
+        trip=trip, ticket_number='CTX-001', sender_name='A', receiver_name='B',
+        cargo_tier='small', price=50, currency='XYZ', created_by=office_staff_cargo_user
+    )
 
-
-class DepartmentPermissionTests(TestCase):
-
-    def setUp(self):
-        self.office = Office.objects.create(name='Test', city='Test')
-        self.perm = DepartmentPermission()
-
-    def test_cargo_blocked_from_passenger(self):
-        user = User.objects.create_user(
-            phone='0550000020', password='p', first_name='C', last_name='C',
-            role='office_staff', department='cargo', office=self.office,
-        )
-        view = FakeView()
-        view.required_department = 'passenger'
-        self.assertFalse(self.perm.has_permission(FakeRequest(user), view))
-
-    def test_all_dept_passes_any(self):
-        user = User.objects.create_user(
-            phone='0550000021', password='p', first_name='D', last_name='D',
-            role='office_staff', department='all', office=self.office,
-        )
-        view = FakeView()
-        view.required_department = 'cargo'
-        self.assertTrue(self.perm.has_permission(FakeRequest(user), view))
-
-
-class TripStatusPermissionTests(TestCase):
-
-    def setUp(self):
-        self.perm = TripStatusPermission()
-
-    def test_write_blocked_on_completed_trip(self):
-        trip = type('Trip', (), {'status': 'completed'})()
-        req = FakeRequest(None)
-        req.method = 'PATCH'
-        self.assertFalse(self.perm.has_object_permission(req, FakeView(), trip))
-
-    def test_read_allowed_on_completed_trip(self):
-        trip = type('Trip', (), {'status': 'completed'})()
-        req = FakeRequest(None)
-        req.method = 'GET'
-        self.assertTrue(self.perm.has_object_permission(req, FakeView(), trip))
+    # Transition allowed
+    response = api_client.post(f'/api/cargo/{cargo.id}/transition/', data={'new_status': 'loaded'})
+    assert response.status_code == status.HTTP_200_OK
+    cargo.refresh_from_db()
+    assert cargo.status == 'loaded'

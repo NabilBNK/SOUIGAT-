@@ -8,7 +8,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from api.models import CargoTicket, Trip
 from api.serializers.cargo import CargoTicketSerializer, CargoTransitionSerializer
-from api.permissions import RBACPermission, OfficeScopePermission
+from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission
 
 
 class CargoTicketViewSet(viewsets.ModelViewSet):
@@ -28,9 +28,18 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
-        perm = RBACPermission()
-        perm.required_roles = ['admin', 'office_staff', 'conductor']
-        return [IsAuthenticated(), perm, OfficeScopePermission()]
+        
+        if self.action in ('create', 'transition', 'deliver'):
+            perm = MatrixPermission()
+            perm.required_actions = {
+                'POST': ['create_cargo_ticket'],
+                'transition': ['transition_cargo_status'],
+                'deliver': ['receive_cargo']
+            }
+            return [IsAuthenticated(), perm, OfficeScopePermission()]
+            
+        # list / retrieve
+        return [IsAuthenticated(), OfficeScopePermission()]
 
     def get_queryset(self):
         """Filter cargo by user scope to prevent data leaks."""
@@ -113,11 +122,6 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
     def transition(self, request, pk=None):
         """Generic state transition via model's transition_to()."""
         cargo = self.get_object()
-        # Capture old_values for audit trail (state transitions are POSTs)
-        # Use request._request to bypass DRF Request wrapper so middleware can read it
-        request._request._audit_old_values = {
-            'status': cargo.status, 'version': cargo.version,
-        }
         ser = CargoTransitionSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
@@ -138,11 +142,6 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
     def deliver(self, request, pk=None):
         """Shortcut for marking cargo as delivered (Bug #8 fix: single save)."""
         cargo = self.get_object()
-        # Capture old_values for audit trail
-        request._request._audit_old_values = {
-            'status': cargo.status, 'version': cargo.version,
-            'delivered_by_id': cargo.delivered_by_id,
-        }
         self._enforce_destination_office(request.user, cargo)
 
         # Bug #8 fix: set delivered_by/delivered_at BEFORE save to avoid

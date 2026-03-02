@@ -71,7 +71,7 @@ class DeliverAuditTests(TestCase):
         self.assertEqual(
             log.action, 'update',
             'Deliver should be an update. If this fails as "create", '
-            'the DRF request._request._audit_old_values hack may have broken.'
+            'the AuditMiddleware dynamic state snapshot on POST actions may have failed.'
         )
         self.assertIsNotNone(log.old_values, 'old_values should be populated for deliver')
         self.assertEqual(log.old_values['status'], 'arrived')
@@ -120,7 +120,7 @@ class CompleteTripAuditTests(TestCase):
         self.assertEqual(
             log.action, 'update',
             'Complete should be an update. If this fails as "create", '
-            'the DRF request._request._audit_old_values hack may have broken.'
+            'the AuditMiddleware dynamic state snapshot on POST actions may have failed.'
         )
         self.assertIsNotNone(log.old_values, 'old_values should be populated for complete')
         self.assertEqual(log.old_values['status'], 'in_progress')
@@ -154,7 +154,7 @@ class CompleteTripAuditTests(TestCase):
         self.assertEqual(
             log.action, 'update',
             'Start should be an update. If this fails as "create", '
-            'the DRF request._request._audit_old_values hack may have broken.'
+            'the AuditMiddleware dynamic state snapshot on POST actions may have failed.'
         )
         self.assertIsNotNone(log.old_values, 'old_values should be populated for start')
         self.assertEqual(log.old_values['status'], 'scheduled')
@@ -219,7 +219,7 @@ class QuarantineReviewAuditTests(TestCase):
         self.assertEqual(
             log.action, 'update',
             'Review should be an update. If this fails as "create", '
-            'the DRF request._request._audit_old_values hack may have broken.'
+            'the AuditMiddleware dynamic state snapshot on POST actions may have failed.'
         )
         self.assertIsNotNone(log.old_values, 'old_values should be populated for review')
         self.assertEqual(log.old_values['status'], 'pending')

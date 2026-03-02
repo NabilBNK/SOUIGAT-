@@ -27,7 +27,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        if (error?.response?.status === 401) return false;
+        return failureCount < 1;
+      },
       refetchOnWindowFocus: false,
     },
   },
@@ -44,7 +47,6 @@ function RootRedirect() {
       if (user.department === 'cargo') return <Navigate to="/cargo" replace />
       return <Navigate to="/office" replace />
     case 'conductor':
-    case 'driver':
       return <Navigate to="/unauthorized" replace />
     default:
       return <Navigate to="/login" replace />
@@ -66,8 +68,8 @@ export default function App() {
               <Route path="/" element={<RootRedirect />} />
 
               <Route element={<AppShell />}>
-                {/* Office routes */}
-                <Route element={<RoleGuard allowedRoles={['admin', 'office_staff']} />}>
+                {/* Office routes (Non-cargo staff only) */}
+                <Route element={<RoleGuard allowedRoles={['admin', 'office_staff']} requireDepartment="all" />}>
                   <Route path="/office" element={<OfficeDashboard />} />
                   <Route path="/office/trips" element={<TripList />} />
                   <Route path="/office/trips/new" element={<TripCreate />} />

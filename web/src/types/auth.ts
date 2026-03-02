@@ -1,5 +1,5 @@
-export type Role = 'admin' | 'office_staff' | 'conductor' | 'driver'
-export type Department = 'all' | 'cargo' | 'passenger' | null
+export type Role = 'admin' | 'office_staff' | 'conductor'
+export type Department = 'all' | 'cargo' | null
 
 export interface User {
     id: number

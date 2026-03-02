@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getDailyReport, triggerExport, getExportStatus, getExportDownloadUrl } from '../../api/reports'
+import { getOffices } from '../../api/admin'
+import { useAuth } from '../../hooks/useAuth'
 import { formatCurrency } from '../../utils/formatters'
 import { Button } from '../../components/ui/Button'
 import { DataTable } from '../../components/ui/DataTable'
 import { createColumnHelper } from '@tanstack/react-table'
-import { AlertCircle, FileSpreadsheet, Loader2, Calendar } from 'lucide-react'
+import { AlertCircle, FileSpreadsheet, Loader2, Calendar, LayoutDashboard } from 'lucide-react'
 
 const columnHelper = createColumnHelper<any>()
 
@@ -40,28 +42,57 @@ const columns = [
     }),
     columnHelper.accessor('net_revenue', {
         header: 'Net à percevoir',
-        cell: info => (
-            <span className="font-semibold text-status-success">
-                {formatCurrency(info.getValue())}
-            </span>
-        ),
+        cell: info => {
+            const val = info.getValue()
+            return (
+                <span className={`font-semibold ${val > 0 ? 'text-status-success' : 'text-text-primary'}`}>
+                    {formatCurrency(val)}
+                </span>
+            )
+        },
     }),
 ]
 
 export function ReportsPage() {
+    const { user } = useAuth()
     const today = new Date().toISOString().split('T')[0]
     const [dateFrom, setDateFrom] = useState(today)
     const [dateTo, setDateTo] = useState(today)
+    const [selectedOffice, setSelectedOffice] = useState<string>('all')
 
     // Export state
     const [exportTaskId, setExportTaskId] = useState<string | null>(null)
     const [exportError, setExportError] = useState<string | null>(null)
     const [exportStartTime, setExportStartTime] = useState<number | null>(null)
 
-    const { data: reports, isLoading, isError, refetch } = useQuery({
-        queryKey: ['dailyReports', dateFrom, dateTo],
-        queryFn: () => getDailyReport({ date_from: dateFrom, date_to: dateTo }),
+    // Admin: Fetch offices for dropdown
+    const { data: officesData } = useQuery({
+        queryKey: ['offices'],
+        queryFn: () => getOffices({ limit: 100 }),
+        enabled: user?.role === 'admin'
     })
+    const offices = officesData?.results || []
+
+    const queryParams: any = { date_from: dateFrom, date_to: dateTo }
+    if (user?.role === 'admin' && selectedOffice !== 'all') {
+        queryParams.office_id = Number(selectedOffice)
+    }
+
+    const { data: reports, isLoading, isError, refetch } = useQuery({
+        queryKey: ['dailyReports', dateFrom, dateTo, selectedOffice],
+        queryFn: () => getDailyReport(queryParams),
+    })
+
+    // KPI Calculations
+    const kpis = useMemo(() => {
+        if (!reports) return { trips: 0, pRev: 0, cRev: 0, net: 0 }
+        return reports.reduce((acc, row) => ({
+            trips: acc.trips + (row.total_trips || 0),
+            pRev: acc.pRev + (row.passenger_revenue || 0),
+            cRev: acc.cRev + (row.cargo_revenue || 0),
+            net: acc.net + (row.net_revenue || 0),
+        }), { trips: 0, pRev: 0, cRev: 0, net: 0 })
+    }, [reports])
 
     // Poll export status if we have a taskId
     const { data: exportStatus } = useQuery({
@@ -77,9 +108,8 @@ export function ReportsPage() {
 
     const exportMutation = useMutation({
         mutationFn: () => triggerExport({
-            type: 'daily_summary',
-            date_from: dateFrom,
-            date_to: dateTo
+            report_type: 'daily',
+            filters: queryParams
         }),
         onSuccess: (data) => {
             setExportTaskId(data.task_id)
@@ -195,8 +225,52 @@ export function ReportsPage() {
                         />
                     </div>
                 </div>
+                {user?.role === 'admin' && (
+                    <div className="flex-1 w-full">
+                        <label className="block text-xs font-medium text-text-secondary mb-1">Agence</label>
+                        <div className="relative">
+                            <LayoutDashboard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                            <select
+                                value={selectedOffice}
+                                onChange={(e) => setSelectedOffice(e.target.value)}
+                                className="w-full bg-surface-700 border border-surface-600/50 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50 appearance-none"
+                            >
+                                <option value="all">Toutes les agences</option>
+                                {offices.map((office: any) => (
+                                    <option key={office.id} value={office.id}>{office.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
                 <Button type="submit" variant="primary">Filtrer</Button>
             </form>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: 'Total Voyages', value: kpis.trips, format: (v: number) => v.toString() },
+                    { label: 'Revenus Passagers', value: kpis.pRev, format: formatCurrency },
+                    { label: 'Revenus Colis', value: kpis.cRev, format: formatCurrency },
+                    {
+                        label: 'Net à Percevoir',
+                        value: kpis.net,
+                        format: formatCurrency,
+                        highlightPositive: true
+                    },
+                ].map((kpi, idx) => (
+                    <div key={idx} className="bg-surface-800 border border-surface-600/50 p-4 rounded-xl flex flex-col justify-center">
+                        <span className="text-xs font-medium text-text-secondary truncate">{kpi.label}</span>
+                        {isLoading ? (
+                            <div className="h-7 mt-1 w-24 bg-surface-700 rounded animate-pulse" />
+                        ) : (
+                            <span className={`text-xl font-bold mt-1 ${kpi.highlightPositive && kpi.value > 0 ? 'text-status-success' : 'text-brand-400'}`}>
+                                {kpi.format(kpi.value)}
+                            </span>
+                        )}
+                    </div>
+                ))}
+            </div>
 
             {/* Data Table */}
             <div className="bg-surface-800 border border-surface-600/50 rounded-xl overflow-hidden min-h-[400px]">

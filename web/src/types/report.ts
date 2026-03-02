@@ -1,17 +1,14 @@
 export interface DailyReport {
     date: string
     office_name: string
+    office_id: number
     total_trips: number
-    active_trips: number
-    completed_trips: number
-    cancelled_trips: number
     total_passengers: number
     total_cargo: number
     passenger_revenue: number
     cargo_revenue: number
-    total_expenses: number
+    expense_total: number
     net_revenue: number
-    currency: string
 }
 
 export interface TripReport {

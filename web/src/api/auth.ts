@@ -1,4 +1,4 @@
-import client from './client'
+import client, { getRefreshToken } from './client'
 import type { LoginRequest, TokenPair, User } from '../types/auth'
 
 export async function login(data: LoginRequest): Promise<TokenPair> {
@@ -7,7 +7,7 @@ export async function login(data: LoginRequest): Promise<TokenPair> {
 }
 
 export async function logout(): Promise<void> {
-    await client.post('/auth/logout/')
+    await client.post('/auth/logout/', { refresh: getRefreshToken() })
 }
 
 export async function getMe(): Promise<User> {

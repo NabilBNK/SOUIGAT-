@@ -78,18 +78,27 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'souigat.wsgi.application'
 
-# Database (PostgreSQL via python-decouple)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('POSTGRES_DB'),
-        'USER': config('POSTGRES_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST', default='db'),
-        'PORT': '5432',
-        'CONN_MAX_AGE': 0,  # Requires PgBouncer for connection pooling. Without it, >0 risks holding stale connections.
+# Database (PostgreSQL via python-decouple, fallback to SQLite for local testing)
+_db_host = config('DB_HOST', default='db')
+if _db_host == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('POSTGRES_DB'),
+            'USER': config('POSTGRES_USER'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': _db_host,
+            'PORT': '5432',
+            'CONN_MAX_AGE': 0,
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -196,10 +205,17 @@ MEDIA_URL = '/media/'
 # ---------------------
 # Cache (Redis)
 # ---------------------
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': config('REDIS_URL'),
-        'TIMEOUT': None,  # Never expire unless explicitly set
+if _db_host == 'sqlite':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': config('REDIS_URL'),
+            'TIMEOUT': None,  # Never expire unless explicitly set
+        }
+    }

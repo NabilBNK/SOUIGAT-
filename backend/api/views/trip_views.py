@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from api.models import Trip, Bus, User
 from api.serializers.trip import TripSerializer, TripListSerializer
-from api.permissions import RBACPermission, OfficeScopePermission
+from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission
 
 
 class TripViewSet(viewsets.ModelViewSet):
@@ -34,14 +34,25 @@ class TripViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
+        
         if self.action in ('create', 'update', 'partial_update', 'destroy', 'cancel'):
-            perm = RBACPermission()
-            perm.required_roles = ['admin', 'office_staff']
+            perm = MatrixPermission()
+            # Map HTTP methods and specific actions to the PERMISSION_MATRIX
+            perm.required_actions = {
+                'POST': ['create_trip'],
+                'cancel': ['cancel_trip']
+            }
             return [IsAuthenticated(), perm, OfficeScopePermission()]
+            
         if self.action in ('start', 'complete'):
-            perm = RBACPermission()
-            perm.required_roles = ['conductor', 'admin', 'office_staff']
+            perm = MatrixPermission()
+            perm.required_actions = {
+                'start': ['start_trip'],
+                'complete': ['complete_trip']
+            }
             return [IsAuthenticated(), perm]
+            
+        # list / retrieve
         return [IsAuthenticated(), OfficeScopePermission()]
 
     def get_queryset(self):
@@ -104,15 +115,11 @@ class TripViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             trip = Trip.objects.select_for_update().get(pk=pk)
 
-            # Capture old_values for audit trail
-            request._request._audit_old_values = {'status': trip.status}
-
             if request.user.role == 'conductor' and trip.conductor_id != request.user.id:
                 raise PermissionDenied('You are not the assigned conductor.')
             elif request.user.role == 'office_staff' and trip.origin_office_id != request.user.office_id:
                 raise PermissionDenied('You can only start trips originating from your office.')
-            elif request.user.role not in ('conductor', 'office_staff', 'admin'):
-                raise PermissionDenied('You do not have permission to start trips.')
+            # Admin role handles cross-office scoping seamlessly here.
 
             if trip.status != 'scheduled':
                 raise ValidationError(
@@ -143,18 +150,11 @@ class TripViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             trip = Trip.objects.select_for_update().get(pk=pk)
 
-            # Capture old_values for audit trail
-            request._request._audit_old_values = {
-                'status': trip.status,
-                'arrival_datetime': str(trip.arrival_datetime),
-            }
-
             if request.user.role == 'conductor' and trip.conductor_id != request.user.id:
                 raise PermissionDenied('You are not the assigned conductor.')
             elif request.user.role == 'office_staff' and trip.destination_office_id != request.user.office_id:
                 raise PermissionDenied('You can only complete trips arriving at your office.')
-            elif request.user.role not in ('conductor', 'office_staff', 'admin'):
-                raise PermissionDenied('You do not have permission to complete trips.')
+            # Admin role handles cross-office scoping seamlessly here.
 
             if trip.status != 'in_progress':
                 raise ValidationError(
@@ -177,9 +177,6 @@ class TripViewSet(viewsets.ModelViewSet):
         """Office staff cancels a scheduled trip."""
         with transaction.atomic():
             trip = Trip.objects.select_for_update().get(pk=pk)
-
-            # Capture old_values for audit trail
-            request._request._audit_old_values = {'status': trip.status}
 
             if trip.status not in ('scheduled',):
                 raise ValidationError(

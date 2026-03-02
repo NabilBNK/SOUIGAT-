@@ -7,8 +7,8 @@ const client = axios.create({
     headers: { 'Content-Type': 'application/json' },
 })
 
-let accessToken: string | null = null
-let refreshToken: string | null = null
+let accessToken: string | null = localStorage.getItem('souigat_access')
+let refreshToken: string | null = localStorage.getItem('souigat_refresh')
 let isRefreshing = false
 let failedQueue: Array<{
     resolve: (token: string) => void
@@ -30,17 +30,25 @@ tokenChannel.onmessage = (event) => {
 export function setTokens(access: string, refresh: string) {
     accessToken = access
     refreshToken = refresh
+    localStorage.setItem('souigat_access', access)
+    localStorage.setItem('souigat_refresh', refresh)
     tokenChannel.postMessage({ type: 'tokens-updated', access, refresh })
 }
 
 export function clearTokens() {
     accessToken = null
     refreshToken = null
+    localStorage.removeItem('souigat_access')
+    localStorage.removeItem('souigat_refresh')
     tokenChannel.postMessage({ type: 'tokens-cleared' })
 }
 
 export function getAccessToken() {
     return accessToken
+}
+
+export function getRefreshToken() {
+    return refreshToken
 }
 
 function processQueue(error: unknown, token: string | null) {
@@ -70,7 +78,7 @@ client.interceptors.response.use(
             return Promise.reject(error)
         }
 
-        if (error.response?.status === 401 && !original._retry && refreshToken) {
+        if (error.response?.status === 401 && !original._retry) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({
@@ -91,7 +99,7 @@ client.interceptors.response.use(
                 const { data } = await axios.post(`${API_BASE}/auth/token/refresh/`, {
                     refresh: refreshToken,
                     platform: 'web',
-                })
+                }, { withCredentials: true })
                 accessToken = data.access
                 if (data.refresh) refreshToken = data.refresh
 
@@ -102,9 +110,12 @@ client.interceptors.response.use(
                 original.headers.Authorization = `Bearer ${data.access}`
                 return client(original)
             } catch (refreshError) {
+                console.error('[CLIENT] Attempting to redirect to login after refresh failure');
                 processQueue(refreshError, null)
                 clearTokens()
-                window.location.href = '/login'
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login'
+                }
                 return Promise.reject(refreshError)
             } finally {
                 isRefreshing = false

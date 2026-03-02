@@ -68,16 +68,34 @@ class ReportTests(TestCase):
         self.client = APIClient()
 
     def test_daily_report_aggregation(self):
-        """Daily report shows correct totals."""
+        """Daily report shows an array of per-office rows with correct totals."""
         self.client.force_authenticate(self.admin)
         today = timezone.now().strftime('%Y-%m-%d')
         resp = self.client.get(f'/api/reports/daily/?date_from={today}&date_to={today}')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data['passenger_revenue'], 2000)
-        self.assertEqual(resp.data['cargo_revenue'], 500)
-        self.assertEqual(resp.data['expense_total'], 300)
-        self.assertEqual(resp.data['net'], 2200)
-        self.assertEqual(resp.data['ticket_count'], 2)
+        self.assertEqual(type(resp.data), list)
+        
+        # Admin gets all offices, but we only have trips for Algiers
+        algiers_row = next((r for r in resp.data if r['office_id'] == self.office.id), None)
+        self.assertIsNotNone(algiers_row)
+        
+        self.assertEqual(algiers_row['passenger_revenue'], 2000)
+        self.assertEqual(algiers_row['cargo_revenue'], 500)
+        self.assertEqual(algiers_row['expense_total'], 300)
+        self.assertEqual(algiers_row['net_revenue'], 2200)
+        self.assertEqual(algiers_row['total_passengers'], 2)
+        
+    def test_daily_report_office_filter(self):
+        """Admin can filter daily report by office_id."""
+        self.client.force_authenticate(self.admin)
+        today = timezone.now().strftime('%Y-%m-%d')
+        resp = self.client.get(f'/api/reports/daily/?date_from={today}&date_to={today}&office_id={self.office_b.id}')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        # Should only return one row for office_b
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['office_id'], self.office_b.id)
+        # Trip origin is Algiers, destination is Oran, so Oran sees the trip
+        self.assertEqual(resp.data[0]['total_trips'], 1)
 
     def test_trip_report_breakdown(self):
         """Trip report includes ticket and expense details."""
@@ -105,10 +123,31 @@ class ReportTests(TestCase):
         today = timezone.now().strftime('%Y-%m-%d')
         resp = self.client.get(f'/api/reports/daily/?date_from={today}&date_to={today}')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data['trip_count'], 1)
+        self.assertEqual(type(resp.data), list)
+        self.assertEqual(len(resp.data), 1) # One row for their office
+        self.assertEqual(resp.data[0]['office_id'], self.office.id)
 
     def test_conductor_cannot_access_reports(self):
         """Conductors are denied access to reports."""
         self.client.force_authenticate(self.conductor)
         resp = self.client.get('/api/reports/daily/')
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        
+    def test_conductor_report(self):
+        """Admin gets conductor performance data."""
+        self.client.force_authenticate(self.admin)
+        today = timezone.now().strftime('%Y-%m-%d')
+        resp = self.client.get(f'/api/reports/conductors/?date_from={today}&date_to={today}')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['conductor_id'], self.conductor.id)
+        self.assertEqual(resp.data[0]['total_trips'], 1)
+        self.assertEqual(resp.data[0]['total_revenue'], 2500)
+        self.assertEqual(resp.data[0]['total_expenses'], 300)
+        self.assertEqual(resp.data[0]['net'], 2200)
+
+    def test_conductor_report_non_admin(self):
+        """Office staff are denied access to conductor reports."""
+        self.client.force_authenticate(self.staff)
+        resp = self.client.get('/api/reports/conductors/')
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)

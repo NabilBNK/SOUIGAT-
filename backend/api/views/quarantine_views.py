@@ -57,12 +57,6 @@ class QuarantineViewSet(viewsets.ReadOnlyModelViewSet):
         """Approve or reject a single quarantined item."""
         item = self.get_object()
 
-        # Capture old_values for audit trail
-        request._request._audit_old_values = {
-            'status': item.status,
-            'reviewed_by_id': item.reviewed_by_id,
-        }
-
         if item.status != 'pending':
             raise ValidationError(
                 f'Item already reviewed. Status: {item.status}'

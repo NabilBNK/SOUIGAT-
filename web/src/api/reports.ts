@@ -4,6 +4,7 @@ import type { DailyReport, TripReport, ExportStatus } from '../types/report'
 export async function getDailyReport(params?: {
     date_from?: string
     date_to?: string
+    office_id?: number
 }): Promise<DailyReport[]> {
     const response = await client.get<DailyReport[]>('/reports/daily/', { params })
     return response.data
@@ -22,8 +23,11 @@ export async function getRouteAnalysis(params?: {
     return response.data
 }
 
-export async function triggerExport(filters?: Record<string, string>): Promise<{ task_id: string }> {
-    const response = await client.post<{ task_id: string }>('/exports/', filters)
+export async function triggerExport(payload: {
+    report_type: string
+    filters: Record<string, string>
+}): Promise<{ task_id: string }> {
+    const response = await client.post<{ task_id: string }>('/exports/', payload)
     return response.data
 }
 

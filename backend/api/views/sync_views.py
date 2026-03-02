@@ -12,6 +12,7 @@ from api.models import (
 )
 from api.serializers.sync import SyncBatchSerializer
 from api.signals import suppress_report_signals, _invalidate_report_cache
+from api.permissions import get_cached_user_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,15 @@ def batch_sync(request):
     - Per-item savepoints (partial failure resilience)
     - Resume support via resume_from index
     """
-    if not request.user.is_authenticated or request.user.role != 'conductor':
+    if not request.user.is_authenticated:
         return Response(
-            {'detail': 'Only conductors can sync.'},
+            {'detail': 'Authentication required.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if 'sync_batch' not in get_cached_user_permissions(request):
+        return Response(
+            {'detail': 'Only authorized conductors can sync.'},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -66,6 +73,17 @@ def batch_sync(request):
             # Bug #1 fix: quarantine ALL items instead of rejecting when trip is closed
             trip_closed = trip.status not in ('scheduled', 'in_progress')
 
+            # Batch idempotency check
+            keys_to_check = [item['idempotency_key'] for item in items[resume_from:]]
+            existing_keys = set(SyncLog.objects.filter(key__in=keys_to_check).values_list('key', flat=True))
+
+            # Cache counts for processing
+            trip_state = {
+                'active_passenger_count': PassengerTicket.objects.filter(trip=trip, status='active').count(),
+                'total_passenger_count': PassengerTicket.objects.filter(trip=trip).count(),
+                'cargo_count': CargoTicket.objects.filter(trip=trip).count(),
+            }
+
             for idx, item in enumerate(items):
                 if idx < resume_from:
                     continue
@@ -73,7 +91,7 @@ def batch_sync(request):
                 key = item['idempotency_key']
 
                 # Idempotency check
-                if SyncLog.objects.filter(key=key).exists():
+                if key in existing_keys:
                     results.append({
                         'index': idx, 'status': 'duplicate', 'key': key,
                     })
@@ -126,6 +144,7 @@ def batch_sync(request):
                         payload=item['payload'],
                         trip=trip,
                         user=request.user,
+                        trip_state=trip_state,
                     )
                     transaction.savepoint_commit(sid)
 
@@ -190,7 +209,7 @@ def batch_sync(request):
     }, status=status.HTTP_200_OK)
 
 
-def _process_item(item_type, payload, trip, user):
+def _process_item(item_type, payload, trip, user, trip_state):
     """
     Route sync item to appropriate create logic.
 
@@ -198,41 +217,67 @@ def _process_item(item_type, payload, trip, user):
     Raises Exception on validation failure (caught by caller).
     """
     if item_type == 'passenger_ticket':
-        return _create_passenger_ticket(payload, trip, user)
+        return _create_passenger_ticket(payload, trip, user, trip_state)
     elif item_type == 'cargo_ticket':
-        return _create_cargo_ticket(payload, trip, user)
+        return _create_cargo_ticket(payload, trip, user, trip_state)
     elif item_type == 'expense':
         return _create_expense(payload, trip, user)
     else:
         raise ValidationError(f'Unknown item type: {item_type}')
 
 
-def _create_passenger_ticket(payload, trip, user):
+def _create_passenger_ticket(payload, trip, user, trip_state):
     """Create passenger ticket from sync payload."""
-    # Bug #1 fix: use total count (all statuses) for numbering, active for capacity
-    active_count = PassengerTicket.objects.filter(
-        trip=trip, status='active',
-    ).count()
+    active_count = trip_state['active_passenger_count']
     if active_count >= trip.bus.capacity:
-        raise ValidationError('Bus is at full capacity.')
+        raise ValidationError(f'Bus is at full capacity ({trip.bus.capacity} seats).')
 
-    total_count = PassengerTicket.objects.filter(trip=trip).count()
+    passenger_name = str(payload.get('passenger_name', 'Walk-in'))[:100]
+    payment_source = payload.get('payment_source', 'cash')
+    if payment_source not in ('cash', 'prepaid'):
+        raise ValidationError(f"Invalid payment_source: '{payment_source}'")
+
+    boarding_point = payload.get('boarding_point') or trip.route_origin
+    alighting_point = payload.get('alighting_point') or trip.route_destination
+    is_intermediate = (boarding_point != trip.route_origin or alighting_point != trip.route_destination)
+
+    if is_intermediate:
+        raw_price = payload.get('price')
+        if raw_price is None:
+            raise ValidationError('Intermediate stop tickets must include a price.')
+        try:
+            price = int(Decimal(str(raw_price)))
+        except (TypeError, ValueError, InvalidOperation):
+            raise ValidationError(f'Invalid price: {raw_price!r}')
+        if price <= 0 or price > trip.passenger_base_price:
+            raise ValidationError(f'Intermediate price must be between 1 and {trip.passenger_base_price}.')
+    else:
+        price = trip.passenger_base_price
+
+    total_count = trip_state['total_passenger_count']
     ticket_number = f'PT-{trip.id}-{total_count + 1:03d}'
 
     ticket = PassengerTicket.objects.create(
         trip=trip,
         ticket_number=ticket_number,
-        passenger_name=payload.get('passenger_name', 'Walk-in'),
-        price=trip.passenger_base_price,
+        passenger_name=passenger_name,
+        price=price,
         currency=trip.currency,
-        payment_source=payload.get('payment_source', 'cash'),
-        seat_number=payload.get('seat_number', ''),
+        payment_source=payment_source,
+        boarding_point=boarding_point,
+        alighting_point=alighting_point,
+        seat_number=str(payload.get('seat_number', ''))[:10],
         created_by=user,
     )
+
+    trip_state['total_passenger_count'] += 1
+    if ticket.status == 'active':
+        trip_state['active_passenger_count'] += 1
+
     return ticket.id
 
 
-def _create_cargo_ticket(payload, trip, user):
+def _create_cargo_ticket(payload, trip, user, trip_state):
     """Create cargo ticket from sync payload."""
     tier = payload.get('cargo_tier', 'small')
 
@@ -249,8 +294,9 @@ def _create_cargo_ticket(payload, trip, user):
     }
     price = price_map[tier]  # KeyError impossible after validation
 
-    count = CargoTicket.objects.filter(trip=trip).count()
+    count = trip_state['cargo_count']
     ticket_number = f'CT-{trip.id}-{count + 1:03d}'
+    trip_state['cargo_count'] += 1
 
     cargo = CargoTicket.objects.create(
         trip=trip,

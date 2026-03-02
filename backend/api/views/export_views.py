@@ -10,16 +10,19 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 
 from api.tasks import generate_excel_report
+from api.permissions import get_cached_user_permissions
 
 
 EXPORT_ROLES = ('admin', 'office_staff')
 
 
-def _check_export_perm(request):
-    """Exports accessible by admin and office_staff."""
+def _check_export_perm(request, required_perm='export_excel'):
+    """Exports accessible by users with 'export_excel' in their matrix permissions."""
     if not request.user.is_authenticated:
         raise PermissionDenied('Authentication required.')
-    if request.user.role not in EXPORT_ROLES:
+        
+    perms = get_cached_user_permissions(request)
+    if required_perm not in perms:
         raise PermissionDenied('Insufficient permissions for exports.')
 
 

@@ -6,7 +6,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from api.models import PassengerTicket, Trip
 from api.serializers.ticket import PassengerTicketSerializer, PassengerTicketListSerializer
-from api.permissions import RBACPermission, OfficeScopePermission
+from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission
 
 
 class PassengerTicketViewSet(viewsets.ModelViewSet):
@@ -28,9 +28,16 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
-        perm = RBACPermission()
-        perm.required_roles = ['admin', 'office_staff', 'conductor']
-        return [IsAuthenticated(), perm, OfficeScopePermission()]
+        
+        if self.action in ('create', 'cancel'):
+            perm = MatrixPermission()
+            perm.required_actions = {
+                'POST': ['create_passenger_ticket'],
+                'cancel': ['cancel_trip']  # Keep cancel_trip role for now, usually office staff
+            }
+            return [IsAuthenticated(), perm, OfficeScopePermission()]
+            
+        return [IsAuthenticated(), OfficeScopePermission()]
 
     def get_queryset(self):
         """Filter tickets by user scope and optional trip param."""

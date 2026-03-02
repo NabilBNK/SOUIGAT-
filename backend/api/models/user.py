@@ -25,12 +25,10 @@ class User(AbstractUser):
         ('admin', 'Admin'),
         ('office_staff', 'Office Staff'),
         ('conductor', 'Conductor'),
-        ('driver', 'Driver'),
     ]
     DEPARTMENT_CHOICES = [
         ('all', 'All'),
         ('cargo', 'Cargo'),
-        ('passenger', 'Passenger'),
     ]
 
     username = None
@@ -39,7 +37,7 @@ class User(AbstractUser):
     department = models.CharField(
         max_length=20, choices=DEPARTMENT_CHOICES,
         null=True, blank=True,
-        help_text='Only for office_staff. Admin/conductor/driver = null.',
+        help_text='Only for office_staff. Admin/conductor = null.',
     )
     office = models.ForeignKey(
         'api.Office', on_delete=models.SET_NULL,

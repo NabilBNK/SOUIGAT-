@@ -35,13 +35,14 @@ class AuditMiddleware:
     # Models we can snapshot for old_values capture
     TABLE_MODEL_MAP = {
         'trips': 'api.Trip',
-        'passenger-tickets': 'api.PassengerTicket',
-        'cargo-tickets': 'api.CargoTicket',
+        'tickets': 'api.PassengerTicket',
+        'cargo': 'api.CargoTicket',
         'expenses': 'api.TripExpense',
         'users': 'api.User',
         'buses': 'api.Bus',
         'offices': 'api.Office',
         'pricing': 'api.PricingConfig',
+        'quarantine': 'api.QuarantinedSync',
     }
 
     def __init__(self, get_response):
@@ -49,7 +50,7 @@ class AuditMiddleware:
 
     def __call__(self, request):
         # Bug #2 fix: snapshot object BEFORE mutation for old_values
-        if request.method in ('PUT', 'PATCH', 'DELETE') and not self._should_skip(request.path):
+        if request.method in ('PUT', 'PATCH', 'DELETE', 'POST') and not self._should_skip(request.path):
             self._snapshot_old(request)
 
         response = self.get_response(request)
