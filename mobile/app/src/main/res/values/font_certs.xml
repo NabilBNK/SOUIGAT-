@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Google Fonts provider certificate hashes.
+    Required by the GoogleFont provider in Type.kt.
+    These are the standard GMS (Google Play Services) font provider certificates.
+    Source: https://developers.google.com/fonts/docs/android
+-->
+<resources>
+    <array name="com_google_android_gms_fonts_certs">
+        <item>@array/com_google_android_gms_fonts_certs_dev</item>
+        <item>@array/com_google_android_gms_fonts_certs_prod</item>
+    </array>
+
+    <string-array name="com_google_android_gms_fonts_certs_dev">
+        <item>MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNU2FudGEgTW9uaWNhMRMwEQYDVQQKEwpHb29nbGUgSW5jMRcwFQYDVQQLEw5Hb29nbGUgU2VjdXJlMSIwIAYDVQQDExlHb29nbGUgU2VjdXJlIFJlc2VydmVkIDEwHhcNMDgwNTE1MTMxNzU5WhcNMTgwNTEzMTMxNzU5WjCBlDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbnRhIE1vbmljYTETMBEGA1UEChMKR29vZ2xlIEluYzEXMBYGA1UECxMQR29vZ2xlIFNlY3VyaXR5MSIwIAYDVQQDExlHb29nbGUgU2VjdXJlIFJlc2VydmVkIDEwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC28oLBkfTYbMFxbHPzPKcaIYaacFGhbWoI</item>
+    </string-array>
+
+    <string-array name="com_google_android_gms_fonts_certs_prod">
+        <item>MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBBAUAMHQxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFBgNVBAcTDU1vdW50YWluIFZpZXcxFDASBgNVBAoTC0dvb2dsZSBJbmMuMRAwDgYDVQQLEwdBbmRyb2lkMRAwDgYDVQQDEwdBbmRyb2lkMB4XDTExMDkwNjEwMTkzNloXDTM0MTIwNDEwMTkzNlowdDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDU1vdW50YWluIFZpZXcxFDASBgNVBAoTC0dvb2dsZSBJbmMuMRAwDgYDVQQLEwdBbmRyb2lkMRAwDgYDVQQDEwdBbmRyb2lkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0mX3OkbTOB0Z</item>
+    </string-array>
+</resources>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Config — controls TLS policy per build type.
+    debug: allows cleartext to 10.0.2.2 (emulator → host localhost)
+           and 192.168.x.x (physical device → host via adb reverse)
+    staging/release: no cleartext allowed anywhere.
+-->
+<network-security-config>
+    <debug-overrides>
+        <!-- Emulator → host machine (Docker backend at localhost:8000) -->
+        <domain-config cleartextTrafficPermitted="true">
+            <domain includeSubdomains="false">10.0.2.2</domain>
+            <!-- Physical device via adb reverse tcp:8000 tcp:8000 -->
+            <domain includeSubdomains="false">localhost</domain>
+        </domain-config>
+    </debug-overrides>
+
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

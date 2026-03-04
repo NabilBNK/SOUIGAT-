@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SOUIGAT</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_history">History</string>
+    <string name="nav_expenses">Expenses</string>
+    <string name="nav_profile">Profile</string>
+    <string name="login_title">SOUIGAT</string>
+    <string name="login_subtitle">Conductor App</string>
+    <string name="login_button">Login</string>
+    <string name="sync_status_pending">Pending sync</string>
+    <string name="sync_status_syncing">Syncing…</string>
+    <string name="sync_status_synced">Synced</string>
+    <string name="sync_status_quarantined">Quarantined</string>
+    <string name="sync_status_failed">Sync failed</string>
+</resources>

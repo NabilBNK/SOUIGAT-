@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude JWT tokens and device UUID from legacy backup (pre-Android 12) -->
+    <exclude domain="sharedpref" path="souigat_secure_prefs.xml" />
+    <exclude domain="database" path="souigat.db" />
+    <exclude domain="database" path="souigat.db-shm" />
+    <exclude domain="database" path="souigat.db-wal" />
+</full-backup-content>
