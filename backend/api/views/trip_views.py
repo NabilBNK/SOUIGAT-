@@ -21,6 +21,16 @@ class TripViewSet(viewsets.ModelViewSet):
     Concurrency strategy (lock order): Trip → Bus → Conductor.
     """
 
+    required_actions = {
+        'create': ['create_trip'],
+        'update': ['create_trip'],          # Assuming update requires create_trip or similar (no exact update_trip in matrix)
+        'partial_update': ['create_trip'],  
+        'destroy': ['create_trip'],         # Or whatever is appropriate, though destroy isn't usually allowed
+        'cancel': ['cancel_trip'],
+        'start': ['start_trip'],
+        'complete': ['complete_trip']
+    }
+
     def get_serializer_class(self):
         if self.action == 'list':
             return TripListSerializer
@@ -36,21 +46,10 @@ class TripViewSet(viewsets.ModelViewSet):
         from rest_framework.permissions import IsAuthenticated
         
         if self.action in ('create', 'update', 'partial_update', 'destroy', 'cancel'):
-            perm = MatrixPermission()
-            # Map HTTP methods and specific actions to the PERMISSION_MATRIX
-            perm.required_actions = {
-                'POST': ['create_trip'],
-                'cancel': ['cancel_trip']
-            }
-            return [IsAuthenticated(), perm, OfficeScopePermission()]
+            return [IsAuthenticated(), MatrixPermission(), OfficeScopePermission()]
             
         if self.action in ('start', 'complete'):
-            perm = MatrixPermission()
-            perm.required_actions = {
-                'start': ['start_trip'],
-                'complete': ['complete_trip']
-            }
-            return [IsAuthenticated(), perm]
+            return [IsAuthenticated(), MatrixPermission()]
             
         # list / retrieve
         return [IsAuthenticated(), OfficeScopePermission()]
@@ -60,6 +59,7 @@ class TripViewSet(viewsets.ModelViewSet):
         Filter trips by user scope at DB level.
 
         Prevents N+1 permission checks and pagination data leaks.
+        Supports ?status=scheduled,in_progress,cancelled for mobile TripStatusPullWorker.
         """
         user = self.request.user
         qs = Trip.objects.select_related(
@@ -67,18 +67,28 @@ class TripViewSet(viewsets.ModelViewSet):
         ).order_by('-id')
 
         if user.role == 'admin':
-            return qs
-
-        if user.role == 'office_staff':
-            return qs.filter(
+            pass  # No scope filter
+        elif user.role == 'office_staff':
+            qs = qs.filter(
                 models.Q(origin_office_id=user.office_id)
                 | models.Q(destination_office_id=user.office_id)
             )
+        elif user.role == 'conductor':
+            qs = qs.filter(conductor_id=user.id)
+        else:
+            return qs.none()
 
-        if user.role == 'conductor':
-            return qs.filter(conductor_id=user.id)
+        # P0.3: Status filter for mobile TripStatusPullWorker
+        # Usage: GET /api/trips/?status=scheduled,in_progress,cancelled
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            statuses = [s.strip() for s in status_param.split(',') if s.strip()]
+            valid_statuses = {'scheduled', 'in_progress', 'completed', 'cancelled'}
+            statuses = [s for s in statuses if s in valid_statuses]
+            if statuses:
+                qs = qs.filter(status__in=statuses)
 
-        return qs.none()
+        return qs
 
     def perform_create(self, serializer):
         """Enforce: staff can only create trips from their own office. Bus must match origin."""

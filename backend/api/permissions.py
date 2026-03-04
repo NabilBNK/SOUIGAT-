@@ -25,7 +25,7 @@ PERMISSION_MATRIX = {
             'create_trip', 'view_office_trips', 'cancel_trip',
             'start_trip', 'complete_trip',
             'create_passenger_ticket', 'create_cargo_ticket',
-            'receive_cargo', 'view_office_reports', 'export_excel',
+            'receive_cargo', 'transition_cargo_status', 'view_office_reports', 'export_excel',
         ],
         'cargo': [
             'view_office_trips', 'create_cargo_ticket',
@@ -37,7 +37,7 @@ PERMISSION_MATRIX = {
     },
     'conductor': [
         'start_trip', 'complete_trip', 'create_passenger_ticket',
-        'create_cargo_ticket', 'create_expense', 'view_own_trip',
+        'create_cargo_ticket', 'transition_cargo_status', 'create_expense', 'view_own_trip',
         'sync_batch',
     ],
     'driver': ['view_own_trip'],

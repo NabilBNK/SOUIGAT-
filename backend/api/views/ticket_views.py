@@ -26,16 +26,16 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
             return PassengerTicketListSerializer
         return PassengerTicketSerializer
 
+    required_actions = {
+        'create': ['create_passenger_ticket'],
+        'cancel': ['cancel_trip']  # Keep cancel_trip role for now, usually office staff
+    }
+
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
         
-        if self.action in ('create', 'cancel'):
-            perm = MatrixPermission()
-            perm.required_actions = {
-                'POST': ['create_passenger_ticket'],
-                'cancel': ['cancel_trip']  # Keep cancel_trip role for now, usually office staff
-            }
-            return [IsAuthenticated(), perm, OfficeScopePermission()]
+        if self.action == 'create':
+            return [IsAuthenticated(), MatrixPermission(), OfficeScopePermission()]
             
         return [IsAuthenticated(), OfficeScopePermission()]
 

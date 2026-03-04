@@ -1,13 +1,17 @@
 from rest_framework import serializers
 
+from api.models import SyncLog
+
 
 class SyncItemSerializer(serializers.Serializer):
     """Single item in a sync batch (ticket or expense)."""
     type = serializers.ChoiceField(
         choices=['passenger_ticket', 'cargo_ticket', 'expense'],
     )
-    idempotency_key = serializers.CharField(max_length=64)
+    idempotency_key = serializers.CharField(max_length=100)
     payload = serializers.JSONField()
+    local_id = serializers.IntegerField(required=False, default=None)
+    # Python int handles 64-bit Long values from Room without overflow
 
 
 class SyncBatchSerializer(serializers.Serializer):
@@ -32,3 +36,10 @@ class SyncBatchSerializer(serializers.Serializer):
                 {'resume_from': 'resume_from must be less than batch size.'}
             )
         return data
+
+
+class SyncLogResultSerializer(serializers.ModelSerializer):
+    """Response for GET /api/sync/log/{key}/ — idempotency key lookup."""
+    class Meta:
+        model = SyncLog
+        fields = ['key', 'accepted', 'quarantined', 'created_at']

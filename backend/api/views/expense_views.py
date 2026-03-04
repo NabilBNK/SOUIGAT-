@@ -16,18 +16,18 @@ class TripExpenseViewSet(viewsets.ModelViewSet):
 
     serializer_class = TripExpenseSerializer
 
+    required_actions = {
+        'create': ['create_expense'],
+        'update': ['create_expense'],
+        'partial_update': ['create_expense'],
+        'destroy': ['create_expense']
+    }
+
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
         
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
-            perm = MatrixPermission()
-            perm.required_actions = {
-                'POST': ['create_expense'],
-                'PUT': ['create_expense'],
-                'PATCH': ['create_expense'],
-                'DELETE': ['create_expense'],
-            }
-            return [IsAuthenticated(), perm, TripStatusPermission()]
+            return [IsAuthenticated(), MatrixPermission(), TripStatusPermission()]
             
         # retrieve/list: Anyone with access to the endpoint handles their scoping via get_queryset
         return [IsAuthenticated()]

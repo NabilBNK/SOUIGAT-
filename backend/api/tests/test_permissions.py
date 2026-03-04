@@ -1,12 +1,16 @@
-import pytest
+try:
+    import pytest
+    pytestmark = pytest.mark.django_db
+except ImportError:
+    pytest = None
+    pytestmark = None
 import datetime
 from django.utils import timezone
 from rest_framework import status
 
 from api.models import Trip, CargoTicket, PassengerTicket
 
-# Pytest markers for DB access
-pytestmark = pytest.mark.django_db
+
 
 def test_guichetier_cannot_access_reports_and_trips(api_client, office_staff_cargo_user):
     """

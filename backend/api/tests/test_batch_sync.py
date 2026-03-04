@@ -216,8 +216,8 @@ class BatchSyncTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data['quarantined'], 1)
 
-    def test_resume_from_exceeds_batch_rejected(self):
-        """Bug #6: resume_from >= len(items) rejected by serializer."""
+    def test_resume_from_exceeds_batch_size_rejected_by_serializer(self):
+        """Serializer validation — not view-level clamp."""
         self.client.force_authenticate(self.conductor)
         resp = self.client.post('/api/sync/batch/', {
             'trip_id': self.trip.id,
@@ -242,3 +242,46 @@ class BatchSyncTests(TestCase):
         }, format='json')
         self.assertEqual(resp.data['last_processed_index'], 1)
 
+    def test_local_id_echoed_in_accepted(self):
+        """FIX 1A: local_id from mobile is echoed back in accepted items."""
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(key='with-local-id')
+        item['local_id'] = 42  # Room entity PK
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['accepted'], 1)
+        accepted_item = resp.data['items'][0]
+        self.assertEqual(accepted_item['local_id'], 42)
+
+    def test_local_id_absent_when_not_sent(self):
+        """local_id is omitted from response when not provided in request."""
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(key='no-local-id')
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        accepted_item = resp.data['items'][0]
+        self.assertNotIn('local_id', accepted_item)
+
+
+    def test_local_id_echoed_in_quarantined(self):
+        """local_id is echoed in quarantined items (e.g. invalid expense amount)."""
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            item_type='expense', key='quarantine-with-local-id',
+            payload={'description': 'Fuel', 'amount': -1},
+        )
+        item['local_id'] = 99  # Room entity PK
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.data['quarantined'], 1)
+        quarantined_item = resp.data['items'][0]
+        self.assertEqual(quarantined_item['status'], 'quarantined')
+        self.assertEqual(quarantined_item['local_id'], 99)

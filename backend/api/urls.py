@@ -46,6 +46,7 @@ urlpatterns = [
 
     # Sync
     path('sync/batch/', sync_views.batch_sync, name='batch-sync'),
+    path('sync/log/<str:key>/', sync_views.sync_log_result, name='sync-log-result'),
 
     # Reports
     path('reports/daily/', report_views.daily_report, name='report-daily'),

@@ -10,7 +10,7 @@ from rest_framework.exceptions import ValidationError
 from api.models import (
     CargoTicket, PassengerTicket, SyncLog, QuarantinedSync, Trip, TripExpense,
 )
-from api.serializers.sync import SyncBatchSerializer
+from api.serializers.sync import SyncBatchSerializer, SyncLogResultSerializer
 from api.signals import suppress_report_signals, _invalidate_report_cache
 from api.permissions import get_cached_user_permissions
 
@@ -47,6 +47,7 @@ def batch_sync(request):
     trip_id = serializer.validated_data['trip_id']
     items = serializer.validated_data['items']
     resume_from = serializer.validated_data['resume_from']
+    # resume_from is already validated by SyncBatchSerializer: 0 <= resume_from < len(items)
 
     results = []
     accepted = 0
@@ -61,7 +62,9 @@ def batch_sync(request):
     with suppress_report_signals():
         with transaction.atomic():
             try:
-                trip = Trip.objects.select_for_update().get(pk=trip_id)
+                trip = Trip.objects.select_for_update().select_related(
+                    'bus', 'origin_office', 'destination_office'
+                ).get(pk=trip_id)
             except Trip.DoesNotExist:
                 raise ValidationError({'trip_id': 'Trip does not exist.'})
 
@@ -148,8 +151,10 @@ def batch_sync(request):
                     )
                     transaction.savepoint_commit(sid)
 
+                    local_id = item.get('local_id')
                     results.append({
                         'index': idx, 'status': 'accepted', 'id': record_id,
+                        **(({'local_id': local_id}) if local_id is not None else {}),
                     })
                     accepted += 1
                     last_processed_index = idx
@@ -178,8 +183,10 @@ def batch_sync(request):
                             idx, trip.id, reason, exc_info=True,
                         )
 
+                    local_id = item.get('local_id')
                     results.append({
                         'index': idx, 'status': 'quarantined', 'reason': reason,
+                        **(({'local_id': local_id}) if local_id is not None else {}),
                     })
                     quarantined += 1
 
@@ -207,6 +214,42 @@ def batch_sync(request):
         'last_processed_index': last_processed_index,
         'items': results,
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def sync_log_result(request, key):
+    """
+    Retrieve the original accepted/quarantined result for an idempotency key.
+
+    Used for admin debugging — retrieve the original per-item sync result.
+    The mobile SyncWorker does NOT call this endpoint; per-item 'duplicate'
+    status in the batch response provides sufficient information.
+
+    JWT-scoped: conductors can only see their own sync log entries.
+    Returns 404 for unknown keys or keys belonging to other conductors.
+    """
+    if not request.user.is_authenticated:
+        return Response(
+            {'detail': 'Authentication required.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if 'sync_batch' not in get_cached_user_permissions(request):
+        return Response(
+            {'detail': 'Not authorized.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        sync_log = SyncLog.objects.get(key=key, conductor=request.user)
+    except SyncLog.DoesNotExist:
+        return Response(
+            {'detail': 'Sync log entry not found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = SyncLogResultSerializer(sync_log)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 def _process_item(item_type, payload, trip, user, trip_state):
@@ -237,9 +280,9 @@ def _create_passenger_ticket(payload, trip, user, trip_state):
     if payment_source not in ('cash', 'prepaid'):
         raise ValidationError(f"Invalid payment_source: '{payment_source}'")
 
-    boarding_point = payload.get('boarding_point') or trip.route_origin
-    alighting_point = payload.get('alighting_point') or trip.route_destination
-    is_intermediate = (boarding_point != trip.route_origin or alighting_point != trip.route_destination)
+    boarding_point = payload.get('boarding_point') or trip.origin_office.name
+    alighting_point = payload.get('alighting_point') or trip.destination_office.name
+    is_intermediate = (boarding_point != trip.origin_office.name or alighting_point != trip.destination_office.name)
 
     if is_intermediate:
         raw_price = payload.get('price')

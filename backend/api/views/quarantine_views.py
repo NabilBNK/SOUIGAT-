@@ -139,9 +139,17 @@ class QuarantineViewSet(viewsets.ReadOnlyModelViewSet):
         # Allow processing regardless of trip status — the quarantine
         # mechanism exists precisely for closed-trip data recovery.
 
+        from api.models import PassengerTicket, CargoTicket
+        trip_state = {
+            'active_passenger_count': PassengerTicket.objects.filter(trip=trip, status='active').count(),
+            'total_passenger_count': PassengerTicket.objects.filter(trip=trip).count(),
+            'cargo_count': CargoTicket.objects.filter(trip=trip).count(),
+        }
+
         _process_item(
             item_type=item_type,
             payload=payload,
             trip=trip,
             user=item.conductor,
+            trip_state=trip_state,
         )

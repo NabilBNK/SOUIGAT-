@@ -26,17 +26,17 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
     )
     serializer_class = CargoTicketSerializer
 
+    required_actions = {
+        'create': ['create_cargo_ticket'],
+        'transition': ['transition_cargo_status'],
+        'deliver': ['receive_cargo']
+    }
+
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
         
         if self.action in ('create', 'transition', 'deliver'):
-            perm = MatrixPermission()
-            perm.required_actions = {
-                'POST': ['create_cargo_ticket'],
-                'transition': ['transition_cargo_status'],
-                'deliver': ['receive_cargo']
-            }
-            return [IsAuthenticated(), perm, OfficeScopePermission()]
+            return [IsAuthenticated(), MatrixPermission(), OfficeScopePermission()]
             
         # list / retrieve
         return [IsAuthenticated(), OfficeScopePermission()]
