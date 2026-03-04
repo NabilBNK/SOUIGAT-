@@ -40,3 +40,17 @@ web/.vite/
 # Celery
 celerybeat-schedule
 celerybeat.pid
+
+# Android — secrets (NEVER commit these)
+google-services.json
+*.jks
+keystore.properties
+local.properties
+
+# Android — build artifacts
+mobile/.gradle/
+mobile/build/
+mobile/app/build/
+mobile/.idea/
+mobile/captures/
+mobile/*.iml
