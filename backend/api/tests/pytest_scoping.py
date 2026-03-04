@@ -1,22 +1,11 @@
+import pytest
 import datetime
 from django.utils import timezone
 from rest_framework import status
 
 from api.models import Trip, CargoTicket, PassengerTicket, Office, User
 
-class MockPytest:
-    def fixture(self, *args, **kwargs):
-        def decorator(func):
-            return func
-        # If used without arguments: @pytest.fixture
-        if len(args) == 1 and callable(args[0]):
-            return args[0]
-        return decorator
-
-try:
-    import pytest
-except ImportError:
-    pytest = MockPytest()
+pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def office_a(db):

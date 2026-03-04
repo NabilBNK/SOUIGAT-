@@ -1,14 +1,12 @@
-try:
-    import pytest
-    pytestmark = pytest.mark.django_db
-except ImportError:
-    pytest = None
-    pytestmark = None
+import pytest
 import datetime
 from django.utils import timezone
 from rest_framework import status
 
 from api.models import Trip, CargoTicket, PassengerTicket
+
+# Pytest markers for DB access
+pytestmark = pytest.mark.django_db
 
 
 
