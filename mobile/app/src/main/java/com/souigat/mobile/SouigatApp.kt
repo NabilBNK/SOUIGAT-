@@ -24,6 +24,10 @@ class SouigatApp : Application() {
         }
 
         // Firebase: crash reporting — always initialized (Crashlytics is no-op in debug builds)
-        FirebaseApp.initializeApp(this)
+        try {
+            FirebaseApp.initializeApp(this)
+        } catch (e: Exception) {
+            Timber.e(e, "Firebase initialization failed. Using placeholder google-services.json?")
+        }
     }
 }

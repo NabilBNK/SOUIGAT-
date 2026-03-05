@@ -5,9 +5,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- WorkManager requires RECEIVE_BOOT_COMPLETED for reliable sync scheduling -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Foreground service for active trip sync (MIUI battery killer fallback) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Foreground service for active trip sync (Phase 3.3) -->
+    <!-- permissions removed temporarily to prevent strict Android 14/HyperOS crashes -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application

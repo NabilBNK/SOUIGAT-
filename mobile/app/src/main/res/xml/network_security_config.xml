@@ -6,14 +6,12 @@
     staging/release: no cleartext allowed anywhere.
 -->
 <network-security-config>
-    <debug-overrides>
-        <!-- Emulator → host machine (Docker backend at localhost:8000) -->
-        <domain-config cleartextTrafficPermitted="true">
-            <domain includeSubdomains="false">10.0.2.2</domain>
-            <!-- Physical device via adb reverse tcp:8000 tcp:8000 -->
-            <domain includeSubdomains="false">localhost</domain>
-        </domain-config>
-    </debug-overrides>
+    <!-- Emulator → host machine (Docker backend at localhost:8000) -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- Physical device via adb reverse tcp:8000 tcp:8000 -->
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
 
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
