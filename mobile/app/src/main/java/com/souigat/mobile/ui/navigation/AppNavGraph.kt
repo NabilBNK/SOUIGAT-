@@ -20,6 +20,7 @@ import com.souigat.mobile.ui.screens.expense.ExpensesScreen
 import com.souigat.mobile.ui.screens.history.HistoryScreen
 import com.souigat.mobile.ui.screens.login.LoginScreen
 import com.souigat.mobile.ui.screens.profile.ProfileScreen
+import com.souigat.mobile.ui.screens.tickets.CreateTicketScreen
 
 @Composable
 fun AppNavGraph() {
@@ -98,7 +99,26 @@ fun AppNavGraph() {
                 route = "trip_detail/{tripId}",
                 arguments = listOf(navArgument("tripId") { type = NavType.IntType })
             ) {
-                TripDetailScreen(onNavigateBack = { navController.popBackStack() })
+                TripDetailScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToCreateTicket = { tripId, passPrice, smallPrice, medPrice, largePrice, currency ->
+                        navController.navigate("create_ticket/$tripId/$passPrice/$smallPrice/$medPrice/$largePrice/$currency")
+                    }
+                )
+            }
+            
+            composable(
+                route = "create_ticket/{tripId}/{passPrice}/{smallPrice}/{medPrice}/{largePrice}/{currency}",
+                arguments = listOf(
+                    navArgument("tripId") { type = NavType.IntType },
+                    navArgument("passPrice") { type = NavType.StringType },
+                    navArgument("smallPrice") { type = NavType.StringType },
+                    navArgument("medPrice") { type = NavType.StringType },
+                    navArgument("largePrice") { type = NavType.StringType },
+                    navArgument("currency") { type = NavType.StringType }
+                )
+            ) {
+                CreateTicketScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable("office_dashboard") { Text("Office Staff Dashboard") }
             composable("admin_dashboard") { Text("Admin Dashboard") }

@@ -26,6 +26,8 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private val TRIP_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.FRANCE)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripListScreen(
@@ -117,11 +119,8 @@ fun TripItemCard(trip: TripListDto, onClick: () -> Unit) {
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            val formatter = androidx.compose.runtime.remember { 
-                DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.FRANCE) 
-            }
             val parsedDate = try {
-                OffsetDateTime.parse(trip.departureDatetime).format(formatter)
+                OffsetDateTime.parse(trip.departureDatetime).format(TRIP_DATE_FORMATTER)
             } catch (e: Exception) {
                 trip.departureDatetime
             }

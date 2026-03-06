@@ -16,6 +16,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.souigat.mobile.data.remote.dto.TripDetailDto
 import com.souigat.mobile.domain.repository.TripException
+import com.souigat.mobile.data.local.entity.CargoTicketEntity
+import com.souigat.mobile.data.local.entity.PassengerTicketEntity
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -24,10 +28,13 @@ import java.util.Locale
 @Composable
 fun TripDetailScreen(
     viewModel: TripDetailViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToCreateTicket: (Int, String, String, String, String, String) -> Unit = { _, _, _, _, _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val actionState by viewModel.actionState.collectAsState()
+    val passengerTickets by viewModel.passengerTickets.collectAsState()
+    val cargoTickets by viewModel.cargoTickets.collectAsState()
     val snackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
 
     LaunchedEffect(actionState) {
@@ -56,6 +63,28 @@ fun TripDetailScreen(
                 )
             )
         },
+        floatingActionButton = {
+            if (uiState is TripDetailUiState.Success) {
+                val trip = (uiState as TripDetailUiState.Success).trip
+                if (trip.status == "in_progress") {
+                    FloatingActionButton(
+                        onClick = {
+                            onNavigateToCreateTicket(
+                                trip.id,
+                                trip.passengerBasePrice,
+                                trip.cargoSmallPrice,
+                                trip.cargoMediumPrice,
+                                trip.cargoLargePrice,
+                                trip.currency
+                            )
+                        },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Text("+ Billet", modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                    }
+                }
+            }
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
@@ -78,6 +107,8 @@ fun TripDetailScreen(
                     TripDetailContent(
                         trip = state.trip,
                         actionState = actionState,
+                        passengerTickets = passengerTickets,
+                        cargoTickets = cargoTickets,
                         onStartTrip = viewModel::startTrip,
                         onCompleteTrip = viewModel::completeTrip
                     )
@@ -91,12 +122,15 @@ fun TripDetailScreen(
 fun TripDetailContent(
     trip: TripDetailDto,
     actionState: TripDetailViewModel.ActionState,
+    passengerTickets: List<PassengerTicketEntity>,
+    cargoTickets: List<CargoTicketEntity>,
     onStartTrip: () -> Unit,
     onCompleteTrip: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -139,7 +173,31 @@ fun TripDetailContent(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        if (passengerTickets.isNotEmpty() || cargoTickets.isNotEmpty()) {
+            Text("Billets créés hors ligne", style = MaterialTheme.typography.titleMedium)
+            
+            passengerTickets.forEach { pt ->
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(pt.ticketNumber, fontWeight = FontWeight.Bold)
+                        Text("Passager: ${pt.passengerName}")
+                        Text("Prix: ${pt.price / 100} ${pt.currency}")
+                    }
+                }
+            }
+            
+            cargoTickets.forEach { ct ->
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(ct.ticketNumber, fontWeight = FontWeight.Bold)
+                        Text("Expéditeur: ${ct.senderName} -> Destinataire: ${ct.receiverName}")
+                        Text("Taille: ${ct.cargoTier} | Prix: ${ct.price / 100} ${ct.currency}")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(60.dp)) // Leave space for FAB
 
         // Action Buttons mapped purely by status
         val isLoading = actionState is TripDetailViewModel.ActionState.Loading

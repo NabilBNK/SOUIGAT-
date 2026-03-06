@@ -6,10 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.souigat.mobile.data.remote.dto.TripDetailDto
 import com.souigat.mobile.domain.repository.TripException
 import com.souigat.mobile.domain.repository.TripRepository
+import com.souigat.mobile.domain.repository.TicketRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,6 +25,7 @@ sealed class TripDetailUiState {
 @HiltViewModel
 class TripDetailViewModel @Inject constructor(
     private val tripRepository: TripRepository,
+    private val ticketRepository: TicketRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -32,6 +36,12 @@ class TripDetailViewModel @Inject constructor(
 
     private val _actionState = MutableStateFlow<ActionState>(ActionState.Idle)
     val actionState: StateFlow<ActionState> = _actionState.asStateFlow()
+
+    val passengerTickets = ticketRepository.observePassengerTickets(tripId.toLong())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val cargoTickets = ticketRepository.observeCargoTickets(tripId.toLong())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     sealed class ActionState {
         object Idle : ActionState()

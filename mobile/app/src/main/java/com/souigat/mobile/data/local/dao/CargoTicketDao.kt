@@ -10,6 +10,9 @@ interface CargoTicketDao {
     @Query("SELECT * FROM cargo_tickets WHERE tripId = :tripId ORDER BY createdAt DESC")
     fun observeByTrip(tripId: Long): Flow<List<CargoTicketEntity>>
 
+    @Query("SELECT COUNT(*) FROM cargo_tickets WHERE tripId = :tripId")
+    suspend fun getCount(tripId: Long): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(ticket: CargoTicketEntity): Long
 
