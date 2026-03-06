@@ -55,7 +55,8 @@ class TokenManager @Inject constructor(
         private const val KEY_USER_ROLE = "user_role"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_OFFICE_ID = "office_id"
-        private const val KEY_FULL_NAME = "full_name"
+        private const val KEY_FIRST_NAME = "first_name"
+        private const val KEY_LAST_NAME = "last_name"
     }
 
     fun getDeviceId(): String {
@@ -74,11 +75,12 @@ class TokenManager @Inject constructor(
             .apply()
     }
 
-    fun saveUserProfile(userId: Int, role: String, officeId: Int?, fullName: String) {
+    fun saveUserProfile(userId: Int, role: String, officeId: Int, firstName: String, lastName: String) {
         val editor = sharedPreferences.edit()
             .putInt(KEY_USER_ID, userId)
             .putString(KEY_USER_ROLE, role)
-            .putString(KEY_FULL_NAME, fullName)
+            .putString(KEY_FIRST_NAME, firstName)
+            .putString(KEY_LAST_NAME, lastName)
             
         if (officeId != null) {
             editor.putInt(KEY_OFFICE_ID, officeId)
@@ -105,7 +107,11 @@ class TokenManager @Inject constructor(
         return if (id != -1) id else null
     }
     
-    fun getFullName(): String? = sharedPreferences.getString(KEY_FULL_NAME, null)
+    fun getFullName(): String? {
+        val first = sharedPreferences.getString(KEY_FIRST_NAME, null) ?: return null
+        val last = sharedPreferences.getString(KEY_LAST_NAME, null) ?: return null
+        return "$first $last".trim()
+    }
 
     fun clearAll() {
         val deviceId = getDeviceId() // Keep deviceId intact

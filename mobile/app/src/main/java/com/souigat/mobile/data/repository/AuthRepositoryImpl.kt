@@ -20,7 +20,7 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val response = authApi.login(
                 LoginRequest(
-                    username = username,
+                    phone = username,
                     password = password,
                     deviceId = tokenManager.getDeviceId()
                 )
@@ -31,8 +31,9 @@ class AuthRepositoryImpl @Inject constructor(
                 tokenManager.saveUserProfile(
                     userId = body.user.id,
                     role = body.user.role,
-                    officeId = body.user.officeId,
-                    fullName = body.user.fullName
+                    officeId = body.user.office,
+                    firstName = body.user.first_name,
+                    lastName = body.user.last_name
                 )
                 Result.success(body.user)
             } else {
@@ -41,6 +42,7 @@ class AuthRepositoryImpl @Inject constructor(
                     when (errorCode) {
                         401 -> AuthException.InvalidCredentials
                         403 -> AuthException.AccountDisabled
+                        429 -> AuthException.TooManyAttempts
                         else -> AuthException.ServerError(errorCode)
                     }
                 )
@@ -69,9 +71,24 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun getStoredUserProfile(): UserProfileDto? {
         val role = tokenManager.getUserRole() ?: return null
         val id = tokenManager.getUserId() ?: return null
-        val officeId = tokenManager.getOfficeId()
-        val fullName = tokenManager.getFullName() ?: return null
-        return UserProfileDto(id, "", fullName, role, officeId, true)
+        val officeId = tokenManager.getOfficeId() ?: return null // Assuming officeId is always required for active users
+        val firstName = tokenManager.getFullName()?.split("-")?.firstOrNull() ?: "" // This getStoredUserProfile isn't used much, but mock something if we don't have first/last
+        
+        return UserProfileDto(
+            id = id,
+            phone = "",
+            first_name = "", 
+            last_name = "", 
+            role = role,
+            department = null,
+            office = officeId,
+            office_name = null,
+            office_city = null,
+            is_active = true,
+            device_id = tokenManager.getDeviceId(),
+            last_login = null,
+            permissions = emptyMap()
+        )
     }
 
     override fun isLoggedIn(): Boolean {
@@ -85,5 +102,6 @@ sealed class AuthException : Exception() {
     object InvalidCredentials : AuthException()
     object AccountDisabled : AuthException()
     object NetworkUnavailable : AuthException()
+    object TooManyAttempts : AuthException()   // 429 from throttle
     data class ServerError(val code: Int) : AuthException()
 }

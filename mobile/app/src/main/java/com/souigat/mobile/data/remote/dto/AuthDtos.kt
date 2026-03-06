@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 // REQUEST DTOs
 @Serializable
 data class LoginRequest(
-    val username: String, // CRITICAL: "username" not "phone"
+    val phone: String,
     val password: String,
     @SerialName("device_id")
     val deviceId: String,
@@ -32,23 +32,29 @@ data class LoginResponse(
     val refresh: String,
     val user: UserProfileDto,
     @SerialName("device_bound")
-    val deviceBound: Boolean? = null,
+    val deviceBound: Boolean,
     @SerialName("token_strategy")
-    val tokenStrategy: String? = null
+    val tokenStrategy: String
 )
 
 @Serializable
 data class UserProfileDto(
     val id: Int,
-    val username: String? = null,
-    @SerialName("full_name")
-    val fullName: String,
-    val role: String, // "conductor" | "office_staff" | "admin"
-    @SerialName("office_id")
-    val officeId: Int? = null,
-    @SerialName("is_active")
-    val isActive: Boolean? = null
-)
+    val phone: String,
+    val first_name: String,
+    val last_name: String,
+    val role: String,
+    val department: String?,
+    val office: Int,
+    val office_name: String?,
+    val office_city: String?,
+    val is_active: Boolean,
+    val device_id: String?,
+    val last_login: String?,
+    val permissions: Map<String, Boolean>
+) {
+    val fullName: String get() = "$first_name $last_name".trim()
+}
 
 @Serializable
 data class RefreshResponse(

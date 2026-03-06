@@ -24,6 +24,7 @@ sealed class LoginUiState {
         object InvalidCredentials : Error()
         object AccountDisabled : Error()
         object NetworkUnavailable : Error()
+        object TooManyAttempts : Error()
         data class Unknown(val message: String) : Error()
     }
 }
@@ -36,12 +37,12 @@ class LoginViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
-    var username by mutableStateOf("")
+    var phone by mutableStateOf("")
         private set
     var password by mutableStateOf("")
         private set
 
-    fun onUsernameChanged(value: String) { username = value }
+    fun onPhoneChanged(value: String) { phone = value }
     fun onPasswordChanged(value: String) { password = value }
 
     fun resetState() {
@@ -51,9 +52,9 @@ class LoginViewModel @Inject constructor(
     }
 
     fun login() {
-        // Local validation before network call
-        if (username.isBlank()) {
-            _uiState.value = LoginUiState.Error.Unknown("Veuillez saisir votre nom d'utilisateur")
+        val phoneRegex = Regex("^0[5-79][0-9]{8}$")
+        if (!phoneRegex.matches(phone)) {
+            _uiState.value = LoginUiState.Error.Unknown("Format invalide. Ex: 0661234567")
             return
         }
         if (password.length < 8) {
@@ -63,13 +64,14 @@ class LoginViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.value = LoginUiState.Loading
-            authRepository.login(username.trim().lowercase(), password)
+            authRepository.login(phone.trim(), password)
                 .onSuccess { user -> _uiState.value = LoginUiState.Success(user) }
                 .onFailure { e ->
                     _uiState.value = when (e) {
                         is AuthException.InvalidCredentials -> LoginUiState.Error.InvalidCredentials
                         is AuthException.AccountDisabled -> LoginUiState.Error.AccountDisabled
                         is AuthException.NetworkUnavailable -> LoginUiState.Error.NetworkUnavailable
+                        is AuthException.TooManyAttempts -> LoginUiState.Error.TooManyAttempts
                         else -> LoginUiState.Error.Unknown(e.message ?: "Erreur inconnue")
                     }
                 }

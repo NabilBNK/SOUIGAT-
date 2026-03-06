@@ -21,8 +21,7 @@ class TokenRefreshAuthenticator @Inject constructor(
     private val authApiProvider: Provider<AuthApi> // must be the NO-AUTH retrofit instance provided by dagger
 ) : Authenticator {
 
-    private val isRefreshing = AtomicBoolean(false)
-
+    @Synchronized
     override fun authenticate(route: Route?, response: Response): Request? {
         // Step 1: Check if the token on the FAILED REQUEST is still the
         // current token. If another thread already refreshed it, just retry
@@ -51,43 +50,29 @@ class TokenRefreshAuthenticator @Inject constructor(
             return null
         }
 
-        // Step 2: Only ONE thread should attempt the refresh
-        if (!isRefreshing.compareAndSet(false, true)) {
-            // Another thread is refreshing — wait briefly then retry
-            Timber.i("Another thread is refreshing. Waiting 500ms...")
-            try { Thread.sleep(500) } catch (e: InterruptedException) { /* ignored */ }
-            val newToken = tokenManager.getAccessToken()
-            return if (newToken != null && newToken != failedToken) {
-                response.request.newBuilder()
-                    .header("Authorization", "Bearer $newToken")
-                    .build()
-            } else null
+        // Attempt refresh — this is now single-threaded due to @Synchronized
+        val refreshToken = tokenManager.getRefreshToken() ?: run {
+            tokenManager.clearAll()
+            return null
+        }
+        val deviceId = tokenManager.getDeviceId()
+
+        Timber.i("Executing refresh API call locally under Synchronized lock...")
+        val refreshResponse = runBlocking {
+            authApiProvider.get().refreshToken(RefreshRequest(refreshToken, deviceId))
         }
 
-        return try {
-            val refreshToken = tokenManager.getRefreshToken() ?: return null
-            val deviceId = tokenManager.getDeviceId()
-
-            Timber.i("Executing refresh API call locally under Mutex lock...")
-            val refreshResponse = runBlocking {
-                authApiProvider.get().refreshToken(RefreshRequest(refreshToken, deviceId))
-            }
-
-            if (refreshResponse.isSuccessful) {
-                val newAccessToken = refreshResponse.body()?.access ?: return null
-                val newRefreshToken = refreshResponse.body()?.refresh ?: refreshToken
-                tokenManager.saveTokens(newAccessToken, newRefreshToken)
-                response.request.newBuilder()
-                    .header("Authorization", "Bearer $newAccessToken")
-                    .build()
-            } else {
-                Timber.e("Refresh failed. Clearing tokens (HTTP ${refreshResponse.code()})")
-                // Refresh failed — clear tokens and trigger logout event
-                tokenManager.clearAll()
-                null  // returning null forces OkHttp to surface the 401 to the caller
-            }
-        } finally {
-            isRefreshing.set(false)
+        return if (refreshResponse.isSuccessful) {
+            val newAccessToken = refreshResponse.body()?.access ?: return null
+            val newRefreshToken = refreshResponse.body()?.refresh ?: refreshToken
+            tokenManager.saveTokens(newAccessToken, newRefreshToken)
+            response.request.newBuilder()
+                .header("Authorization", "Bearer $newAccessToken")
+                .build()
+        } else {
+            Timber.e("Refresh failed. Clearing tokens (HTTP ${refreshResponse.code()})")
+            tokenManager.clearAll()
+            null
         }
     }
 

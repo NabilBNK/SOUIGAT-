@@ -40,6 +40,7 @@ fun LoginScreen(
                 is LoginUiState.Error.InvalidCredentials -> "Nom d'utilisateur ou mot de passe incorrect"
                 is LoginUiState.Error.AccountDisabled -> "Compte désactivé. Contactez l'admin."
                 is LoginUiState.Error.NetworkUnavailable -> "Pas de connexion. Vérifiez votre réseau."
+                is LoginUiState.Error.TooManyAttempts -> "Trop de tentatives. Attendez 1 minute."
                 is LoginUiState.Error.Unknown -> errorState.message
             }
             snackbarHostState.showSnackbar(message)
@@ -80,13 +81,13 @@ fun LoginScreen(
             val isLoading = uiState is LoginUiState.Loading
 
             OutlinedTextField(
-                value = viewModel.username,
-                onValueChange = viewModel::onUsernameChanged,
-                label = { Text("Nom d'utilisateur") },
+                value = viewModel.phone,
+                onValueChange = viewModel::onPhoneChanged,
+                label = { Text("Numéro de téléphone") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isLoading,
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
+                    keyboardType = KeyboardType.Phone,
                     imeAction = ImeAction.Next
                 ),
                 singleLine = true,
