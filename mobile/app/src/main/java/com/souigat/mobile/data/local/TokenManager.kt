@@ -107,9 +107,13 @@ class TokenManager @Inject constructor(
         return if (id != -1) id else null
     }
     
+    fun getFirstName(): String? = sharedPreferences.getString(KEY_FIRST_NAME, null)
+    
+    fun getLastName(): String? = sharedPreferences.getString(KEY_LAST_NAME, null)
+    
     fun getFullName(): String? {
-        val first = sharedPreferences.getString(KEY_FIRST_NAME, null) ?: return null
-        val last = sharedPreferences.getString(KEY_LAST_NAME, null) ?: return null
+        val first = getFirstName() ?: return null
+        val last = getLastName() ?: return null
         return "$first $last".trim()
     }
 

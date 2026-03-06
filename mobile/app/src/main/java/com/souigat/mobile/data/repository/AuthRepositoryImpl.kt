@@ -16,11 +16,11 @@ class AuthRepositoryImpl @Inject constructor(
     private val tokenManager: TokenManager
 ) : AuthRepository {
 
-    override suspend fun login(username: String, password: String): Result<UserProfileDto> {
+    override suspend fun login(phone: String, password: String): Result<UserProfileDto> {
         return try {
             val response = authApi.login(
                 LoginRequest(
-                    phone = username,
+                    phone = phone,
                     password = password,
                     deviceId = tokenManager.getDeviceId()
                 )
@@ -71,14 +71,15 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun getStoredUserProfile(): UserProfileDto? {
         val role = tokenManager.getUserRole() ?: return null
         val id = tokenManager.getUserId() ?: return null
-        val officeId = tokenManager.getOfficeId() ?: return null // Assuming officeId is always required for active users
-        val firstName = tokenManager.getFullName()?.split("-")?.firstOrNull() ?: "" // This getStoredUserProfile isn't used much, but mock something if we don't have first/last
+        val officeId = tokenManager.getOfficeId() ?: return null
+        val firstName = tokenManager.getFirstName() ?: return null
+        val lastName = tokenManager.getLastName() ?: return null
         
         return UserProfileDto(
             id = id,
-            phone = "",
-            first_name = "", 
-            last_name = "", 
+            phone = "", // Not stored locally currently, but optional in the app's offline flow
+            first_name = firstName, 
+            last_name = lastName, 
             role = role,
             department = null,
             office = officeId,

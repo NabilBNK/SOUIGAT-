@@ -3,6 +3,7 @@ package com.souigat.mobile.data.remote.interceptor
 import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.data.remote.api.AuthApi
 import com.souigat.mobile.data.remote.dto.RefreshRequest
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
 import okhttp3.Request
@@ -58,7 +59,7 @@ class TokenRefreshAuthenticator @Inject constructor(
         val deviceId = tokenManager.getDeviceId()
 
         Timber.i("Executing refresh API call locally under Synchronized lock...")
-        val refreshResponse = runBlocking {
+        val refreshResponse = runBlocking(Dispatchers.IO) {
             authApiProvider.get().refreshToken(RefreshRequest(refreshToken, deviceId))
         }
 
