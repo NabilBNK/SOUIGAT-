@@ -37,7 +37,12 @@ class TripRepositoryImpl @Inject constructor(
         return try {
             val response = apiCall()
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                val body = response.body()
+                if (body != null) {
+                    Result.success(body)
+                } else {
+                    Result.failure(TripException.ServerError(response.code()))
+                }
             } else {
                 val errorCode = response.code()
                 val errorBody = response.errorBody()?.string()

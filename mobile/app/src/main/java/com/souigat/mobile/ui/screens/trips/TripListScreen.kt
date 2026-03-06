@@ -17,6 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.souigat.mobile.data.remote.dto.TripListDto
 import com.souigat.mobile.domain.repository.TripException
 import java.time.OffsetDateTime
@@ -30,10 +33,13 @@ fun TripListScreen(
     onNavigateToDetail: (Int) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     // Refresh trips every time screen becomes visible
-    LaunchedEffect(Unit) {
-        viewModel.loadTrips()
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            viewModel.loadTrips()
+        }
     }
 
     Scaffold(
@@ -111,7 +117,9 @@ fun TripItemCard(trip: TripListDto, onClick: () -> Unit) {
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            val formatter = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.FRANCE)
+            val formatter = androidx.compose.runtime.remember { 
+                DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.FRANCE) 
+            }
             val parsedDate = try {
                 OffsetDateTime.parse(trip.departureDatetime).format(formatter)
             } catch (e: Exception) {
