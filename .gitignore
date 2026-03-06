@@ -55,3 +55,7 @@ mobile/.idea/
 mobile/captures/
 mobile/*.iml
 *.sqlite3
+
+# JVM crash dumps
+hs_err_pid*.log
+replay_pid*.log

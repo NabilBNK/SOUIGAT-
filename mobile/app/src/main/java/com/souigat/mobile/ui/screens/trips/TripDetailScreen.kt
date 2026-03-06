@@ -100,7 +100,7 @@ fun TripDetailContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        val formatter = DateTimeFormatter.ofPattern("dd MMM yyyy à HH:mm", Locale.FRANCE)
+        val formatter = androidx.compose.runtime.remember { DateTimeFormatter.ofPattern("dd MMM yyyy à HH:mm", Locale.FRANCE) }
         val departureStr = try {
             OffsetDateTime.parse(trip.departureDatetime).format(formatter)
         } catch (e: Exception) {
