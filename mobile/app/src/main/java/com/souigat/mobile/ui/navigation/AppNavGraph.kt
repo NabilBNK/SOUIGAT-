@@ -7,12 +7,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.souigat.mobile.ui.screens.boot.BootScreen
-import com.souigat.mobile.ui.screens.dashboard.DashboardScreen
+import com.souigat.mobile.ui.screens.trips.TripListScreen
+import com.souigat.mobile.ui.screens.trips.TripDetailScreen
 import com.souigat.mobile.ui.screens.expense.ExpensesScreen
 import com.souigat.mobile.ui.screens.history.HistoryScreen
 import com.souigat.mobile.ui.screens.login.LoginScreen
@@ -83,7 +86,20 @@ fun AppNavGraph() {
                 })
             }
 
-            composable(NavRoute.Dashboard.route) { DashboardScreen() }
+            composable(NavRoute.Dashboard.route) { 
+                TripListScreen(
+                    onNavigateToDetail = { tripId ->
+                        navController.navigate("trip_detail/$tripId")
+                    }
+                )
+            }
+            
+            composable(
+                route = "trip_detail/{tripId}",
+                arguments = listOf(navArgument("tripId") { type = NavType.IntType })
+            ) {
+                TripDetailScreen(onNavigateBack = { navController.popBackStack() })
+            }
             composable("office_dashboard") { Text("Office Staff Dashboard") }
             composable("admin_dashboard") { Text("Admin Dashboard") }
 
