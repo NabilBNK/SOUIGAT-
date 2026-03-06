@@ -54,3 +54,4 @@ mobile/app/build/
 mobile/.idea/
 mobile/captures/
 mobile/*.iml
+*.sqlite3
