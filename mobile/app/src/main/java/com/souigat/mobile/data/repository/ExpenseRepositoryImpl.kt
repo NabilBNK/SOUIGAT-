@@ -49,6 +49,7 @@ class ExpenseRepositoryImpl @Inject constructor(
 
                 // Prepare SyncQueue payload
                 val jsonPayload = JSONObject().apply {
+                    put("idempotencyKey", idempotencyKey)
                     put("trip", tripId)
                     put("amount", amount)
                     put("currency", currency)

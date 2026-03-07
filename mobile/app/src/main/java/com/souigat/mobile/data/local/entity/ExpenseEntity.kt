@@ -15,7 +15,10 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("tripId")]
+    indices = [
+        Index("tripId"),
+        Index(value = ["idempotencyKey"], unique = true)
+    ]
 )
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

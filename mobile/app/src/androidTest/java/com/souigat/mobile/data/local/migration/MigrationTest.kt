@@ -102,7 +102,7 @@ class MigrationTest {
         // Simulate a Phase 3.4 expense without status and unique index (v3 schema)
         db.execSQL("""
             INSERT INTO expenses (tripId, idempotencyKey, amount, currency, category, description, createdAt) 
-            VALUES (1, 'c9a2d3e4f5g6h7i8j9k0l1m2n3o4p5q6', 500, 'DZD', 'food', 'Lunch', 2000)
+            VALUES (1, '123e4567-e89b-12d3-a456-426614174000', 500, 'DZD', 'food', 'Lunch', 2000)
         """.trimIndent())
         
         db.close()
@@ -126,7 +126,7 @@ class MigrationTest {
         try {
             db.execSQL("""
                 INSERT INTO expenses (tripId, idempotencyKey, amount, currency, category, description, status, createdAt) 
-                VALUES (1, 'c9a2d3e4f5g6h7i8j9k0l1m2n3o4p5q6', 600, 'DZD', 'food', 'Dinner', 'active', 2005)
+                VALUES (1, '123e4567-e89b-12d3-a456-426614174000', 600, 'DZD', 'food', 'Dinner', 'active', 2005)
             """.trimIndent())
         } catch (e: android.database.sqlite.SQLiteConstraintException) {
             constraintFired = true
