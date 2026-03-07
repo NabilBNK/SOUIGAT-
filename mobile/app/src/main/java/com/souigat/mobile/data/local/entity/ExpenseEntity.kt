@@ -26,5 +26,6 @@ data class ExpenseEntity(
     val currency: String,
     val category: String,           // fuel | food | tolls | other
     val description: String,
+    val status: String = "active",
     val createdAt: Long = System.currentTimeMillis()
 )

@@ -30,58 +30,49 @@ class ExpenseRepositoryImpl @Inject constructor(
         category: String,
         description: String
     ): Result<ExpenseEntity> = withContext(Dispatchers.IO) {
-        var retries = 0
-        val maxRetries = 5
-        var lastException: Exception? = null
+        return@withContext try {
+            val idempotencyKey = UUID.randomUUID().toString()
+            val savedEntity = db.withTransaction {
+                val entity = ExpenseEntity(
+                    serverId = null,
+                    tripId = tripId,
+                    idempotencyKey = idempotencyKey,
+                    amount = amount,
+                    currency = currency,
+                    category = category,
+                    description = description,
+                    status = "active"
+                )
 
-        // Stable idempotency key generated ONCE per creation request
-        val idempotencyKey = UUID.randomUUID().toString()
+                val localId = expenseDao.upsert(entity)
+                val newSavedEntity = entity.copy(id = localId)
 
-        while (retries < maxRetries) {
-            try {
-                val savedEntity = db.withTransaction {
-                    val entity = ExpenseEntity(
-                        serverId = null,
-                        tripId = tripId,
-                        idempotencyKey = idempotencyKey,
-                        amount = amount,
-                        currency = currency,
-                        category = category,
-                        description = description
-                    )
+                // Prepare SyncQueue payload
+                val jsonPayload = JSONObject().apply {
+                    put("trip", tripId)
+                    put("amount", amount)
+                    put("currency", currency)
+                    put("category", category)
+                    put("description", description)
+                }.toString()
 
-                    val localId = expenseDao.upsert(entity)
-                    val newSavedEntity = entity.copy(id = localId)
-
-                    // Prepare SyncQueue payload
-                    val jsonPayload = JSONObject().apply {
-                        put("trip", tripId)
-                        put("amount", amount)
-                        put("currency", currency)
-                        put("category", category)
-                        put("description", description)
-                    }.toString()
-
-                    val syncItem = SyncQueueEntity(
-                        tripId = tripId,
-                        itemType = "expense",
-                        payload = jsonPayload,
-                        idempotencyKey = idempotencyKey,
-                        status = SyncStatus.PENDING
-                    )
-                    syncQueueDao.enqueue(syncItem)
-                    
-                    newSavedEntity
-                }
-                return@withContext Result.success(savedEntity)
-            } catch (e: android.database.sqlite.SQLiteConstraintException) {
-                lastException = e
-                retries++
-            } catch (e: Exception) {
-                return@withContext Result.failure(e)
+                val syncItem = SyncQueueEntity(
+                    tripId = tripId,
+                    itemType = "expense",
+                    payload = jsonPayload,
+                    idempotencyKey = idempotencyKey,
+                    status = SyncStatus.PENDING
+                )
+                syncQueueDao.enqueue(syncItem)
+                
+                newSavedEntity
             }
+            Result.success(savedEntity)
+        } catch (e: Exception) {
+            // Expenses do not have sequence collisions like tickets do, 
+            // so we do not retry on constraint exceptions here.
+            Result.failure(e)
         }
-        Result.failure(Exception("Failed to save expense after \$maxRetries attempts", lastException))
     }
 
     override fun observeExpensesByTrip(tripId: Long): Flow<List<ExpenseEntity>> {

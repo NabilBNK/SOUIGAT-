@@ -93,4 +93,44 @@ class MigrationTest {
         
         cursor.close()
     }
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate3To4() {
+        var db = helper.createDatabase(TEST_DB, 3)
+
+        // Simulate a Phase 3.4 expense without status and unique index (v3 schema)
+        db.execSQL("""
+            INSERT INTO expenses (tripId, idempotencyKey, amount, currency, category, description, createdAt) 
+            VALUES (1, 'c9a2d3e4f5g6h7i8j9k0l1m2n3o4p5q6', 500, 'DZD', 'food', 'Lunch', 2000)
+        """.trimIndent())
+        
+        db.close()
+
+        // Re-open with version 4 and apply MIGRATION_3_4
+        db = helper.runMigrationsAndValidate(TEST_DB, 4, true, Migrations.MIGRATION_3_4)
+
+        // Verify data survived and status was backfilled
+        val cursor = db.query("SELECT * FROM expenses")
+        assertEquals(1, cursor.count)
+        cursor.moveToFirst()
+        
+        val statusIndex = cursor.getColumnIndex("status")
+        val status = cursor.getString(statusIndex)
+        assertEquals("active", status)
+        
+        cursor.close()
+
+        // Verify unique index enforcement by attempting to insert a duplicate idempotency key
+        var constraintFired = false
+        try {
+            db.execSQL("""
+                INSERT INTO expenses (tripId, idempotencyKey, amount, currency, category, description, status, createdAt) 
+                VALUES (1, 'c9a2d3e4f5g6h7i8j9k0l1m2n3o4p5q6', 600, 'DZD', 'food', 'Dinner', 'active', 2005)
+            """.trimIndent())
+        } catch (e: android.database.sqlite.SQLiteConstraintException) {
+            constraintFired = true
+        }
+        assert(constraintFired) { "Unique index on idempotencyKey was not enforced" }
+    }
 }

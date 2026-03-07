@@ -10,15 +10,15 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE tripId = :tripId ORDER BY createdAt DESC")
     fun observeByTrip(tripId: Long): Flow<List<ExpenseEntity>>
 
-    @Query("SELECT SUM(amount) FROM expenses WHERE tripId = :tripId")
+    @Query("SELECT SUM(amount) FROM expenses WHERE tripId = :tripId AND status = 'active'")
     suspend fun getTotalAmount(tripId: Long): Long?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun upsert(expense: ExpenseEntity): Long
 
     @Update
     suspend fun update(expense: ExpenseEntity)
 
-    @Query("DELETE FROM expenses WHERE id = :id")
-    suspend fun deleteById(id: Long)
+    @Query("UPDATE expenses SET status = 'cancelled' WHERE id = :id")
+    suspend fun cancel(id: Long)
 }

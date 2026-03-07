@@ -61,5 +61,14 @@ object Migrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add status column for soft-cancel
+            db.execSQL("ALTER TABLE expenses ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+            // Add DB-level uniqueness enforcement for idempotencyKey
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_expenses_idempotencyKey ON expenses (idempotencyKey)")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }
