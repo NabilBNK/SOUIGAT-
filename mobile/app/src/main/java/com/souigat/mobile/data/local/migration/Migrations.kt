@@ -25,7 +25,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       .build()
  */
 object Migrations {
-    // No migrations needed for version=1 (initial schema).
-    // Add Migration(1, 2), Migration(2, 3), etc. here as the schema evolves.
-    val ALL: Array<Migration> = emptyArray()
+    val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add idempotencyKey columns
+            db.execSQL("ALTER TABLE passenger_tickets ADD COLUMN idempotencyKey TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE cargo_tickets ADD COLUMN idempotencyKey TEXT NOT NULL DEFAULT ''")
+
+            // Add UNIQUE index on ticketNumber for both entities
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_passenger_tickets_ticketNumber ON passenger_tickets (ticketNumber)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_cargo_tickets_ticketNumber ON cargo_tickets (ticketNumber)")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
 }

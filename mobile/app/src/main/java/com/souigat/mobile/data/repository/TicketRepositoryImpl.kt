@@ -3,21 +3,23 @@ package com.souigat.mobile.data.repository
 import com.souigat.mobile.data.local.dao.CargoTicketDao
 import com.souigat.mobile.data.local.dao.PassengerTicketDao
 import com.souigat.mobile.data.local.dao.SyncQueueDao
+import com.souigat.mobile.data.local.SouigatDatabase
 import com.souigat.mobile.data.local.entity.CargoTicketEntity
 import com.souigat.mobile.data.local.entity.PassengerTicketEntity
 import com.souigat.mobile.data.local.entity.SyncQueueEntity
+import androidx.room.withTransaction
 import com.souigat.mobile.domain.model.SyncStatus
 import com.souigat.mobile.domain.repository.TicketRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.security.MessageDigest
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
 class TicketRepositoryImpl @Inject constructor(
+    private val db: SouigatDatabase,
     private val passengerDao: PassengerTicketDao,
     private val cargoDao: CargoTicketDao,
     private val syncQueueDao: SyncQueueDao
@@ -32,48 +34,54 @@ class TicketRepositoryImpl @Inject constructor(
         seatNumber: String
     ): Result<PassengerTicketEntity> = withContext(Dispatchers.IO) {
         try {
-            // Generate ticket number: PT-{TRIP_ID}-{SEQ}
-            val count = passengerDao.getActiveCount(tripId)
-            val seq = count + 1
-            val ticketNumber = "PT-$tripId-$seq"
+            val savedEntity = db.withTransaction {
+                // Generate ticket number: PT-{TRIP_ID}-{SEQ}
+                // Use getCount() to count ALL tickets (even cancelled) to prevent gaps
+                val count = passengerDao.getCount(tripId)
+                val seq = count + 1
+                val ticketNumber = "PT-$tripId-$seq"
+                
+                // Stable idempotency key generated ONCE per creation request
+                val idempotencyKey = UUID.randomUUID().toString()
 
-            val entity = PassengerTicketEntity(
-                serverId = null,
-                tripId = tripId,
-                ticketNumber = ticketNumber,
-                passengerName = passengerName,
-                price = price,
-                currency = currency,
-                paymentSource = paymentSource,
-                seatNumber = seatNumber,
-                status = "active"
-            )
+                val entity = PassengerTicketEntity(
+                    serverId = null,
+                    tripId = tripId,
+                    ticketNumber = ticketNumber,
+                    idempotencyKey = idempotencyKey,
+                    passengerName = passengerName,
+                    price = price,
+                    currency = currency,
+                    paymentSource = paymentSource,
+                    seatNumber = seatNumber,
+                    status = "active"
+                )
 
-            val localId = passengerDao.upsert(entity)
-            val savedEntity = entity.copy(id = localId)
+                val localId = passengerDao.upsert(entity)
+                val newSavedEntity = entity.copy(id = localId)
 
-            // Prepare SyncQueue payload
-            val jsonPayload = JSONObject().apply {
-                put("trip", tripId)
-                put("ticket_number", ticketNumber)
-                put("passenger_name", passengerName)
-                put("price", price)
-                put("currency", currency)
-                put("payment_source", paymentSource)
-                put("seat_number", seatNumber)
-            }.toString()
+                // Prepare SyncQueue payload
+                val jsonPayload = JSONObject().apply {
+                    put("trip", tripId)
+                    put("ticket_number", ticketNumber)
+                    put("passenger_name", passengerName)
+                    put("price", price)
+                    put("currency", currency)
+                    put("payment_source", paymentSource)
+                    put("seat_number", seatNumber)
+                }.toString()
 
-            val idempotencyKey = hashString(jsonPayload)
-
-            val syncItem = SyncQueueEntity(
-                tripId = tripId,
-                itemType = "passenger_ticket",
-                payload = jsonPayload,
-                idempotencyKey = idempotencyKey,
-                status = SyncStatus.PENDING
-            )
-            syncQueueDao.enqueue(syncItem)
-
+                val syncItem = SyncQueueEntity(
+                    tripId = tripId,
+                    itemType = "passenger_ticket",
+                    payload = jsonPayload,
+                    idempotencyKey = idempotencyKey,
+                    status = SyncStatus.PENDING
+                )
+                syncQueueDao.enqueue(syncItem)
+                
+                newSavedEntity
+            }
             Result.success(savedEntity)
         } catch (e: Exception) {
             Result.failure(e)
@@ -93,56 +101,61 @@ class TicketRepositoryImpl @Inject constructor(
         paymentSource: String
     ): Result<CargoTicketEntity> = withContext(Dispatchers.IO) {
         try {
-            // Generate ticket number: CT-{TRIP_ID}-{SEQ}
-            val count = cargoDao.getCount(tripId)
-            val seq = count + 1
-            val ticketNumber = "CT-$tripId-$seq"
+            val savedEntity = db.withTransaction {
+                // Generate ticket number: CT-{TRIP_ID}-{SEQ}
+                val count = cargoDao.getCount(tripId)
+                val seq = count + 1
+                val ticketNumber = "CT-$tripId-$seq"
+                
+                // Stable idempotency key generated ONCE per creation request
+                val idempotencyKey = UUID.randomUUID().toString()
 
-            val entity = CargoTicketEntity(
-                serverId = null,
-                tripId = tripId,
-                ticketNumber = ticketNumber,
-                senderName = senderName,
-                senderPhone = senderPhone,
-                receiverName = receiverName,
-                receiverPhone = receiverPhone,
-                cargoTier = cargoTier,
-                description = description,
-                price = price,
-                currency = currency,
-                paymentSource = paymentSource,
-                status = "created"
-            )
+                val entity = CargoTicketEntity(
+                    serverId = null,
+                    tripId = tripId,
+                    ticketNumber = ticketNumber,
+                    idempotencyKey = idempotencyKey,
+                    senderName = senderName,
+                    senderPhone = senderPhone,
+                    receiverName = receiverName,
+                    receiverPhone = receiverPhone,
+                    cargoTier = cargoTier,
+                    description = description,
+                    price = price,
+                    currency = currency,
+                    paymentSource = paymentSource,
+                    status = "created"
+                )
 
-            val localId = cargoDao.upsert(entity)
-            val savedEntity = entity.copy(id = localId)
+                val localId = cargoDao.upsert(entity)
+                val newSavedEntity = entity.copy(id = localId)
 
-            // Prepare SyncQueue payload
-            val jsonPayload = JSONObject().apply {
-                put("trip", tripId)
-                put("ticket_number", ticketNumber)
-                put("sender_name", senderName)
-                put("sender_phone", senderPhone)
-                put("receiver_name", receiverName)
-                put("receiver_phone", receiverPhone)
-                put("cargo_tier", cargoTier)
-                put("description", description)
-                put("price", price)
-                put("currency", currency)
-                put("payment_source", paymentSource)
-            }.toString()
+                // Prepare SyncQueue payload
+                val jsonPayload = JSONObject().apply {
+                    put("trip", tripId)
+                    put("ticket_number", ticketNumber)
+                    put("sender_name", senderName)
+                    put("sender_phone", senderPhone)
+                    put("receiver_name", receiverName)
+                    put("receiver_phone", receiverPhone)
+                    put("cargo_tier", cargoTier)
+                    put("description", description)
+                    put("price", price)
+                    put("currency", currency)
+                    put("payment_source", paymentSource)
+                }.toString()
 
-            val idempotencyKey = hashString(jsonPayload)
-
-            val syncItem = SyncQueueEntity(
-                tripId = tripId,
-                itemType = "cargo_ticket",
-                payload = jsonPayload,
-                idempotencyKey = idempotencyKey,
-                status = SyncStatus.PENDING
-            )
-            syncQueueDao.enqueue(syncItem)
-
+                val syncItem = SyncQueueEntity(
+                    tripId = tripId,
+                    itemType = "cargo_ticket",
+                    payload = jsonPayload,
+                    idempotencyKey = idempotencyKey,
+                    status = SyncStatus.PENDING
+                )
+                syncQueueDao.enqueue(syncItem)
+                
+                newSavedEntity
+            }
             Result.success(savedEntity)
         } catch (e: Exception) {
             Result.failure(e)
@@ -155,11 +168,5 @@ class TicketRepositoryImpl @Inject constructor(
 
     override fun observeCargoTickets(tripId: Long): Flow<List<CargoTicketEntity>> {
         return cargoDao.observeByTrip(tripId)
-    }
-
-    private fun hashString(input: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hashBytes = digest.digest(input.toByteArray(Charsets.UTF_8))
-        return hashBytes.joinToString("") { "%02x".format(it) }
     }
 }
