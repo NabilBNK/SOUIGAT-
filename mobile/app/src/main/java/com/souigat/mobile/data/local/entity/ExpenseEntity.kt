@@ -21,7 +21,8 @@ data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val serverId: Long?,
     val tripId: Long,
-    val amount: Long,                // centimes
+    val idempotencyKey: String,
+    val amount: Long,
     val currency: String,
     val category: String,           // fuel | food | tolls | other
     val description: String,

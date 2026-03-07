@@ -60,4 +60,37 @@ class MigrationTest {
         assert(idempotencyKey.isNotEmpty())
         cursor.close()
     }
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate2To3() {
+        var db = helper.createDatabase(TEST_DB, 2)
+
+        // Simulate an old Phase 3.0 expense without idempotencyKey (v2 schema)
+        db.execSQL("""
+            INSERT INTO expenses (tripId, amount, currency, category, description, createdAt) 
+            VALUES (1, 500, 'DZD', 'food', 'Lunch', 2000)
+        """.trimIndent())
+        
+        db.close()
+
+        // Re-open with version 3 and apply MIGRATION_2_3
+        db = helper.runMigrationsAndValidate(TEST_DB, 3, true, Migrations.MIGRATION_2_3)
+
+        // Verify data survived and idempotencyKey was backfilled
+        val cursor = db.query("SELECT * FROM expenses")
+        assertEquals(1, cursor.count)
+        cursor.moveToFirst()
+        
+        val amountIndex = cursor.getColumnIndex("amount")
+        assertEquals(500L, cursor.getLong(amountIndex))
+
+        val idempotencyKeyIndex = cursor.getColumnIndex("idempotencyKey")
+        val idempotencyKey = cursor.getString(idempotencyKeyIndex)
+        assert(idempotencyKey.isNotEmpty())
+        // Backfill inserts exactly 32 hex chars (randomblob(16))
+        assertEquals(32, idempotencyKey.length)
+        
+        cursor.close()
+    }
 }

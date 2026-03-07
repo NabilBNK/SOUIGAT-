@@ -21,6 +21,7 @@ import com.souigat.mobile.ui.screens.history.HistoryScreen
 import com.souigat.mobile.ui.screens.login.LoginScreen
 import com.souigat.mobile.ui.screens.profile.ProfileScreen
 import com.souigat.mobile.ui.screens.tickets.CreateTicketScreen
+import com.souigat.mobile.ui.screens.expense.CreateExpenseScreen
 
 @Composable
 fun AppNavGraph() {
@@ -103,6 +104,9 @@ fun AppNavGraph() {
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCreateTicket = { tripId, passPrice, smallPrice, medPrice, largePrice, currency ->
                         navController.navigate("create_ticket/$tripId/$passPrice/$smallPrice/$medPrice/$largePrice/$currency")
+                    },
+                    onNavigateToCreateExpense = { tripId, currency ->
+                        navController.navigate("create_expense/$tripId/$currency")
                     }
                 )
             }
@@ -119,6 +123,16 @@ fun AppNavGraph() {
                 )
             ) {
                 CreateTicketScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            composable(
+                route = "create_expense/{tripId}/{currency}",
+                arguments = listOf(
+                    navArgument("tripId") { type = NavType.IntType },
+                    navArgument("currency") { type = NavType.StringType }
+                )
+            ) {
+                CreateExpenseScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable("office_dashboard") { Text("Office Staff Dashboard") }
             composable("admin_dashboard") { Text("Admin Dashboard") }

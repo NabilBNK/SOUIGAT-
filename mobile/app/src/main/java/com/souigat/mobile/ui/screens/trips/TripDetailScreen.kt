@@ -29,7 +29,8 @@ import java.util.Locale
 fun TripDetailScreen(
     viewModel: TripDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToCreateTicket: (Int, String, String, String, String, String) -> Unit = { _, _, _, _, _, _ -> }
+    onNavigateToCreateTicket: (Int, String, String, String, String, String) -> Unit = { _, _, _, _, _, _ -> },
+    onNavigateToCreateExpense: (Int, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val actionState by viewModel.actionState.collectAsState()
@@ -67,20 +68,35 @@ fun TripDetailScreen(
             if (uiState is TripDetailUiState.Success) {
                 val trip = (uiState as TripDetailUiState.Success).trip
                 if (trip.status == "in_progress") {
-                    FloatingActionButton(
-                        onClick = {
-                            onNavigateToCreateTicket(
-                                trip.id,
-                                trip.passengerBasePrice,
-                                trip.cargoSmallPrice,
-                                trip.cargoMediumPrice,
-                                trip.cargoLargePrice,
-                                trip.currency
-                            )
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(bottom = 16.dp, end = 16.dp)
                     ) {
-                        Text("+ Billet", modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                        FloatingActionButton(
+                            onClick = {
+                                onNavigateToCreateExpense(trip.id, trip.currency)
+                            },
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ) {
+                            Text("+ Dépense", modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold)
+                        }
+                        FloatingActionButton(
+                            onClick = {
+                                onNavigateToCreateTicket(
+                                    trip.id,
+                                    trip.passengerBasePrice,
+                                    trip.cargoSmallPrice,
+                                    trip.cargoMediumPrice,
+                                    trip.cargoLargePrice,
+                                    trip.currency
+                                )
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ) {
+                            Text("+ Billet", modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

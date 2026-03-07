@@ -51,5 +51,15 @@ object Migrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add idempotencyKey column safely
+            db.execSQL("ALTER TABLE expenses ADD COLUMN idempotencyKey TEXT NOT NULL DEFAULT ''")
+            
+            // Backfill with random UUID-equivalent hex to satisfy unique/idempotency requirements
+            db.execSQL("UPDATE expenses SET idempotencyKey = lower(hex(randomblob(16))) WHERE idempotencyKey = ''")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }

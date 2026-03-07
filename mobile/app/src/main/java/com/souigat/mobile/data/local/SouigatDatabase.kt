@@ -26,7 +26,7 @@ import com.souigat.mobile.data.local.entity.*
         ExpenseEntity::class,
         SyncQueueEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(SyncStatusConverter::class)
