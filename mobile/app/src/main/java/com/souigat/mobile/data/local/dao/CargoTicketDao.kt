@@ -13,7 +13,7 @@ interface CargoTicketDao {
     @Query("SELECT COUNT(*) FROM cargo_tickets WHERE tripId = :tripId")
     suspend fun getCount(tripId: Long): Int
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun upsert(ticket: CargoTicketEntity): Long
 
     @Update
