@@ -100,4 +100,10 @@ object NetworkModule {
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
     }
+
+    @Provides
+    @Singleton
+    fun provideSyncApi(retrofit: Retrofit): com.souigat.mobile.data.remote.api.SyncApi {
+        return retrofit.create(com.souigat.mobile.data.remote.api.SyncApi::class.java)
+    }
 }

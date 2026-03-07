@@ -2,17 +2,25 @@ package com.souigat.mobile.data.remote.interceptor
 
 import android.util.Base64
 import com.souigat.mobile.data.local.TokenManager
+import com.souigat.mobile.data.remote.api.AuthApi
+import com.souigat.mobile.data.remote.dto.RefreshRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 import org.json.JSONObject
 import timber.log.Timber
 import javax.inject.Inject
+import javax.inject.Provider
 
 /**
  * Injects JWT access token into API requests.
+ * Explicitly intercepts HTTP 403 FORBIDDEN responses (as backend does not use 401)
+ * to automatically trigger refresh flows.
  */
 class AuthInterceptor @Inject constructor(
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val authApiProvider: Provider<AuthApi>
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -48,7 +56,67 @@ class AuthInterceptor @Inject constructor(
             .header("Authorization", "Bearer $token")
             .build()
 
-        return chain.proceed(authenticatedRequest)
+        val response = chain.proceed(authenticatedRequest)
+        
+        // SOUIGAT backend returns 403 for expired/invalid tokens instead of 401
+        if (response.code == 403) {
+            Timber.w("Received 403 FORBIDDEN. Attempting token refresh via Interceptor.")
+            val newRequest = handle403Refresh(response, token)
+            if (newRequest != null) {
+                // Retry with new token
+                response.close()
+                return chain.proceed(newRequest)
+            }
+        }
+
+        return response
+    }
+
+    @Synchronized
+    private fun handle403Refresh(response: Response, failedToken: String): okhttp3.Request? {
+        // Prevent infinite loops on the refresh endpoint itself
+        if (response.request.url.encodedPath.contains("token/refresh")) {
+            Timber.e("Refresh token endpoint returned 403. Session is permanently expired.")
+            tokenManager.clearAll()
+            return null
+        }
+        
+        // 1. Check if token was already refreshed by another thread
+        val currentToken = tokenManager.getAccessToken()
+        if (currentToken != null && currentToken != failedToken) {
+            Timber.i("Token already refreshed by concurrent thread. Retrying Request.")
+            return response.request.newBuilder()
+                .header("Authorization", "Bearer $currentToken")
+                .build()
+        }
+
+        // 2. We need to refresh it ourselves
+        val refreshToken = tokenManager.getRefreshToken() ?: run {
+            Timber.e("No local refresh token found during 403 intercept. Forcing logout.")
+            tokenManager.clearAll()
+            return null
+        }
+        val deviceId = tokenManager.getDeviceId()
+
+        Timber.i("Executing refresh API call locally under Synchronized lock...")
+        val refreshResponse = runBlocking(Dispatchers.IO) {
+            authApiProvider.get().refreshToken(RefreshRequest(refreshToken, deviceId))
+        }
+
+        return if (refreshResponse.isSuccessful) {
+            val newAccessToken = refreshResponse.body()?.access ?: return null
+            val newRefreshToken = refreshResponse.body()?.refresh ?: refreshToken
+            tokenManager.saveTokens(newAccessToken, newRefreshToken)
+            Timber.i("Token refreshed successfully via 403 Interceptor.")
+            
+            response.request.newBuilder()
+                .header("Authorization", "Bearer $newAccessToken")
+                .build()
+        } else {
+            Timber.e("Refresh failed. Clearing tokens (HTTP ${refreshResponse.code()})")
+            tokenManager.clearAll()
+            null
+        }
     }
 
     private fun isTokenExpiredOrNearingExpiry(token: String): Boolean {
