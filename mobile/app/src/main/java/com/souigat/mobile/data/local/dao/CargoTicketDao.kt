@@ -13,6 +13,9 @@ interface CargoTicketDao {
     @Query("SELECT COUNT(*) FROM cargo_tickets WHERE tripId = :tripId")
     suspend fun getCount(tripId: Long): Int
 
+    @Query("SELECT COUNT(*) FROM cargo_tickets WHERE ticketNumber LIKE :datePrefix || '%'")
+    suspend fun getCountByDate(datePrefix: String): Int
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun upsert(ticket: CargoTicketEntity): Long
 

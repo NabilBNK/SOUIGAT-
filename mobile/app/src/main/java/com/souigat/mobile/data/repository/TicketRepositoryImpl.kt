@@ -18,6 +18,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@Singleton
 class TicketRepositoryImpl @Inject constructor(
     private val db: SouigatDatabase,
     private val passengerDao: PassengerTicketDao,
@@ -40,14 +41,19 @@ class TicketRepositoryImpl @Inject constructor(
         // Stable idempotency key generated ONCE per creation request
         val idempotencyKey = UUID.randomUUID().toString()
 
+        // Date initialized safely outside loop in UTC for stability across attempts
+        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+        val dateString = sdf.format(java.util.Date())
+
         while (retries < maxRetries) {
             try {
                 val savedEntity = db.withTransaction {
                     // Generate ticket number: PT-YYYYMMDD-0001
                     // Offset sequence by retries to safely bypass collisions
-                    val count = passengerDao.getCount(tripId)
+                    val count = passengerDao.getCountByDate("PT-$dateString")
                     val seq = count + 1 + retries
-                    val dateString = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
                     val seqString = String.format(java.util.Locale.US, "%04d", seq)
                     val ticketNumber = "PT-$dateString-$seqString"
 
@@ -120,13 +126,18 @@ class TicketRepositoryImpl @Inject constructor(
         // Stable idempotency key generated ONCE per creation request
         val idempotencyKey = UUID.randomUUID().toString()
 
+        // Date initialized safely outside loop in UTC for stability across attempts
+        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+        val dateString = sdf.format(java.util.Date())
+
         while (retries < maxRetries) {
             try {
                 val savedEntity = db.withTransaction {
                     // Generate ticket number: CT-YYYYMMDD-0001
-                    val count = cargoDao.getCount(tripId)
+                    val count = cargoDao.getCountByDate("CT-$dateString")
                     val seq = count + 1 + retries
-                    val dateString = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
                     val seqString = String.format(java.util.Locale.US, "%04d", seq)
                     val ticketNumber = "CT-$dateString-$seqString"
 
