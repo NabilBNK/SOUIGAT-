@@ -30,13 +30,13 @@ class MigrationTest {
         // db has schema version 1. insert some data using SQL queries.
         // We simulate a phase 3.3 corrupted duplicate ticket number scenario.
         db.execSQL("""
-            INSERT INTO passenger_tickets (tripId, ticketNumber, passengerName, price, currency, paymentSource, status, createdAt) 
-            VALUES (1, 'PT-20260307-0001', 'John Doe 1', 2000, 'DZD', 'cash', 'active', 1000)
+            INSERT INTO passenger_tickets (tripId, ticketNumber, passengerName, price, currency, paymentSource, seatNumber, status, createdAt) 
+            VALUES (1, 'PT-20260307-0001', 'John Doe 1', 2000, 'DZD', 'cash', '1A', 'active', 1000)
         """.trimIndent())
         
         db.execSQL("""
-            INSERT INTO passenger_tickets (tripId, ticketNumber, passengerName, price, currency, paymentSource, status, createdAt) 
-            VALUES (1, 'PT-20260307-0001', 'John Doe 2 (Duplicate)', 2000, 'DZD', 'cash', 'active', 1001)
+            INSERT INTO passenger_tickets (tripId, ticketNumber, passengerName, price, currency, paymentSource, seatNumber, status, createdAt) 
+            VALUES (1, 'PT-20260307-0001', 'John Doe 2 (Duplicate)', 2000, 'DZD', 'cash', '1B', 'active', 1001)
         """.trimIndent())
 
         db.execSQL("""

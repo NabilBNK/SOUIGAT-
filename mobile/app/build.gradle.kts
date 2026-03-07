@@ -133,6 +133,7 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     testImplementation(libs.room.testing)
+    androidTestImplementation(libs.room.testing)
 
     // Retrofit + OkHttp + Kotlinx Serialization
     implementation(libs.retrofit)

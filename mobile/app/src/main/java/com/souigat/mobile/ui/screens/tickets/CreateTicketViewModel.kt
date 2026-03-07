@@ -24,7 +24,7 @@ class CreateTicketViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    val tripId: Long = checkNotNull(savedStateHandle.get<Int>("tripId")).toLong()
+    val tripId: Long = savedStateHandle.get<Any>("tripId")?.toString()?.toLong() ?: error("tripId required")
     
     val passPriceStr: String = savedStateHandle.get<String>("passPrice") ?: "0"
     val smallPriceStr: String = savedStateHandle.get<String>("smallPrice") ?: "0"
@@ -32,10 +32,10 @@ class CreateTicketViewModel @Inject constructor(
     val largePriceStr: String = savedStateHandle.get<String>("largePrice") ?: "0"
     val currency: String = savedStateHandle.get<String>("currency") ?: "DZD"
 
-    private val passPriceCentimes = (passPriceStr.toDoubleOrNull()?.times(100))?.toLong() ?: 0L
-    private val smallPriceCentimes = (smallPriceStr.toDoubleOrNull()?.times(100))?.toLong() ?: 0L
-    private val medPriceCentimes = (medPriceStr.toDoubleOrNull()?.times(100))?.toLong() ?: 0L
-    private val largePriceCentimes = (largePriceStr.toDoubleOrNull()?.times(100))?.toLong() ?: 0L
+    private val passPriceCentimes = passPriceStr.toDoubleOrNull()?.toLong() ?: 0L
+    private val smallPriceCentimes = smallPriceStr.toDoubleOrNull()?.toLong() ?: 0L
+    private val medPriceCentimes = medPriceStr.toDoubleOrNull()?.toLong() ?: 0L
+    private val largePriceCentimes = largePriceStr.toDoubleOrNull()?.toLong() ?: 0L
 
     private val _uiState = MutableStateFlow<CreateTicketUiState>(CreateTicketUiState.Idle)
     val uiState: StateFlow<CreateTicketUiState> = _uiState.asStateFlow()
