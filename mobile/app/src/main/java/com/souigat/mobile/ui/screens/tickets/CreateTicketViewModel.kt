@@ -32,10 +32,10 @@ class CreateTicketViewModel @Inject constructor(
     val largePriceStr: String = savedStateHandle.get<String>("largePrice") ?: "0"
     val currency: String = savedStateHandle.get<String>("currency") ?: "DZD"
 
-    private val passPriceCentimes = passPriceStr.toDoubleOrNull()?.toLong() ?: 0L
-    private val smallPriceCentimes = smallPriceStr.toDoubleOrNull()?.toLong() ?: 0L
-    private val medPriceCentimes = medPriceStr.toDoubleOrNull()?.toLong() ?: 0L
-    private val largePriceCentimes = largePriceStr.toDoubleOrNull()?.toLong() ?: 0L
+    private val passPrice = passPriceStr.toLongOrNull() ?: 0L
+    private val smallPrice = smallPriceStr.toLongOrNull() ?: 0L
+    private val medPrice = medPriceStr.toLongOrNull() ?: 0L
+    private val largePrice = largePriceStr.toLongOrNull() ?: 0L
 
     private val _uiState = MutableStateFlow<CreateTicketUiState>(CreateTicketUiState.Idle)
     val uiState: StateFlow<CreateTicketUiState> = _uiState.asStateFlow()
@@ -55,7 +55,7 @@ class CreateTicketViewModel @Inject constructor(
             ticketRepository.createPassengerTicket(
                 tripId = tripId,
                 passengerName = passengerName,
-                price = passPriceCentimes,
+                price = passPrice,
                 currency = currency,
                 paymentSource = paymentSource,
                 seatNumber = seatNumber
@@ -81,10 +81,10 @@ class CreateTicketViewModel @Inject constructor(
             return
         }
 
-        val priceCentimes = when (cargoTier) {
-            "small" -> smallPriceCentimes
-            "medium" -> medPriceCentimes
-            "large" -> largePriceCentimes
+        val price = when (cargoTier) {
+            "small" -> smallPrice
+            "medium" -> medPrice
+            "large" -> largePrice
             else -> 0L
         }
 
@@ -98,7 +98,7 @@ class CreateTicketViewModel @Inject constructor(
                 receiverPhone = receiverPhone,
                 cargoTier = cargoTier,
                 description = description,
-                price = priceCentimes,
+                price = price,
                 currency = currency,
                 paymentSource = paymentSource
             ).onSuccess { ticket ->
