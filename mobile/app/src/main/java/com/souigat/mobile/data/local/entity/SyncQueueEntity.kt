@@ -15,7 +15,7 @@ import com.souigat.mobile.domain.model.SyncStatus
  * localId: the Room auto-increment ID. Echoed to backend in POST /api/sync/batch/.
  * The backend echoes it back in the response so we can call markSyncedByLocalId().
  *
- * idempotencyKey: content-hash of the payload (see §8.6). Max 100 chars (VARCHAR(100) on server).
+ * idempotencyKey: UUID v4 generated at ticket creation time. Max 100 chars (VARCHAR(100) on server).
  */
 @Entity(
     tableName = "sync_queue",
@@ -30,7 +30,7 @@ data class SyncQueueEntity(
     val tripId: Long,
     val itemType: String,            // passenger_ticket | cargo_ticket | expense | trip_status
     val payload: String,             // JSON string
-    val idempotencyKey: String,      // SHA-256 content hash, max 100 chars
+    val idempotencyKey: String,      // UUID v4 generated at ticket creation time
     val status: SyncStatus = SyncStatus.PENDING,
     val retryCount: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
