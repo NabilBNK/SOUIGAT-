@@ -27,11 +27,25 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 object Migrations {
     val MIGRATION_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            // Add idempotencyKey columns
+            // Add idempotencyKey columns safely
             db.execSQL("ALTER TABLE passenger_tickets ADD COLUMN idempotencyKey TEXT NOT NULL DEFAULT ''")
             db.execSQL("ALTER TABLE cargo_tickets ADD COLUMN idempotencyKey TEXT NOT NULL DEFAULT ''")
 
-            // Add UNIQUE index on ticketNumber for both entities
+            // Backfill with random UUID-equivalent hex to satisfy unique/idempotency requirements
+            db.execSQL("UPDATE passenger_tickets SET idempotencyKey = lower(hex(randomblob(16))) WHERE idempotencyKey = ''")
+            db.execSQL("UPDATE cargo_tickets SET idempotencyKey = lower(hex(randomblob(16))) WHERE idempotencyKey = ''")
+
+            // Deduplicate Phase 3.3 corruptions (REPLACE bug) before binding UNIQUE index
+            db.execSQL("""
+                DELETE FROM passenger_tickets 
+                WHERE id NOT IN (SELECT MIN(id) FROM passenger_tickets GROUP BY ticketNumber)
+            """.trimIndent())
+            db.execSQL("""
+                DELETE FROM cargo_tickets 
+                WHERE id NOT IN (SELECT MIN(id) FROM cargo_tickets GROUP BY ticketNumber)
+            """.trimIndent())
+
+            // Add UNIQUE index on ticketNumber for both entities dropping duplicates at DB level
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_passenger_tickets_ticketNumber ON passenger_tickets (ticketNumber)")
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_cargo_tickets_ticketNumber ON cargo_tickets (ticketNumber)")
         }

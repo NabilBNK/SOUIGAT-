@@ -37,17 +37,19 @@ class TicketRepositoryImpl @Inject constructor(
         val maxRetries = 5
         var lastException: Exception? = null
 
+        // Stable idempotency key generated ONCE per creation request
+        val idempotencyKey = UUID.randomUUID().toString()
+
         while (retries < maxRetries) {
             try {
                 val savedEntity = db.withTransaction {
-                    // Generate ticket number: PT-{TRIP_ID}-{SEQ}
+                    // Generate ticket number: PT-YYYYMMDD-0001
                     // Offset sequence by retries to safely bypass collisions
                     val count = passengerDao.getCount(tripId)
                     val seq = count + 1 + retries
-                    val ticketNumber = "PT-$tripId-$seq"
-                    
-                    // Stable idempotency key generated ONCE per creation request
-                    val idempotencyKey = UUID.randomUUID().toString()
+                    val dateString = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
+                    val seqString = String.format(java.util.Locale.US, "%04d", seq)
+                    val ticketNumber = "PT-$dateString-$seqString"
 
                     val entity = PassengerTicketEntity(
                         serverId = null,
@@ -115,16 +117,18 @@ class TicketRepositoryImpl @Inject constructor(
         val maxRetries = 5
         var lastException: Exception? = null
 
+        // Stable idempotency key generated ONCE per creation request
+        val idempotencyKey = UUID.randomUUID().toString()
+
         while (retries < maxRetries) {
             try {
                 val savedEntity = db.withTransaction {
-                    // Generate ticket number: CT-{TRIP_ID}-{SEQ}
+                    // Generate ticket number: CT-YYYYMMDD-0001
                     val count = cargoDao.getCount(tripId)
                     val seq = count + 1 + retries
-                    val ticketNumber = "CT-$tripId-$seq"
-                    
-                    // Stable idempotency key generated ONCE per creation request
-                    val idempotencyKey = UUID.randomUUID().toString()
+                    val dateString = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
+                    val seqString = String.format(java.util.Locale.US, "%04d", seq)
+                    val ticketNumber = "CT-$dateString-$seqString"
 
                     val entity = CargoTicketEntity(
                         serverId = null,
