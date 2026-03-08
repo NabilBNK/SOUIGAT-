@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
@@ -15,6 +17,9 @@ class TokenManager @Inject constructor(
 ) {
     private val prefsName = "souigat_secure_prefs"
     private var sharedPreferences = initEncryptedPrefs(context)
+
+    private val _onSessionCleared = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val onSessionCleared = _onSessionCleared.asSharedFlow()
 
     private fun initEncryptedPrefs(context: Context): android.content.SharedPreferences {
         return try {
@@ -123,5 +128,6 @@ class TokenManager @Inject constructor(
             .clear()
             .putString(KEY_DEVICE_ID, deviceId)
             .apply()
+        _onSessionCleared.tryEmit(Unit)
     }
 }

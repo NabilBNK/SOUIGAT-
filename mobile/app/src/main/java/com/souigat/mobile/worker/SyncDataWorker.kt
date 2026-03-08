@@ -15,6 +15,7 @@ import dagger.assisted.AssistedInject
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 
 @HiltWorker
 class SyncDataWorker @AssistedInject constructor(
@@ -76,7 +77,7 @@ class SyncDataWorker @AssistedInject constructor(
                     val batchResponse = response.body()
                     if (batchResponse != null) {
                         for (itemResp in batchResponse.items) {
-                            val respLocalId = itemResp.localId
+                            val respLocalId = itemResp.localId ?: itemResp.index?.let { dtoList.getOrNull(it)?.localId }
                             if (respLocalId == null) continue
 
                             when (itemResp.status) {
@@ -112,6 +113,9 @@ class SyncDataWorker @AssistedInject constructor(
         // Catch-all: Anything that was marked SYNCING but never properly closed via response
         // needs to be reset back to PENDING natively so it isn't orphaned.
         syncQueueDao.resetStuckSyncing()
+        
+        // Clean out ancient synchronizations
+        syncQueueDao.pruneOldSynced(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7))
 
         return finalResult
     }

@@ -21,11 +21,14 @@ data class SyncItemDto(
 
 @Serializable
 data class SyncBatchResponse(
-    @SerialName("items") val items: List<SyncItemResponse>
+    @SerialName("items") val items: List<SyncItemResponse>,
+    @SerialName("last_processed_index") val lastProcessedIndex: Int? = null
 )
 
 @Serializable
 data class SyncItemResponse(
-    @SerialName("local_id") val localId: Long?,
-    @SerialName("status") val status: String
+    @SerialName("local_id") val localId: Long? = null,
+    @SerialName("status") val status: String,
+    @SerialName("index") val index: Int? = null,
+    @SerialName("key") val key: String? = null
 )
