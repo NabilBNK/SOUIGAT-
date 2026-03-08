@@ -80,7 +80,7 @@ class TokenManager @Inject constructor(
             .apply()
     }
 
-    fun saveUserProfile(userId: Int, role: String, officeId: Int, firstName: String, lastName: String) {
+    fun saveUserProfile(userId: Int, role: String, officeId: Int?, firstName: String, lastName: String) {
         val editor = sharedPreferences.edit()
             .putInt(KEY_USER_ID, userId)
             .putString(KEY_USER_ROLE, role)

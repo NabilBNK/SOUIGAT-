@@ -12,6 +12,7 @@ import com.souigat.mobile.data.remote.dto.SyncItemDto
 import com.souigat.mobile.domain.model.SyncStatus
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import timber.log.Timber
@@ -63,9 +64,13 @@ class SyncDataWorker @AssistedInject constructor(
                     )
                 }
 
+                // Retrieve the latest `resumeFrom` index stored by a previous mid-flight crash.
+                val prefs = appContext.getSharedPreferences("sync_worker_prefs", Context.MODE_PRIVATE)
+                val storedResumeFrom = prefs.getLong("resume_from_$tripId", 0L)
+
                 val request = SyncBatchRequest(
                     tripId = tripId,
-                    resumeFrom = 0L,
+                    resumeFrom = storedResumeFrom,
                     items = dtoList
                 )
 
@@ -85,6 +90,13 @@ class SyncDataWorker @AssistedInject constructor(
                                 "quarantined" -> syncQueueDao.markQuarantinedByLocalId(listOf(respLocalId))
                                 else -> Timber.w("Unknown sync status returned from server: ${itemResp.status}")
                             }
+                        }
+                        
+                        // Advance the resume point explicitly so Result.retry skips already processed blocks.
+                        val lastIndex = batchResponse.lastProcessedIndex
+                        if (lastIndex != null) {
+                            val prefs = appContext.getSharedPreferences("sync_worker_prefs", Context.MODE_PRIVATE)
+                            prefs.edit().putLong("resume_from_$tripId", lastIndex.toLong()).apply()
                         }
                     }
                 } else {

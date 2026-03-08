@@ -5,6 +5,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -13,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.ui.screens.boot.BootScreen
 import com.souigat.mobile.ui.screens.trips.TripListScreen
 import com.souigat.mobile.ui.screens.trips.TripDetailScreen
@@ -24,10 +27,22 @@ import com.souigat.mobile.ui.screens.tickets.CreateTicketScreen
 import com.souigat.mobile.ui.screens.expense.CreateExpenseScreen
 
 @Composable
-fun AppNavGraph() {
+fun AppNavGraph(
+    tokenManager: TokenManager? = null
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // Reactively observe Session Death overriding Background OS bounds safely when the operator next draws UI.
+    LaunchedEffect(Unit) {
+        tokenManager?.onSessionCleared?.collect {
+            navController.navigate(NavRoute.Login.route) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     // Bottom nav is hidden on the login and boot screens
     val showBottomBar = currentRoute != NavRoute.Login.route && currentRoute != "boot"
