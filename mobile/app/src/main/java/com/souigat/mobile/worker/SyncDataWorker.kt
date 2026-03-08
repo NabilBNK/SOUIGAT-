@@ -9,12 +9,13 @@ import com.souigat.mobile.data.local.dao.SyncQueueDao
 import com.souigat.mobile.data.remote.api.SyncApi
 import com.souigat.mobile.data.remote.dto.SyncBatchRequest
 import com.souigat.mobile.data.remote.dto.SyncItemDto
-import com.souigat.mobile.domain.model.SyncStatus
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
@@ -92,15 +93,26 @@ class SyncDataWorker @AssistedInject constructor(
                             }
                         }
                         
-                        // Advance the resume point explicitly so Result.retry skips already processed blocks.
-                        val lastIndex = batchResponse.lastProcessedIndex
-                        if (lastIndex != null) {
-                            val prefs = appContext.getSharedPreferences("sync_worker_prefs", Context.MODE_PRIVATE)
-                            prefs.edit().putLong("resume_from_$tripId", lastIndex.toLong()).apply()
-                        }
+                        // On success: clear the stale key for this trip
+                        prefs.edit().remove("resume_from_$tripId").apply()
                     }
                 } else {
                     Timber.e("Django returned HTTP ${response.code()} for Trip $tripId batch.")
+                    
+                    // On retry (Result.retry() paths): save the last processed index
+                    // so the next run can resume mid-batch
+                    try {
+                        val errorJson = response.errorBody()?.string()
+                        if (!errorJson.isNullOrEmpty()) {
+                            val jsonObj = Json.parseToJsonElement(errorJson).jsonObject
+                            val lastIndex = jsonObj["last_processed_index"]?.jsonPrimitive?.intOrNull
+                            if (lastIndex != null) {
+                                prefs.edit().putLong("resume_from_$tripId", lastIndex.toLong()).apply()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Could not extract last_processed_index from error body")
+                    }
                     
                     // If 403 happened and interceptor refresh failed, we are cleanly kicked back to retry via WorkManager backoffs
                     if (response.code() in 500..599) {
