@@ -13,9 +13,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
@@ -49,6 +46,8 @@ class SyncDataWorker @AssistedInject constructor(
 
         var finalResult = Result.success()
 
+        val prefs = appContext.getSharedPreferences("sync_worker_prefs", Context.MODE_PRIVATE)
+
         for ((tripId, items) in groupedByTrip) {
             try {
                 // Map to SyncItemDto
@@ -66,7 +65,6 @@ class SyncDataWorker @AssistedInject constructor(
                 }
 
                 // Retrieve the latest `resumeFrom` index stored by a previous mid-flight crash.
-                val prefs = appContext.getSharedPreferences("sync_worker_prefs", Context.MODE_PRIVATE)
                 val storedResumeFrom = prefs.getLong("resume_from_$tripId", 0L)
 
                 val request = SyncBatchRequest(
@@ -99,20 +97,8 @@ class SyncDataWorker @AssistedInject constructor(
                 } else {
                     Timber.e("Django returned HTTP ${response.code()} for Trip $tripId batch.")
                     
-                    // On retry (Result.retry() paths): save the last processed index
-                    // so the next run can resume mid-batch
-                    try {
-                        val errorJson = response.errorBody()?.string()
-                        if (!errorJson.isNullOrEmpty()) {
-                            val jsonObj = Json.parseToJsonElement(errorJson).jsonObject
-                            val lastIndex = jsonObj["last_processed_index"]?.jsonPrimitive?.intOrNull
-                            if (lastIndex != null) {
-                                prefs.edit().putLong("resume_from_$tripId", lastIndex.toLong()).apply()
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "Could not extract last_processed_index from error body")
-                    }
+                    // resume_from is cleared on success above.
+                    // On retry, next run starts at resumeFrom=0 (server handles idempotency via idempotencyKey).
                     
                     // If 403 happened and interceptor refresh failed, we are cleanly kicked back to retry via WorkManager backoffs
                     if (response.code() in 500..599) {
