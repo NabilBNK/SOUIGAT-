@@ -1,0 +1,90 @@
+from datetime import timedelta
+from django.utils import timezone
+from rest_framework.test import APITestCase
+from rest_framework import status
+from api.models import Office, User, Bus, PricingConfig, Trip, PassengerTicket
+
+class Phase2IntegrationTests(APITestCase):
+    def setUp(self):
+        self.office_a = Office.objects.create(name='Office A', city='Algiers')
+        self.office_b = Office.objects.create(name='Office B', city='Oran')
+        
+        self.admin = User.objects.create_user(phone='0500000099', password='pw', role='admin')
+        self.staff_a = User.objects.create_user(phone='0600000099', password='pw', role='office_staff', office=self.office_a)
+        self.cond_1 = User.objects.create_user(phone='0700000099', password='pw', role='conductor')
+        
+        self.bus_1 = Bus.objects.create(plate_number='B1', office=self.office_a, capacity=50)
+        
+        PricingConfig.objects.create(
+            origin=self.office_a, destination=self.office_b,
+            passenger_price=1000, cargo_small_price=500, cargo_medium_price=1000, cargo_large_price=2000
+        )
+        
+        self.client.force_authenticate(user=self.staff_a)
+
+    def test_bus_double_booking_blocked(self):
+        # Create a trip
+        now = timezone.now()
+        res1 = self.client.post('/api/trips/', {
+            'origin_office': self.office_a.id,
+            'destination_office': self.office_b.id,
+            'bus': self.bus_1.id,
+            'conductor': self.cond_1.id,
+            'departure_datetime': (now + timedelta(hours=1)).isoformat(),
+        })
+        self.assertEqual(res1.status_code, status.HTTP_201_CREATED)
+        
+        # Try to schedule the same bus 2 hours later (within the 8-hour window)
+        res2 = self.client.post('/api/trips/', {
+            'origin_office': self.office_a.id,
+            'destination_office': self.office_b.id,
+            'bus': self.bus_1.id,
+            'conductor': self.cond_1.id,
+            'departure_datetime': (now + timedelta(hours=3)).isoformat(),
+        })
+        # Should fail due to overlap window in perform_create
+        self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('bus', res2.data)
+        
+        # Schedule the bus 10 hours later (outside the 8-hour window)
+        res3 = self.client.post('/api/trips/', {
+            'origin_office': self.office_a.id,
+            'destination_office': self.office_b.id,
+            'bus': self.bus_1.id,
+            'conductor': self.cond_1.id,  # Conductor might trip? Wait, no conductor date check exists
+            'departure_datetime': (now + timedelta(hours=10)).isoformat(),
+        })
+        self.assertEqual(res3.status_code, status.HTTP_201_CREATED)
+
+    def test_ticket_price_floor_enforced(self):
+        # Create a trip first
+        now = timezone.now()
+        trip_res = self.client.post('/api/trips/', {
+            'origin_office': self.office_a.id,
+            'destination_office': self.office_b.id,
+            'bus': self.bus_1.id,
+            'conductor': self.cond_1.id,
+            'departure_datetime': (now + timedelta(hours=1)).isoformat(),
+        })
+        self.assertEqual(trip_res.status_code, status.HTTP_201_CREATED)
+        trip_id = trip_res.data['id']
+
+        # Try to create a ticket with price < 100 DA
+        res1 = self.client.post('/api/passenger-tickets/', {
+            'trip': trip_id,
+            'passenger_name': 'Test Passager',
+            'price': 50,
+            'payment_source': 'cash'
+        })
+        self.assertEqual(res1.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('price', res1.data)
+
+        # Ticket with valid price >= 100 DA
+        res2 = self.client.post('/api/passenger-tickets/', {
+            'trip': trip_id,
+            'passenger_name': 'Test Passager',
+            'price': 150,
+            'payment_source': 'cash'
+        })
+        self.assertEqual(res2.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res2.data['price'], 150)
