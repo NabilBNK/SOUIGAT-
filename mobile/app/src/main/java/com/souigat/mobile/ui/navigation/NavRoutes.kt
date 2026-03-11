@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 sealed class NavRoute(val route: String) {
     object Login : NavRoute("login")
     object Dashboard : NavRoute("dashboard")
+    object Trips : NavRoute("trips")
     object History : NavRoute("history")
     object Expenses : NavRoute("expenses")
     object Profile : NavRoute("profile")

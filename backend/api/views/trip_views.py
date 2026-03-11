@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from api.models import Trip, Bus, User
 from api.serializers.trip import TripSerializer, TripListSerializer
-from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission
+from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission, IsAdminUser
 
 
 class TripViewSet(viewsets.ModelViewSet):
@@ -29,7 +29,7 @@ class TripViewSet(viewsets.ModelViewSet):
         'cancel': ['cancel_trip'],
         'start': ['start_trip'],
         'complete': ['complete_trip'],
-        'force_complete': ['cancel_trip']
+        'force_complete': ['override_status']
     }
 
     def get_serializer_class(self):
@@ -48,7 +48,7 @@ class TripViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), MatrixPermission()]
             
         if self.action == 'force_complete':
-            return [IsAuthenticated()]
+            return [IsAuthenticated(), IsAdminUser(), MatrixPermission()]
             
         # list / retrieve
         return [IsAuthenticated(), OfficeScopePermission()]
@@ -104,7 +104,7 @@ class TripViewSet(viewsets.ModelViewSet):
         departure = serializer.validated_data.get('departure_datetime')
         if bus and departure:
             from datetime import timedelta
-            window = timedelta(hours=8)
+            window = timedelta(hours=4)
             overlapping = Trip.objects.filter(
                 bus=bus,
                 status__in=['scheduled', 'in_progress'],
@@ -112,7 +112,7 @@ class TripViewSet(viewsets.ModelViewSet):
                 departure_datetime__lte=departure + window
             ).exclude(pk=serializer.instance.pk if serializer.instance else None).exists()
             if overlapping:
-                raise ValidationError({'bus': 'Bus is already assigned to an overlapping trip within an 8-hour window.'})
+                raise ValidationError({'bus': 'Bus is already assigned to an overlapping trip within a 4-hour window.'})
 
         serializer.save()
 
@@ -202,9 +202,6 @@ class TripViewSet(viewsets.ModelViewSet):
         Reconciliation Gate: Checks for unsynced tickets/expenses.
         Requires a 'force_reason'.
         """
-        if request.user.role != 'admin':
-            raise PermissionDenied('Only administrators can force complete a trip.')
-
         force_reason = request.data.get('force_reason')
         if not force_reason:
             raise ValidationError({'error_code': 'MISSING_REASON', 'detail': 'force_reason is required.'})
@@ -239,18 +236,15 @@ class TripViewSet(viewsets.ModelViewSet):
             trip.arrival_datetime = timezone.now()
             trip.save(skip_validation=True)
 
-            try:
-                from api.models import AuditLog
-                AuditLog.objects.create(
-                    action='override',
-                    user=request.user,
-                    table_name='api_trip',
-                    record_id=trip.id,
-                    old_values={'status': 'in_progress'},
-                    new_values={'status': 'completed', 'admin_note': force_reason}
-                )
-            except Exception:
-                pass
+            from api.models import AuditLog
+            AuditLog.objects.create(
+                action='override',
+                user=request.user,
+                table_name='api_trip',
+                record_id=trip.id,
+                old_values={'status': 'in_progress'},
+                new_values={'status': 'completed', 'admin_note': force_reason}
+            )
 
         return Response({
             'status': 'completed',

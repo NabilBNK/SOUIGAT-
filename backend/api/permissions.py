@@ -92,6 +92,15 @@ class RBACPermission(BasePermission):
         return request.user.role in required_roles
 
 
+class IsAdminUser(BasePermission):
+    """
+    Enforces that the authenticated user has the 'admin' role.
+    """
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.role == 'admin')
+
+
 class MatrixPermission(BasePermission):
     """
     Checks if the user has specific action permissions based on the PERMISSION_MATRIX.

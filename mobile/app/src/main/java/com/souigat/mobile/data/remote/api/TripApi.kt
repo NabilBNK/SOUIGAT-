@@ -18,9 +18,6 @@ data class PaginatedTripListDto(
     val previous: String? = null,
     val results: List<TripListDto>
 )
-import retrofit2.http.POST
-import retrofit2.http.Path
-import retrofit2.http.Query
 
 interface TripApi {
 

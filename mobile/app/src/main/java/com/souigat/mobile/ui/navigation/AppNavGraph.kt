@@ -107,11 +107,19 @@ fun AppNavGraph(
             composable(NavRoute.Dashboard.route) {
                 DashboardScreen(
                     onNavigateToTrips = {
-                        navController.navigate(NavRoute.History.route) {
+                        navController.navigate(NavRoute.Trips.route) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
+                    }
+                )
+            }
+            
+            composable(NavRoute.Trips.route) {
+                TripListScreen(
+                    onNavigateToDetail = { tripId ->
+                        navController.navigate("trip_detail/$tripId")
                     }
                 )
             }
