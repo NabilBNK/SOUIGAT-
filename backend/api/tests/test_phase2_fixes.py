@@ -79,7 +79,7 @@ class Phase2IntegrationTests(APITestCase):
             'destination_office': self.office_b.id,
             'bus': self.bus_1.id,
             'conductor': self.cond_1.id,
-            'departure_datetime': (now + timedelta(hours=1)).isoformat(),
+            'departure_datetime': (now + timedelta(minutes=15)).isoformat(),
         })
         trip_id = trip_res.data['id']
 
@@ -103,6 +103,24 @@ class Phase2IntegrationTests(APITestCase):
         res_comp_cond = self.client.post(f'/api/trips/{trip_id}/complete/')
         self.assertEqual(res_comp_cond.status_code, status.HTTP_200_OK)
         self.assertEqual(res_comp_cond.data['status'], 'completed')
+
+    def test_start_trip_too_early_blocked(self):
+        # Create a trip 2 hours in the future
+        now = timezone.now()
+        trip_res = self.client.post('/api/trips/', {
+            'origin_office': self.office_a.id,
+            'destination_office': self.office_b.id,
+            'bus': self.bus_1.id,
+            'conductor': self.cond_1.id,
+            'departure_datetime': (now + timedelta(hours=2)).isoformat(),
+        })
+        trip_id = trip_res.data['id']
+
+        # Conductor tries to start it — should be blocked (> 30 mins)
+        self.client.force_authenticate(user=self.cond_1)
+        res = self.client.post(f'/api/trips/{trip_id}/start/')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data['error_code'], 'TOO_EARLY')
 
     def test_ticket_price_floor_enforced(self):
         # Create a trip first

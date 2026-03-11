@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.db import models, transaction
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -99,11 +100,10 @@ class TripViewSet(viewsets.ModelViewSet):
                     'You can only create trips originating from your office.'
                 )
 
-        # Ensure the bus isn't double-booked on an overlapping schedule (+/- 8 hours)
+        # Ensure the bus isn't double-booked on an overlapping schedule (+/- 4 hours)
         bus = serializer.validated_data.get('bus')
         departure = serializer.validated_data.get('departure_datetime')
         if bus and departure:
-            from datetime import timedelta
             window = timedelta(hours=4)
             overlapping = Trip.objects.filter(
                 bus=bus,
@@ -117,7 +117,6 @@ class TripViewSet(viewsets.ModelViewSet):
         # Ensure the conductor isn't double-booked on an overlapping schedule (+/- 4 hours)
         conductor = serializer.validated_data.get('conductor')
         if conductor and departure:
-            from datetime import timedelta
             window = timedelta(hours=4)
             overlapping_cond = Trip.objects.filter(
                 conductor=conductor,
@@ -147,9 +146,16 @@ class TripViewSet(viewsets.ModelViewSet):
 
             if request.user.role == 'conductor' and trip.conductor_id != request.user.id:
                 raise PermissionDenied('You are not the assigned conductor.')
-            elif request.user.role == 'office_staff' and trip.origin_office_id != request.user.office_id:
-                raise PermissionDenied('You can only start trips originating from your office.')
+            # MatrixPermission handles blocking office_staff from this action.
             # Admin role handles cross-office scoping seamlessly here.
+
+            now = timezone.now()
+            # Enforce start-time constraint: cannot start trip more than 30 mins before departure
+            if trip.departure_datetime > now + timedelta(minutes=30):
+                raise ValidationError({
+                    'error_code': 'TOO_EARLY',
+                    'detail': f'Cannot start trip more than 30 minutes before scheduled departure ({trip.departure_datetime}).'
+                })
 
             if trip.status != 'scheduled':
                 raise ValidationError(
@@ -188,8 +194,7 @@ class TripViewSet(viewsets.ModelViewSet):
 
             if request.user.role == 'conductor' and trip.conductor_id != request.user.id:
                 raise PermissionDenied('You are not the assigned conductor.')
-            elif request.user.role == 'office_staff' and trip.destination_office_id != request.user.office_id:
-                raise PermissionDenied('You can only complete trips arriving at your office.')
+            # MatrixPermission handles blocking office_staff from this action.
             # Admin role handles cross-office scoping seamlessly here.
 
             if trip.status != 'in_progress':
