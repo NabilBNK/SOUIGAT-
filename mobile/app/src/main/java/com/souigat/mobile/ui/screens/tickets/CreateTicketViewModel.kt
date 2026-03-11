@@ -40,29 +40,46 @@ class CreateTicketViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<CreateTicketUiState>(CreateTicketUiState.Idle)
     val uiState: StateFlow<CreateTicketUiState> = _uiState.asStateFlow()
 
-    fun createPassengerTicket(
-        passengerName: String,
+    fun createPassengerTicketBatch(
+        count: Int,
+        priceOverrideStr: String,
         paymentSource: String, // "cash" or "prepaid"
         seatNumber: String
     ) {
-        if (passengerName.isBlank()) {
-            _uiState.value = CreateTicketUiState.Error("Le nom du passager est requis.")
+        val priceOverride = priceOverrideStr.toLongOrNull()
+        if (priceOverride == null) {
+            _uiState.value = CreateTicketUiState.Error("Prix invalide.")
+            return
+        }
+        
+        if (priceOverride < 100) {
+            _uiState.value = CreateTicketUiState.Error("Le prix doit être au moins de 100 DA.")
+            return
+        }
+
+        if (passPrice > 0 && priceOverride > (passPrice * 1.5).toLong()) {
+            _uiState.value = CreateTicketUiState.Error("Le prix dépasse la limite maximale autorisée.")
+            return
+        }
+
+        if (count < 1 || count > 50) {
+            _uiState.value = CreateTicketUiState.Error("Le nombre de billets doit être entre 1 et 50.")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = CreateTicketUiState.Loading
-            ticketRepository.createPassengerTicket(
+            ticketRepository.createPassengerTicketBatch(
                 tripId = tripId,
-                passengerName = passengerName,
-                price = passPrice,
+                count = count,
+                price = priceOverride,
                 currency = currency,
                 paymentSource = paymentSource,
                 seatNumber = seatNumber
-            ).onSuccess { ticket ->
-                _uiState.value = CreateTicketUiState.Success("Billet ${ticket.ticketNumber} créé hors ligne avec succès.")
+            ).onSuccess { savedCount ->
+                _uiState.value = CreateTicketUiState.Success("$savedCount billet(s) créé(s) hors ligne avec succès.")
             }.onFailure {
-                _uiState.value = CreateTicketUiState.Error("Erreur lors de la création du billet.")
+                _uiState.value = CreateTicketUiState.Error("Erreur lors de la création des billets.")
             }
         }
     }

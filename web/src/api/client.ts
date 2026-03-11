@@ -15,6 +15,8 @@ let failedQueue: Array<{
     reject: (error: unknown) => void
 }> = []
 
+export const authEvents = new EventTarget()
+
 const tokenChannel = new BroadcastChannel('souigat:tokens')
 
 tokenChannel.onmessage = (event) => {
@@ -100,11 +102,7 @@ client.interceptors.response.use(
                     refresh: refreshToken,
                     platform: 'web',
                 }, { withCredentials: true })
-                accessToken = data.access
-                if (data.refresh) refreshToken = data.refresh
-
-                // Broadcast to other tabs
-                tokenChannel.postMessage({ type: 'tokens-updated', access: data.access, refresh: data.refresh || refreshToken })
+                setTokens(data.access, data.refresh || refreshToken!)
 
                 processQueue(null, data.access)
                 original.headers.Authorization = `Bearer ${data.access}`
@@ -113,9 +111,7 @@ client.interceptors.response.use(
                 console.error('[CLIENT] Attempting to redirect to login after refresh failure');
                 processQueue(refreshError, null)
                 clearTokens()
-                if (window.location.pathname !== '/login') {
-                    window.location.href = '/login'
-                }
+                authEvents.dispatchEvent(new Event('unauthorized'))
                 return Promise.reject(refreshError)
             } finally {
                 isRefreshing = false

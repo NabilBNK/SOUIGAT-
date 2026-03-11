@@ -51,7 +51,7 @@ data class UserProfileDto(
     val is_active: Boolean,
     val device_id: String?,
     val last_login: String?,
-    val permissions: Map<String, Boolean>
+    val permissions: List<String>
 ) {
     val fullName: String get() = "$first_name $last_name".trim()
 }

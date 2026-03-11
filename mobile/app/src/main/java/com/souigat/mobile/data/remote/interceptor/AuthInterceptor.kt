@@ -14,6 +14,12 @@ import javax.inject.Inject
 import javax.inject.Provider
 
 /**
+ * Shared lock between AuthInterceptor (403 path) and TokenRefreshAuthenticator (401 path)
+ * to prevent concurrent token refreshes on different monitor objects.
+ */
+internal object RefreshLock
+
+/**
  * Injects JWT access token into API requests.
  * Explicitly intercepts HTTP 403 FORBIDDEN responses (as backend does not use 401)
  * to automatically trigger refresh flows.
@@ -72,8 +78,7 @@ class AuthInterceptor @Inject constructor(
         return response
     }
 
-    @Synchronized
-    private fun handle403Refresh(response: Response, failedToken: String): okhttp3.Request? {
+    private fun handle403Refresh(response: Response, failedToken: String): okhttp3.Request? = synchronized(RefreshLock) {
         // Prevent infinite loops on the refresh endpoint itself
         if (response.request.url.encodedPath.contains("token/refresh")) {
             Timber.e("Refresh token endpoint returned 403. Session is permanently expired.")
@@ -136,9 +141,9 @@ class AuthInterceptor @Inject constructor(
             // 5 minutes = 300 seconds buffer
             return expTimestamp - currentTimestamp < 300
         } catch (e: Exception) {
-            Timber.e(e, "Failed to parse JWT for expiry check")
-            // Assume expired if we can't parse it
-            return true
+            Timber.w(e, "Failed to parse JWT for expiry check — attaching token anyway")
+            // Let server validate; don't silently drop auth
+            return false
         }
     }
 }

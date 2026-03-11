@@ -22,8 +22,7 @@ class TokenRefreshAuthenticator @Inject constructor(
     private val authApiProvider: Provider<AuthApi> // must be the NO-AUTH retrofit instance provided by dagger
 ) : Authenticator {
 
-    @Synchronized
-    override fun authenticate(route: Route?, response: Response): Request? {
+    override fun authenticate(route: Route?, response: Response): Request? = synchronized(RefreshLock) {
         // Step 1: Check if the token on the FAILED REQUEST is still the
         // current token. If another thread already refreshed it, just retry
         // with the new token without calling refresh again.

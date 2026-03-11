@@ -14,7 +14,7 @@ data class TripListDto(
     val departureDatetime: String,
     val status: String,
     @SerialName("passenger_base_price")
-    val passengerBasePrice: String,
+    val passengerBasePrice: Long,
     val currency: String
 )
 
@@ -33,13 +33,13 @@ data class TripDetailDto(
     val arrivalDatetime: String? = null,
     val status: String,
     @SerialName("passenger_base_price")
-    val passengerBasePrice: String,
+    val passengerBasePrice: Long,
     @SerialName("cargo_small_price")
-    val cargoSmallPrice: String,
+    val cargoSmallPrice: Long,
     @SerialName("cargo_medium_price")
-    val cargoMediumPrice: String,
+    val cargoMediumPrice: Long,
     @SerialName("cargo_large_price")
-    val cargoLargePrice: String,
+    val cargoLargePrice: Long,
     val currency: String,
     @SerialName("conductor_name")
     val conductorName: String,

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +49,11 @@ fun TripListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Mes Trajets") },
+                actions = {
+                    IconButton(onClick = { viewModel.loadTrips() }) {
+                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Rafraîchir")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -61,15 +67,36 @@ fun TripListScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
                 is TripListUiState.Error -> {
-                    val msg = when (state.error) {
-                        is TripException.NetworkUnavailable -> "Hors ligne. Vérifiez votre connexion."
+                    val msg = when (val err = state.error) {
+                        is TripException.NetworkUnavailable ->
+                            "Hors ligne. Vérifiez votre connexion Wi-Fi ou données."
+                        is TripException.Unauthenticated ->
+                            "Session expirée. Veuillez vous reconnecter."
+                        is TripException.NotAssigned ->
+                            "Aucun trajet assigné à votre compte."
+                        is TripException.InvalidStatus ->
+                            err.message
+                        is TripException.DeserializationError ->
+                            "Erreur de données (mise à jour requise). Détail : ${err.detail.take(80)}"
+                        is TripException.ServerError ->
+                            "Erreur serveur ${err.code}. Réessayez dans un moment."
                         else -> "Erreur lors du chargement des trajets."
                     }
-                    Text(
-                        text = msg,
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Column(
+                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = msg,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedButton(onClick = { viewModel.loadTrips() }) {
+                            Text("Réessayer")
+                        }
+                    }
                 }
                 is TripListUiState.Success -> {
                     if (state.trips.isEmpty()) {

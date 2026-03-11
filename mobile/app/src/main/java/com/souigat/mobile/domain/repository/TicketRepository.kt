@@ -14,6 +14,15 @@ interface TicketRepository {
         seatNumber: String
     ): Result<PassengerTicketEntity>
 
+    suspend fun createPassengerTicketBatch(
+        tripId: Long,
+        count: Int,
+        price: Long, // in centimes
+        currency: String,
+        paymentSource: String,
+        seatNumber: String
+    ): Result<Int>
+
     suspend fun createCargoTicket(
         tripId: Long,
         senderName: String,

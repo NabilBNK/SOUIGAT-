@@ -9,7 +9,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
-import okhttp3.CertificatePinner
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -30,45 +29,19 @@ object NetworkModule {
         coerceInputValues = true
     }
 
-    @Provides
-    @Singleton
-    fun provideCertificatePinner(): CertificatePinner {
-        return CertificatePinner.Builder()
-            .apply {
-                if (BuildConfig.BUILD_TYPE != "debug") {
-                    // TODO P0.5: Replace placeholder pins with real SPKI hashes extracted via:
-                    //   openssl s_client -connect staging.souigat.dz:443 -servername staging.souigat.dz < /dev/null 2>/dev/null \
-                    //     | openssl x509 -pubkey -noout \
-                    //     | openssl pkey -pubin -outform der \
-                    //     | openssl dgst -sha256 -binary | base64
-                    //
-                    // Pin the INTERMEDIATE CA — not the leaf cert (survives cert renewal).
-                    // Two pins = current + backup intermediate for rotation window.
-                    //
-                    // ⛔ DO NOT use these placeholder pins in a staging APK — it will throw
-                    //    SSLPeerUnverifiedException on EVERY API call. All 8 devices will lose
-                    //    connectivity simultaneously. Extract real pins first.
-                    add(
-                        "staging.souigat.dz",
-                        "sha256/PLACEHOLDER_STAGING_INTERMEDIATE_PIN_1=",
-                        "sha256/PLACEHOLDER_STAGING_BACKUP_PIN_2="
-                    )
-                    add(
-                        "api.souigat.dz",
-                        "sha256/PLACEHOLDER_PRODUCTION_INTERMEDIATE_PIN_1=",
-                        "sha256/PLACEHOLDER_PRODUCTION_BACKUP_PIN_2="
-                    )
-                }
-            }
-            .build()
-    }
+    // TODO P0: Add CertificatePinner with real SPKI hashes before production release.
+    // Extract hashes via:
+    //   openssl s_client -connect api.souigat.dz:443 -servername api.souigat.dz < /dev/null 2>/dev/null \
+    //     | openssl x509 -pubkey -noout \
+    //     | openssl pkey -pubin -outform der \
+    //     | openssl dgst -sha256 -binary | base64
+    // Pin the INTERMEDIATE CA — not the leaf cert (survives cert renewal).
 
     @Provides
     @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
-        tokenRefreshAuthenticator: TokenRefreshAuthenticator,
-        certificatePinner: CertificatePinner
+        tokenRefreshAuthenticator: TokenRefreshAuthenticator
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .connectTimeout(Constants.CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
@@ -77,9 +50,6 @@ object NetworkModule {
             .addInterceptor(authInterceptor)
             .authenticator(tokenRefreshAuthenticator)
             .apply {
-                if (BuildConfig.BUILD_TYPE != "debug") {
-                    certificatePinner(certificatePinner)
-                }
                 if (BuildConfig.DEBUG) {
                     addInterceptor(
                         HttpLoggingInterceptor().apply {

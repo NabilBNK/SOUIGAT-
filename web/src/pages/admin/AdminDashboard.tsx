@@ -72,7 +72,7 @@ export function AdminDashboard() {
                 />
                 <StatCard
                     title="Tarifications"
-                    value={pricing?.length ?? '...'}
+                    value={pricing?.count ?? '...'}
                     icon={<CircleDollarSign className="w-6 h-6" />}
                     to="/admin/pricing"
                     description="Prix par type de trajet et colis."

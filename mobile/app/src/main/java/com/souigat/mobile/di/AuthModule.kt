@@ -13,7 +13,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
-import okhttp3.CertificatePinner
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -31,17 +30,14 @@ object AuthModule {
     @Singleton
     @Named("auth") // Pure retrofit without custom interceptors/authenticators
     fun provideAuthRetrofit(
-        json: Json,
-        certificatePinner: CertificatePinner
+        json: Json
     ): Retrofit {
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(Constants.CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
             .readTimeout(Constants.READ_TIMEOUT_S, TimeUnit.SECONDS)
             .writeTimeout(Constants.WRITE_TIMEOUT_S, TimeUnit.SECONDS)
             .apply {
-                if (BuildConfig.BUILD_TYPE != "debug") {
-                    certificatePinner(certificatePinner)
-                }
+                // TODO P0: Re-add CertificatePinner when real SPKI hashes are available
                 if (BuildConfig.DEBUG) {
                     addInterceptor(
                         HttpLoggingInterceptor().apply {

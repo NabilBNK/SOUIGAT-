@@ -107,6 +107,87 @@ class TicketRepositoryImpl @Inject constructor(
         Result.failure(Exception("Impossible de générer un billet unique après $maxRetries tentatives", lastException))
     }
 
+    override suspend fun createPassengerTicketBatch(
+        tripId: Long,
+        count: Int,
+        price: Long,
+        currency: String,
+        paymentSource: String,
+        seatNumber: String
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        var retries = 0
+        val maxRetries = 5
+        var lastException: Exception? = null
+
+        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+        val dateString = sdf.format(java.util.Date())
+
+        while (retries < maxRetries) {
+            try {
+                db.withTransaction {
+                    val entities = mutableListOf<PassengerTicketEntity>()
+                    val syncItems = mutableListOf<SyncQueueEntity>()
+                    
+                    val currentCount = passengerDao.getCountByDate("PT-$dateString")
+                    
+                    for (i in 1..count) {
+                        val seq = currentCount + i + (retries * count)
+                        val seqString = String.format(java.util.Locale.US, "%04d", seq)
+                        val ticketNumber = "PT-$dateString-$seqString"
+                        val idempotencyKey = UUID.randomUUID().toString()
+
+                        val entity = PassengerTicketEntity(
+                            serverId = null,
+                            tripId = tripId,
+                            ticketNumber = ticketNumber,
+                            idempotencyKey = idempotencyKey,
+                            passengerName = "Passager",
+                            price = price,
+                            currency = currency,
+                            paymentSource = paymentSource,
+                            seatNumber = seatNumber,
+                            status = "active"
+                        )
+                        entities.add(entity)
+
+                        val jsonPayload = JSONObject().apply {
+                            put("trip", tripId)
+                            put("ticket_number", ticketNumber)
+                            put("passenger_name", "Passager")
+                            put("price", price)
+                            put("currency", currency)
+                            put("payment_source", paymentSource)
+                            put("seat_number", seatNumber)
+                        }.toString()
+
+                        val syncItem = SyncQueueEntity(
+                            tripId = tripId,
+                            itemType = "passenger_ticket",
+                            payload = jsonPayload,
+                            idempotencyKey = idempotencyKey,
+                            status = SyncStatus.PENDING
+                        )
+                        syncItems.add(syncItem)
+                    }
+
+                    passengerDao.insertBatch(entities)
+                    for (item in syncItems) {
+                        syncQueueDao.enqueue(item)
+                    }
+                }
+                return@withContext Result.success(count)
+            } catch (e: android.database.sqlite.SQLiteConstraintException) {
+                lastException = e
+                retries++
+            } catch (e: Exception) {
+                return@withContext Result.failure(e)
+            }
+        }
+        Result.failure(Exception("Impossible de générer les $count billets après $maxRetries tentatives", lastException))
+    }
+
     override suspend fun createCargoTicket(
         tripId: Long,
         senderName: String,

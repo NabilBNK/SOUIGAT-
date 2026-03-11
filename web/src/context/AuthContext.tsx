@@ -1,7 +1,7 @@
 import { createContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import type { AuthState } from '../types/auth'
 import { login as loginApi, logout as logoutApi, getMe } from '../api/auth'
-import { setTokens, clearTokens, getAccessToken } from '../api/client'
+import { setTokens, clearTokens, getAccessToken, authEvents } from '../api/client'
 
 interface AuthContextValue extends AuthState {
     login: (phone: string, password: string) => Promise<void>
@@ -18,6 +18,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: false,
         isLoading: true,
     })
+
+    // Listen for 401 unauthorized events from the API client
+    useEffect(() => {
+        const handler = () => {
+            clearTokens()
+            setState({
+                user: null,
+                accessToken: null,
+                refreshToken: null,
+                isAuthenticated: false,
+                isLoading: false,
+            })
+        }
+        authEvents.addEventListener('unauthorized', handler)
+        return () => authEvents.removeEventListener('unauthorized', handler)
+    }, [])
 
     // Attempt to restore session
     useEffect(() => {

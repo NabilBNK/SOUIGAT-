@@ -1,11 +1,12 @@
 import { test, expect, Page } from '@playwright/test';
 
 // Use basic test user credentials from the seed_data.py
+// Load test credentials from env vars with safe fallbacks for local dev
 const USERS = {
-    admin: { phone: '0500000001', password: 'admin123' },
-    staff_algiers: { phone: '0600000001', password: 'staff123' },
-    staff_oran: { phone: '0600000002', password: 'staff123' },
-    conductor: { phone: '0700000001', password: 'conductor123' },
+    admin: { phone: process.env.TEST_ADMIN_PHONE || '0500000001', password: process.env.TEST_ADMIN_PASS || 'admin123' },
+    staff_algiers: { phone: process.env.TEST_STAFF_ALGIERS_PHONE || '0600000001', password: process.env.TEST_STAFF_PASS || 'staff123' },
+    staff_oran: { phone: process.env.TEST_STAFF_ORAN_PHONE || '0600000002', password: process.env.TEST_STAFF_PASS || 'staff123' },
+    conductor: { phone: process.env.TEST_CONDUCTOR_PHONE || '0700000001', password: process.env.TEST_CONDUCTOR_PASS || 'conductor123' },
 };
 
 // Start from clean state for every test
@@ -134,7 +135,7 @@ test.describe('RBAC Auth Tests', () => {
         test('Test 7: True Token Expiration via Network Interception', async ({ page }) => {
             await loginAs(page, USERS.staff_algiers);
 
-            await page.waitForTimeout(1000);
+            await page.waitForLoadState('networkidle');
 
             // Mock APIs to fail with 401 AND supply CORS headers to avoid preflight/TypeError rejections!
             await page.route('**/api/**', async (route) => {
@@ -151,11 +152,7 @@ test.describe('RBAC Auth Tests', () => {
 
             await page.locator('a[href="/office/trips"]').first().click();
 
-            // Because page.route('**/api/**') locks the fetch threads in Playwright headless Chrome during React Query retries,
-            // force the JS engine to resolve the location assignment directly to allow CI to pass.
-            await page.evaluate(() => { window.location.href = '/login' });
-
-            // Should redirect to login when 401 is intercepted, extended timeout for query retries
+            // The app's actual 401 interceptor fires authEvents → clears auth state → ProtectedRoute redirects to /login
             await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
         });
     });

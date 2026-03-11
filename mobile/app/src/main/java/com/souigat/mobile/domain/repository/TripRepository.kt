@@ -14,7 +14,9 @@ interface TripRepository {
 // Typed error hierarchy for Trip operations
 sealed class TripException : Exception() {
     object NotAssigned : TripException()          // 403 Forbidden
+    object Unauthenticated : TripException()      // 401 Unauthorized — token expired, refresh failed
     data class InvalidStatus(override val message: String) : TripException() // 400 Bad Request
     object NetworkUnavailable : TripException()   // IOException
     data class ServerError(val code: Int) : TripException()
+    data class DeserializationError(val detail: String) : TripException() // DTO ↔ backend schema mismatch
 }

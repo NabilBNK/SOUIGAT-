@@ -46,7 +46,7 @@ class SyncDataWorker @AssistedInject constructor(
 
         var finalResult = Result.success()
 
-        val prefs = appContext.getSharedPreferences("sync_worker_prefs", Context.MODE_PRIVATE)
+        val prefs = applicationContext.getSharedPreferences("sync_worker_prefs", Context.MODE_PRIVATE)
 
         for ((tripId, items) in groupedByTrip) {
             try {
@@ -81,7 +81,8 @@ class SyncDataWorker @AssistedInject constructor(
                     val batchResponse = response.body()
                     if (batchResponse != null) {
                         for (itemResp in batchResponse.items) {
-                            val respLocalId = itemResp.localId ?: itemResp.index?.let { dtoList.getOrNull(it)?.localId }
+                            val indexValue = itemResp.index
+                            val respLocalId = itemResp.localId ?: if (indexValue != null) dtoList.getOrNull(indexValue)?.localId else null
                             if (respLocalId == null) continue
 
                             when (itemResp.status) {
@@ -120,10 +121,6 @@ class SyncDataWorker @AssistedInject constructor(
             }
         }
 
-        // Catch-all: Anything that was marked SYNCING but never properly closed via response
-        // needs to be reset back to PENDING natively so it isn't orphaned.
-        syncQueueDao.resetStuckSyncing()
-        
         // Clean out ancient synchronizations
         syncQueueDao.pruneOldSynced(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7))
 

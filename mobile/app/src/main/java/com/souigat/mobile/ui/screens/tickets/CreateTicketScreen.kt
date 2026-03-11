@@ -93,7 +93,8 @@ fun CreateTicketScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PassengerForm(viewModel: CreateTicketViewModel, isLoading: Boolean) {
-    var passengerName by remember { mutableStateOf("") }
+    var ticketCount by remember { mutableStateOf(1) }
+    var priceOverride by remember { mutableStateOf(viewModel.passPriceStr) }
     var seatNumber by remember { mutableStateOf("") }
     var paymentSource by remember { mutableStateOf("cash") } // cash or prepaid
     var expandedPayment by remember { mutableStateOf(false) }
@@ -104,11 +105,30 @@ fun PassengerForm(viewModel: CreateTicketViewModel, isLoading: Boolean) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        OutlinedTextField(
-            value = passengerName,
-            onValueChange = { passengerName = it },
-            label = { Text("Nom du Passager*") },
+        // Counter UI
+        Row(
             modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Nombre de passagers", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                IconButton(onClick = { if (ticketCount > 1) ticketCount-- }, enabled = !isLoading && ticketCount > 1) {
+                    Text("-", style = MaterialTheme.typography.titleLarge)
+                }
+                Text(text = ticketCount.toString(), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
+                IconButton(onClick = { if (ticketCount < 50) ticketCount++ }, enabled = !isLoading && ticketCount < 50) {
+                    Text("+", style = MaterialTheme.typography.titleLarge)
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = priceOverride,
+            onValueChange = { priceOverride = it },
+            label = { Text("Prix Unitaire (DA)*") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
             enabled = !isLoading
         )
@@ -144,8 +164,9 @@ fun PassengerForm(viewModel: CreateTicketViewModel, isLoading: Boolean) {
             }
         }
         
+        val totalPrice = (priceOverride.toLongOrNull() ?: 0) * ticketCount
         Text(
-            text = "Prix: ${viewModel.passPriceStr} ${viewModel.currency}",
+            text = "Total: $totalPrice ${viewModel.currency}",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -153,13 +174,13 @@ fun PassengerForm(viewModel: CreateTicketViewModel, isLoading: Boolean) {
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = { viewModel.createPassengerTicket(passengerName, paymentSource, seatNumber) },
+            onClick = { viewModel.createPassengerTicketBatch(ticketCount, priceOverride, paymentSource, seatNumber) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            enabled = passengerName.isNotBlank() && !isLoading
+            enabled = priceOverride.isNotBlank() && !isLoading
         ) {
-            Text("Créer le billet", fontWeight = FontWeight.Bold)
+            Text(if (ticketCount > 1) "Créer $ticketCount billets" else "Créer 1 billet", fontWeight = FontWeight.Bold)
         }
     }
 }

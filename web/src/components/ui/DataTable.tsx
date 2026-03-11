@@ -115,13 +115,13 @@ export function DataTable<TData, TValue>({
             {pageCount > 1 && (
                 <div className="px-5 py-3 border-t border-surface-600/50 flex items-center justify-between bg-surface-800/50">
                     <p className="text-[12px] text-text-muted">
-                        Page <span className="font-medium text-text-primary">{pageIndex}</span> sur{' '}
+                        Page <span className="font-medium text-text-primary">{pageIndex + 1}</span> sur{' '}
                         <span className="font-medium text-text-primary">{pageCount}</span>
                     </p>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => onPageChange(pageIndex - 1)}
-                            disabled={pageIndex <= 1 || isLoading}
+                            disabled={pageIndex <= 0 || isLoading}
                             className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             <ChevronLeft className="w-4 h-4" />

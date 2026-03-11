@@ -98,11 +98,16 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
             total_count = PassengerTicket.objects.filter(trip=trip).count()
             ticket_number = f'PT-{trip.id}-{total_count + 1:03d}'
 
+            provided_price = serializer.validated_data.get('price')
+            final_price = provided_price if provided_price is not None else trip.passenger_base_price
+            if final_price < 100:
+                raise ValidationError({'price': 'Ticket price must be at least 100 DA for financial integrity.'})
+
             ticket = PassengerTicket.objects.create(
                 trip=trip,
                 ticket_number=ticket_number,
                 passenger_name=serializer.validated_data.get('passenger_name', 'Walk-in'),
-                price=trip.passenger_base_price,
+                price=final_price,
                 currency=trip.currency,
                 payment_source=serializer.validated_data.get('payment_source', 'cash'),
                 seat_number=serializer.validated_data.get('seat_number', ''),

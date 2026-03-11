@@ -47,6 +47,7 @@ function RootRedirect() {
       if (user.department === 'cargo') return <Navigate to="/cargo" replace />
       return <Navigate to="/office" replace />
     case 'conductor':
+    case 'driver':
       return <Navigate to="/unauthorized" replace />
     default:
       return <Navigate to="/login" replace />

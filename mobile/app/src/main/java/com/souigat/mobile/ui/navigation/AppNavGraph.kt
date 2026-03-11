@@ -17,6 +17,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.ui.screens.boot.BootScreen
+import com.souigat.mobile.ui.screens.dashboard.DashboardScreen
 import com.souigat.mobile.ui.screens.trips.TripListScreen
 import com.souigat.mobile.ui.screens.trips.TripDetailScreen
 import com.souigat.mobile.ui.screens.expense.ExpensesScreen
@@ -103,10 +104,14 @@ fun AppNavGraph(
                 })
             }
 
-            composable(NavRoute.Dashboard.route) { 
-                TripListScreen(
-                    onNavigateToDetail = { tripId ->
-                        navController.navigate("trip_detail/$tripId")
+            composable(NavRoute.Dashboard.route) {
+                DashboardScreen(
+                    onNavigateToTrips = {
+                        navController.navigate(NavRoute.History.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }
@@ -149,12 +154,55 @@ fun AppNavGraph(
             ) {
                 CreateExpenseScreen(onNavigateBack = { navController.popBackStack() })
             }
-            composable("office_dashboard") { Text("Office Staff Dashboard") }
-            composable("admin_dashboard") { Text("Admin Dashboard") }
+            composable("office_dashboard") {
+                val role = tokenManager?.getUserRole()
+                if (role != "office_staff" && role != "admin") {
+                    LaunchedEffect(Unit) {
+                        navController.navigate(NavRoute.Dashboard.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                } else {
+                    Text("Office Staff Dashboard — Coming Soon")
+                }
+            }
+            composable("admin_dashboard") {
+                val role = tokenManager?.getUserRole()
+                if (role != "admin") {
+                    LaunchedEffect(Unit) {
+                        navController.navigate(NavRoute.Dashboard.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                } else {
+                    Text("Admin Dashboard — Coming Soon")
+                }
+            }
 
-            composable(NavRoute.History.route) { HistoryScreen() }
-            composable(NavRoute.Expenses.route) { ExpensesScreen() }
-            composable(NavRoute.Profile.route) { ProfileScreen() }
+            composable(NavRoute.History.route) {
+                HistoryScreen(
+                    onNavigateToDetail = { tripId ->
+                        navController.navigate("trip_detail/$tripId")
+                    }
+                )
+            }
+            composable(NavRoute.Expenses.route) {
+                ExpensesScreen(
+                    onNavigateToCreate = { tripId, currency ->
+                        navController.navigate("create_expense/$tripId/$currency")
+                    }
+                )
+            }
+            composable(NavRoute.Profile.route) {
+                ProfileScreen(
+                    onNavigateToLogin = {
+                        navController.navigate(NavRoute.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
         }
     }
 }

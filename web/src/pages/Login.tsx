@@ -29,7 +29,7 @@ export function Login() {
                 } else {
                     // Collect field-level errors
                     const parts: string[] = []
-                    for (const [key, val] of Object.entries(resp)) {
+                    for (const [, val] of Object.entries(resp)) {
                         if (Array.isArray(val)) parts.push(val.join(' '))
                         else if (typeof val === 'string') parts.push(val)
                     }
@@ -75,6 +75,8 @@ export function Login() {
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
                             placeholder="05XXXXXXXX"
+                            pattern="^0[5-79][0-9]{8}$"
+                            title="Format attendu: 05, 06, 07 ou 09 suivi de 8 chiffres (ex: 0550123456)"
                             required
                             autoComplete="tel"
                             className="w-full px-3.5 py-2.5 bg-surface-700 border border-surface-600/50 rounded-md text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"

@@ -85,10 +85,10 @@ fun TripDetailScreen(
                             onClick = {
                                 onNavigateToCreateTicket(
                                     trip.id,
-                                    trip.passengerBasePrice,
-                                    trip.cargoSmallPrice,
-                                    trip.cargoMediumPrice,
-                                    trip.cargoLargePrice,
+                                    trip.passengerBasePrice.toString(),
+                                    trip.cargoSmallPrice.toString(),
+                                    trip.cargoMediumPrice.toString(),
+                                    trip.cargoLargePrice.toString(),
                                     trip.currency
                                 )
                             },

@@ -207,8 +207,8 @@ export function TripList() {
                 columns={columns}
                 data={data?.results || []}
                 pageCount={pageCount}
-                pageIndex={page}
-                onPageChange={setPage}
+                pageIndex={page - 1}
+                onPageChange={(newIndex) => setPage(newIndex + 1)}
                 isLoading={isLoading}
                 onRowClick={() => {
                     // Navigate to details if needed, but we have the action button

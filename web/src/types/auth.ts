@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'office_staff' | 'conductor'
+export type Role = 'admin' | 'office_staff' | 'conductor' | 'driver'
 export type Department = 'all' | 'cargo' | null
 
 export interface User {

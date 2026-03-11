@@ -41,17 +41,19 @@ class LoginSerializer(serializers.Serializer):
                 'device_id': 'Required for mobile platform.',
             })
 
+        from rest_framework.exceptions import AuthenticationFailed
+
         # Same error for wrong phone or password (prevent enumeration)
         try:
             user = User.objects.get(phone=phone)
         except User.DoesNotExist:
-            raise serializers.ValidationError('Invalid credentials.')
+            raise AuthenticationFailed('Invalid credentials.')
 
         if not user.is_active:
-            raise serializers.ValidationError('Invalid credentials.')
+            raise AuthenticationFailed('Invalid credentials.')
 
         if not user.check_password(password):
-            raise serializers.ValidationError('Invalid credentials.')
+            raise AuthenticationFailed('Invalid credentials.')
 
         attrs['user'] = user
         return attrs

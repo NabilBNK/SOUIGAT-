@@ -6,12 +6,13 @@ import { DataTable } from '../../components/ui/DataTable'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Package, Search, AlertCircle, TrendingUp, Navigation } from 'lucide-react'
 import { CARGO_STATUS_LABELS } from '../../types/ticket'
-import type { CargoTicket } from '../../types/ticket'
+import type { CargoTicket, CargoStatus } from '../../types/ticket'
 import { useNavigate } from 'react-router-dom'
+import type { ColumnDef } from '@tanstack/react-table'
 
 const columnHelper = createColumnHelper<CargoTicket>()
 
-const columns: any[] = [
+const columns: ColumnDef<CargoTicket, any>[] = [
     columnHelper.accessor('ticket_number', {
         header: 'Réf.',
         cell: info => <span className="font-mono text-xs">{info.getValue()}</span>,
@@ -44,7 +45,7 @@ const columns: any[] = [
     columnHelper.accessor('status', {
         header: 'Statut',
         cell: info => {
-            const status = info.getValue()
+            const status = info.getValue() as CargoStatus
             return (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${['delivered', 'paid'].includes(status) ? 'bg-status-success/10 text-status-success border-status-success/20' :
                     ['created', 'in_transit', 'arrived'].includes(status) ? 'bg-brand-500/10 text-brand-400 border-brand-500/20' :

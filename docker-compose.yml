@@ -27,7 +27,7 @@ services:
     command: >
       gunicorn souigat.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120 --preload
     # NOTE: --reload is DEV MODE only. For production: remove --reload, add --preload
-    ports: [ "127.0.0.1:8000:8000" ]
+    ports: [ "0.0.0.0:8000:8000" ]
     volumes:
       - ./backend:/app
       - exports_data:/app/exports

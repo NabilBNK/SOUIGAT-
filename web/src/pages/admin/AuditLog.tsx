@@ -6,8 +6,9 @@ import { DataTable } from '../../components/ui/DataTable'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { createColumnHelper } from '@tanstack/react-table'
-import { Activity, Search, Eye, Filter } from 'lucide-react'
+import { Activity, Eye, Filter } from 'lucide-react'
 import type { AuditLogEntry } from '../../types/admin'
+import type { ColumnDef } from '@tanstack/react-table'
 
 const columnHelper = createColumnHelper<AuditLogEntry>()
 
@@ -51,7 +52,7 @@ export function AuditLog() {
         }
     }
 
-    const columns: any[] = [
+    const columns: ColumnDef<AuditLogEntry, any>[] = [
         columnHelper.accessor('created_at', {
             header: 'Date d\'action',
             cell: info => <span className="text-sm font-medium">{formatDateTime(info.getValue())}</span>,
@@ -169,7 +170,7 @@ export function AuditLog() {
                     data={logsData?.results || []}
                     columns={columns}
                     isLoading={isLogsLoading}
-                    pageCount={logsData ? Math.ceil(logsData.count / 20) : 1} // Assuming standard size 20 or we just rely on total/10
+                    pageCount={logsData ? Math.ceil(logsData.count / 20) : 1}
                     pageIndex={page - 1}
                     onPageChange={(newIndex) => setPage(newIndex + 1)}
                     emptyMessage="Aucun journal d'audit trouvé pour ces critères."

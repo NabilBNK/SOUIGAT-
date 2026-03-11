@@ -49,6 +49,9 @@ class AuthRepositoryImpl @Inject constructor(
             }
         } catch (e: IOException) {
             Result.failure(AuthException.NetworkUnavailable)
+        } catch (e: Exception) {
+            // Catch SerializationException or other unexpected runtime errors at the boundary
+            Result.failure(AuthException.SchemaMismatch)
         }
     }
 
@@ -88,7 +91,7 @@ class AuthRepositoryImpl @Inject constructor(
             is_active = true,
             device_id = tokenManager.getDeviceId(),
             last_login = null,
-            permissions = emptyMap()
+            permissions = emptyList()
         )
     }
 
@@ -104,5 +107,6 @@ sealed class AuthException : Exception() {
     object AccountDisabled : AuthException()
     object NetworkUnavailable : AuthException()
     object TooManyAttempts : AuthException()   // 429 from throttle
+    object SchemaMismatch : AuthException()     // JSON parsing failure
     data class ServerError(val code: Int) : AuthException()
 }

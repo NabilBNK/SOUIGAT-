@@ -10,6 +10,10 @@ interface TripDao {
     @Query("SELECT * FROM trips ORDER BY departureDateTime DESC")
     fun observeAll(): Flow<List<TripEntity>>
 
+    /** Observe the single active trip (in_progress). Returns null when no active trip. */
+    @Query("SELECT * FROM trips WHERE status = 'in_progress' ORDER BY departureDateTime DESC LIMIT 1")
+    fun observeActiveTrip(): Flow<TripEntity?>
+
     @Query("SELECT * FROM trips WHERE status IN (:statuses) ORDER BY departureDateTime DESC")
     fun observeByStatus(statuses: List<String>): Flow<List<TripEntity>>
 

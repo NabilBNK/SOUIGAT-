@@ -18,7 +18,7 @@ object Constants {
     val BASE_URL: String = when (BuildConfig.BUILD_TYPE) {
         "staging"  -> "https://staging.souigat.dz/api/"
         "release"  -> "https://api.souigat.dz/api/"
-        else       -> "http://10.0.2.2:8000/api/"  // debug
+        else       -> "http://192.168.100.9:8000/api/"  // debug (LAN IP)
     }
 
     const val CONNECT_TIMEOUT_S = 30L

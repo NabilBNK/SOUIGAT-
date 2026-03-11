@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 sealed class TripListUiState {
@@ -35,10 +36,12 @@ class TripListViewModel @Inject constructor(
             _uiState.value = TripListUiState.Loading
             tripRepository.getTripList()
                 .onSuccess { trips ->
+                    Timber.d("loadTrips: success — ${trips.size} trips")
                     _uiState.value = TripListUiState.Success(trips)
                 }
                 .onFailure { e ->
                     val exception = e as? TripException ?: TripException.ServerError(500)
+                    Timber.e(e, "loadTrips: failed with ${exception::class.simpleName}")
                     _uiState.value = TripListUiState.Error(exception)
                 }
         }
