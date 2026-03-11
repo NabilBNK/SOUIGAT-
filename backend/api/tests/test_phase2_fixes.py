@@ -16,8 +16,9 @@ class Phase2IntegrationTests(APITestCase):
         self.bus_1 = Bus.objects.create(plate_number='B1', office=self.office_a, capacity=50)
         
         PricingConfig.objects.create(
-            origin=self.office_a, destination=self.office_b,
-            passenger_price=1000, cargo_small_price=500, cargo_medium_price=1000, cargo_large_price=2000
+            origin_office=self.office_a, destination_office=self.office_b,
+            passenger_price=1000, cargo_small_price=500, cargo_medium_price=1000, cargo_large_price=2000,
+            effective_from=timezone.now().date()
         )
         
         self.client.force_authenticate(user=self.staff_a)
