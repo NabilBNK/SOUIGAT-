@@ -37,3 +37,8 @@ export async function cancelTrip(id: number): Promise<Trip> {
     const response = await client.post<Trip>(`/trips/${id}/cancel/`)
     return response.data
 }
+
+export async function forceCompleteTrip(id: number, force_reason: string): Promise<Trip> {
+    const response = await client.post<Trip>(`/trips/${id}/force_complete/`, { force_reason })
+    return response.data
+}

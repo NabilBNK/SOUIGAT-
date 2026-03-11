@@ -6,8 +6,10 @@ import com.souigat.mobile.data.remote.dto.TripListDto
 import com.souigat.mobile.data.remote.dto.TripStatusDto
 import com.souigat.mobile.domain.repository.TripException
 import com.souigat.mobile.domain.repository.TripRepository
+import kotlinx.serialization.SerializationException
 import org.json.JSONObject
 import retrofit2.Response
+import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,7 +20,8 @@ class TripRepositoryImpl @Inject constructor(
 ) : TripRepository {
 
     override suspend fun getTripList(): Result<List<TripListDto>> {
-        return safeApiCall { tripApi.getTripList() }
+        val result = safeApiCall { tripApi.getTripList() }
+        return result.map { it.results }
     }
 
     override suspend fun getTripDetail(id: Int): Result<TripDetailDto> {
@@ -41,19 +44,21 @@ class TripRepositoryImpl @Inject constructor(
                 if (body != null) {
                     Result.success(body)
                 } else {
+                    Timber.e("safeApiCall: successful response but null body. code=${response.code()}")
                     Result.failure(TripException.ServerError(response.code()))
                 }
             } else {
                 val errorCode = response.code()
                 val errorBody = response.errorBody()?.string()
-                
-                // Parse message from generic DRF 400 Bad Request if available
+                Timber.w("safeApiCall: HTTP $errorCode — body: $errorBody")
+
                 var message = "Erreur inconnue"
                 if (!errorBody.isNullOrEmpty() && errorCode == 400) {
                     try {
                         val json = JSONObject(errorBody)
-                        if (json.length() > 0) {
-                            // Extract first error message
+                        if (json.has("error_code") && json.has("detail")) {
+                            message = json.getString("detail")
+                        } else if (json.length() > 0) {
                             val firstKey = json.keys().next()
                             val value = json.get(firstKey)
                             message = if (value is org.json.JSONArray && value.length() > 0) {
@@ -66,18 +71,26 @@ class TripRepositoryImpl @Inject constructor(
                         message = errorBody
                     }
                 }
-                
+
                 Result.failure(
                     when (errorCode) {
-                        403 -> TripException.NotAssigned
-                        400 -> TripException.InvalidStatus(message)
+                        401  -> TripException.Unauthenticated
+                        403  -> TripException.NotAssigned
+                        400  -> TripException.InvalidStatus(message)
                         else -> TripException.ServerError(errorCode)
                     }
                 )
             }
         } catch (e: IOException) {
+            Timber.e(e, "safeApiCall: IOException (network unavailable)")
             Result.failure(TripException.NetworkUnavailable)
+        } catch (e: SerializationException) {
+            // JSON schema mismatch — likely DTO doesn't match server response
+            Timber.e(e, "safeApiCall: SerializationException — DTO mismatch with backend response")
+            Result.failure(TripException.DeserializationError(e.message ?: "Unknown"))
         } catch (e: Exception) {
+            // Catch-all — log actual exception so logcat shows what really happened
+            Timber.e(e, "safeApiCall: Unexpected exception — ${e.javaClass.simpleName}")
             Result.failure(TripException.ServerError(500))
         }
     }

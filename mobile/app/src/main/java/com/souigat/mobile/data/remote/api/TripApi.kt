@@ -8,13 +8,26 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+
+@Serializable
+data class PaginatedTripListDto(
+    val count: Int,
+    val next: String? = null,
+    val previous: String? = null,
+    val results: List<TripListDto>
+)
+import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface TripApi {
 
     @GET("trips/")
     suspend fun getTripList(
         @Query("status") statusFilter: String? = "scheduled,in_progress"
-    ): Response<List<TripListDto>>
+    ): Response<PaginatedTripListDto>
 
     @GET("trips/{id}/")
     suspend fun getTripDetail(

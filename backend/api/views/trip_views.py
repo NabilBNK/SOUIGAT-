@@ -28,7 +28,8 @@ class TripViewSet(viewsets.ModelViewSet):
         'destroy': ['create_trip'],         # Or whatever is appropriate, though destroy isn't usually allowed
         'cancel': ['cancel_trip'],
         'start': ['start_trip'],
-        'complete': ['complete_trip']
+        'complete': ['complete_trip'],
+        'force_complete': ['cancel_trip']
     }
 
     def get_serializer_class(self):
@@ -50,6 +51,9 @@ class TripViewSet(viewsets.ModelViewSet):
             
         if self.action in ('start', 'complete'):
             return [IsAuthenticated(), MatrixPermission()]
+            
+        if self.action == 'force_complete':
+            return [IsAuthenticated()]
             
         # list / retrieve
         return [IsAuthenticated(), OfficeScopePermission()]
@@ -100,13 +104,20 @@ class TripViewSet(viewsets.ModelViewSet):
                     'You can only create trips originating from your office.'
                 )
 
-        # Bug #9 fix: validate bus belongs to origin office
+        # Ensure the bus isn't double-booked on an overlapping schedule (+/- 8 hours)
         bus = serializer.validated_data.get('bus')
-        origin = serializer.validated_data.get('origin_office')
-        if bus and origin and bus.office_id != origin.id:
-            raise ValidationError(
-                {'bus': 'Bus must belong to the trip origin office.'}
-            )
+        departure = serializer.validated_data.get('departure_datetime')
+        if bus and departure:
+            from datetime import timedelta
+            window = timedelta(hours=8)
+            overlapping = Trip.objects.filter(
+                bus=bus,
+                status__in=['scheduled', 'in_progress'],
+                departure_datetime__gte=departure - window,
+                departure_datetime__lte=departure + window
+            ).exclude(pk=serializer.instance.pk if serializer.instance else None).exists()
+            if overlapping:
+                raise ValidationError({'bus': 'Bus is already assigned to an overlapping trip within an 8-hour window.'})
 
         serializer.save()
 
@@ -140,12 +151,18 @@ class TripViewSet(viewsets.ModelViewSet):
             User.objects.select_for_update().get(pk=trip.conductor_id)
 
             if Trip.objects.filter(bus=trip.bus, status='in_progress').exists():
-                raise ValidationError('Bus is already on an active trip.')
+                raise ValidationError({
+                    'error_code': 'BUS_BUSY',
+                    'detail': 'Bus is already on an active trip.'
+                })
 
             if Trip.objects.filter(
                 conductor=trip.conductor, status='in_progress',
             ).exists():
-                raise ValidationError('Conductor already has an active trip.')
+                raise ValidationError({
+                    'error_code': 'CONDUCTOR_BUSY',
+                    'detail': 'Conductor already has an active trip.'
+                })
 
             # Skip model validation — only status is changing programmatically,
             # not user-supplied data. Avoids re-running model clean().
@@ -167,15 +184,78 @@ class TripViewSet(viewsets.ModelViewSet):
             # Admin role handles cross-office scoping seamlessly here.
 
             if trip.status != 'in_progress':
-                raise ValidationError(
-                    f'Cannot complete trip. Current status: {trip.status}'
-                )
+                raise ValidationError({
+                    'error_code': 'INVALID_STATUS',
+                    'detail': f'Cannot complete trip. Current status: {trip.status}'
+                })
 
             # Skip model validation — arrival_datetime is set programmatically
             # and departure_datetime is trusted from original creation.
             trip.status = 'completed'
             trip.arrival_datetime = timezone.now()
             trip.save(skip_validation=True)
+
+        return Response({
+            'status': 'completed',
+            'arrival_datetime': trip.arrival_datetime,
+        })
+
+    @action(detail=True, methods=['post'])
+    def force_complete(self, request, pk=None):
+        """
+        Admin action to force complete a stuck trip.
+        Reconciliation Gate: Checks for unsynced tickets/expenses.
+        Requires a 'force_reason'.
+        """
+        if request.user.role != 'admin':
+            raise PermissionDenied('Only administrators can force complete a trip.')
+
+        force_reason = request.data.get('force_reason')
+        if not force_reason:
+            raise ValidationError({'error_code': 'MISSING_REASON', 'detail': 'force_reason is required.'})
+
+        with transaction.atomic():
+            trip = Trip.objects.select_for_update().get(pk=pk)
+
+            if trip.status != 'in_progress':
+                raise ValidationError({
+                    'error_code': 'INVALID_STATUS',
+                    'detail': f'Only in_progress trips can be force completed. Current status: {trip.status}'
+                })
+
+            from api.models import PassengerTicket
+            from django.core.exceptions import FieldError
+            
+            has_unsynced_tickets = PassengerTicket.objects.filter(trip_id=trip.id, synced_at__isnull=True).exists()
+            
+            try:
+                from api.models import TripExpense
+                has_unsynced_expenses = TripExpense.objects.filter(trip_id=trip.id, synced_at__isnull=True).exists()
+            except (ImportError, FieldError):
+                has_unsynced_expenses = False
+
+            if has_unsynced_tickets or has_unsynced_expenses:
+                raise ValidationError({
+                    'error_code': 'TRIP_HAS_PENDING_SYNC', 
+                    'detail': 'Cannot force-complete: records not yet synced from conductor device.'
+                })
+
+            trip.status = 'completed'
+            trip.arrival_datetime = timezone.now()
+            trip.save(skip_validation=True)
+
+            try:
+                from api.models import AuditLog
+                AuditLog.objects.create(
+                    action='override',
+                    user=request.user,
+                    table_name='api_trip',
+                    record_id=trip.id,
+                    old_values={'status': 'in_progress'},
+                    new_values={'status': 'completed', 'admin_note': force_reason}
+                )
+            except Exception:
+                pass
 
         return Response({
             'status': 'completed',

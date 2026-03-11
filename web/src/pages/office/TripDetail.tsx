@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getTrip, startTrip, completeTrip, cancelTrip } from '../../api/trips'
+import { getTrip, startTrip, completeTrip, cancelTrip, forceCompleteTrip } from '../../api/trips'
 import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { StatusBadge } from '../../components/ui/StatusBadge'
@@ -47,7 +47,16 @@ export function TripDetailPage() {
 
     const extractErrorMsg = (err: unknown, defaultMsg: string) => {
         if (err && typeof err === 'object' && 'response' in err) {
-            const response = (err as { response?: { data?: { detail?: string } } }).response
+            const response = (err as any).response
+            if (response?.data?.error_code) {
+                if (response.data.error_code === 'CONDUCTOR_BUSY') {
+                    return "Le conducteur est déjà assigné à un autre voyage en cours. Un administrateur peut forcer la clôture de l'autre voyage."
+                }
+                if (response.data.error_code === 'TRIP_HAS_PENDING_SYNC') {
+                    return "Impossible de forcer la clôture : des tickets ou dépenses n'ont pas encore été synchronisés par l'appareil du conducteur."
+                }
+                if (response.data.detail) return response.data.detail
+            }
             if (response?.data?.detail) return response.data.detail
         }
         return defaultMsg
@@ -69,6 +78,12 @@ export function TripDetailPage() {
         mutationFn: () => cancelTrip(Number(id)),
         onSuccess: invalidateTrip,
         onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de l'annulation."))
+    })
+
+    const forceCompleteMutation = useMutation({
+        mutationFn: (reason: string) => forceCompleteTrip(Number(id), reason),
+        onSuccess: invalidateTrip,
+        onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de la clôture forcée."))
     })
 
     if (isLoading) {
@@ -94,6 +109,7 @@ export function TripDetailPage() {
     const canStart = trip.status === 'scheduled' && isOfficeStaff && isOriginOffice
     const canCancel = trip.status === 'scheduled' && isOfficeStaff && isOriginOffice
     const canComplete = trip.status === 'in_progress' && isOfficeStaff && (user?.office === trip.destination_office || user?.role === 'admin')
+    const canForceComplete = trip.status === 'in_progress' && user?.role === 'admin'
 
     const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
         { id: 'info', label: 'Informations', icon: <AlertCircle className="w-4 h-4" /> },
@@ -161,6 +177,22 @@ export function TripDetailPage() {
                             onClick={() => completeMutation.mutate()}
                         >
                             Clôturer
+                        </Button>
+                    )}
+                    {canForceComplete && (
+                        <Button
+                            variant="danger"
+                            size="sm"
+                            icon={<AlertCircle className="w-4 h-4" />}
+                            isLoading={forceCompleteMutation.isPending}
+                            onClick={() => {
+                                const reason = window.prompt("Raison de la clôture forcée ?")
+                                if (reason) {
+                                    forceCompleteMutation.mutate(reason)
+                                }
+                            }}
+                        >
+                            Forcer Clôture
                         </Button>
                     )}
                 </div>

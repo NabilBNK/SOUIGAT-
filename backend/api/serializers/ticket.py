@@ -12,7 +12,10 @@ class PassengerTicketSerializer(serializers.ModelSerializer):
             'price', 'currency', 'payment_source', 'seat_number',
             'status', 'created_at',
         ]
-        read_only_fields = ['ticket_number', 'price', 'currency', 'status', 'created_at']
+        read_only_fields = ['ticket_number', 'currency', 'status', 'created_at']
+        extra_kwargs = {
+            'price': {'required': False}
+        }
 
 
 class PassengerTicketListSerializer(serializers.ModelSerializer):
