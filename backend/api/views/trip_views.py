@@ -114,6 +114,20 @@ class TripViewSet(viewsets.ModelViewSet):
             if overlapping:
                 raise ValidationError({'bus': 'Bus is already assigned to an overlapping trip within a 4-hour window.'})
 
+        # Ensure the conductor isn't double-booked on an overlapping schedule (+/- 4 hours)
+        conductor = serializer.validated_data.get('conductor')
+        if conductor and departure:
+            from datetime import timedelta
+            window = timedelta(hours=4)
+            overlapping_cond = Trip.objects.filter(
+                conductor=conductor,
+                status__in=['scheduled', 'in_progress'],
+                departure_datetime__gte=departure - window,
+                departure_datetime__lte=departure + window
+            ).exclude(pk=serializer.instance.pk if serializer.instance else None).exists()
+            if overlapping_cond:
+                raise ValidationError({'conductor': 'Conductor is already assigned to an overlapping trip within a 4-hour window.'})
+
         serializer.save()
 
     # ------------------------------------------------------------------

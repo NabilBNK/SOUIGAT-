@@ -46,16 +46,63 @@ class Phase2IntegrationTests(APITestCase):
         # Should fail due to overlap window in perform_create
         self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('bus', res2.data)
-        
-        # Schedule the bus 10 hours later (outside the 8-hour window)
-        res3 = self.client.post('/api/trips/', {
+
+    def test_conductor_double_booking_blocked(self):
+        # Create a trip
+        now = timezone.now()
+        res1 = self.client.post('/api/trips/', {
             'origin_office': self.office_a.id,
             'destination_office': self.office_b.id,
             'bus': self.bus_1.id,
-            'conductor': self.cond_1.id,  # Conductor might trip? Wait, no conductor date check exists
-            'departure_datetime': (now + timedelta(hours=10)).isoformat(),
+            'conductor': self.cond_1.id,
+            'departure_datetime': (now + timedelta(hours=1)).isoformat(),
         })
-        self.assertEqual(res3.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res1.status_code, status.HTTP_201_CREATED)
+        
+        # Try to schedule the same conductor 2 hours later (within 4h window) on a DIFFERENT bus
+        bus_2 = Bus.objects.create(plate_number='B2', office=self.office_a, capacity=50)
+        res2 = self.client.post('/api/trips/', {
+            'origin_office': self.office_a.id,
+            'destination_office': self.office_b.id,
+            'bus': bus_2.id,
+            'conductor': self.cond_1.id,
+            'departure_datetime': (now + timedelta(hours=3)).isoformat(),
+        })
+        self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('conductor', res2.data)
+
+    def test_role_based_status_transitions(self):
+        # Create a trip
+        now = timezone.now()
+        trip_res = self.client.post('/api/trips/', {
+            'origin_office': self.office_a.id,
+            'destination_office': self.office_b.id,
+            'bus': self.bus_1.id,
+            'conductor': self.cond_1.id,
+            'departure_datetime': (now + timedelta(hours=1)).isoformat(),
+        })
+        trip_id = trip_res.data['id']
+
+        # Office staff tries to start the trip — should be blocked (only conductor/admin can start)
+        res_start_staff = self.client.post(f'/api/trips/{trip_id}/start/')
+        self.assertEqual(res_start_staff.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Conductor starts the trip
+        self.client.force_authenticate(user=self.cond_1)
+        res_start_cond = self.client.post(f'/api/trips/{trip_id}/start/')
+        self.assertEqual(res_start_cond.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_start_cond.data['status'], 'in_progress')
+
+        # Office staff tries to complete it — should be blocked
+        self.client.force_authenticate(user=self.staff_a)
+        res_comp_staff = self.client.post(f'/api/trips/{trip_id}/complete/')
+        self.assertEqual(res_comp_staff.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Conductor completes it
+        self.client.force_authenticate(user=self.cond_1)
+        res_comp_cond = self.client.post(f'/api/trips/{trip_id}/complete/')
+        self.assertEqual(res_comp_cond.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_comp_cond.data['status'], 'completed')
 
     def test_ticket_price_floor_enforced(self):
         # Create a trip first
@@ -71,7 +118,7 @@ class Phase2IntegrationTests(APITestCase):
         trip_id = trip_res.data['id']
 
         # Try to create a ticket with price < 100 DA
-        res1 = self.client.post('/api/passenger-tickets/', {
+        res1 = self.client.post('/api/tickets/', {
             'trip': trip_id,
             'passenger_name': 'Test Passager',
             'price': 50,
@@ -81,7 +128,7 @@ class Phase2IntegrationTests(APITestCase):
         self.assertIn('price', res1.data)
 
         # Ticket with valid price >= 100 DA
-        res2 = self.client.post('/api/passenger-tickets/', {
+        res2 = self.client.post('/api/tickets/', {
             'trip': trip_id,
             'passenger_name': 'Test Passager',
             'price': 150,

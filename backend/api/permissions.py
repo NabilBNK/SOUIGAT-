@@ -23,7 +23,6 @@ PERMISSION_MATRIX = {
     'office_staff': {
         'all': [
             'create_trip', 'view_office_trips', 'cancel_trip',
-            'start_trip', 'complete_trip',
             'create_passenger_ticket', 'create_cargo_ticket',
             'receive_cargo', 'transition_cargo_status', 'view_office_reports', 'export_excel',
         ],

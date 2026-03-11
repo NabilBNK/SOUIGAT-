@@ -44,10 +44,10 @@ fun AppNavGraph(
         }
     }
 
-    // Bottom nav is hidden on the login, boot, and trips screens (trips has no tab highlight)
     val showBottomBar = currentRoute != NavRoute.Login.route && 
                        currentRoute != "boot" && 
-                       currentRoute != NavRoute.Trips.route
+                       currentRoute != NavRoute.Trips.route &&
+                       currentRoute?.startsWith("trip_detail/") == false
 
     Scaffold(
         bottomBar = {
