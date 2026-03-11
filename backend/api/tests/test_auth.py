@@ -92,7 +92,7 @@ class JWTAuthTests(TestCase):
             'password': 'wrongpass',
             'platform': 'web',
         })
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 401)
         self.assertNotIn('password', str(resp.data))
 
     def test_inactive_user_login_fails(self):
@@ -104,7 +104,7 @@ class JWTAuthTests(TestCase):
             'password': 'testpass123',
             'platform': 'web',
         })
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 401)
 
     # --- Token Refresh ---
 

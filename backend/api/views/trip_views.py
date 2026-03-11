@@ -37,11 +37,6 @@ class TripViewSet(viewsets.ModelViewSet):
             return TripListSerializer
         return TripSerializer
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            pass
-        return super().create(request, *args, **kwargs)
 
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated

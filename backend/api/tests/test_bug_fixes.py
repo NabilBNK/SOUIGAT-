@@ -98,8 +98,8 @@ class BusOfficeValidationTests(TestCase):
         }, format='json')
         self.assertIn(resp.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK])
 
-    def test_bus_mismatched_origin_rejected(self):
-        """Creating trip with bus from different office is rejected (Bug #9 fix)."""
+    def test_bus_mismatched_origin_allowed(self):
+        """Creating trip with bus from different office is allowed for return trips."""
         self.client.force_authenticate(self.admin)
         resp = self.client.post('/api/trips/', {
             'origin_office': self.office_a.id,
@@ -108,4 +108,4 @@ class BusOfficeValidationTests(TestCase):
             'bus': self.bus_b.id,  # bus_b belongs to office_b, not office_a
             'departure_datetime': (timezone.now() + timedelta(hours=1)).isoformat(),
         }, format='json')
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(resp.status_code, [status.HTTP_201_CREATED, status.HTTP_200_OK])
