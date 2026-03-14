@@ -1,0 +1,9 @@
+[POST] http://localhost:5173/api/auth/login/ => [200] OK
+[GET] http://localhost:5173/api/auth/me/ => [200] OK
+[GET] http://localhost:5173/api/trips/?page=1 => [200] OK
+[GET] http://localhost:5173/api/admin/offices/ => [403] Forbidden
+[GET] http://localhost:5173/api/admin/buses/?current_office_id=1 => [403] Forbidden
+[GET] http://localhost:5173/api/admin/users/?role=conductor => [403] Forbidden
+[GET] http://localhost:5173/api/admin/offices/ => [403] Forbidden
+[GET] http://localhost:5173/api/admin/users/?role=conductor => [403] Forbidden
+[GET] http://localhost:5173/api/admin/buses/?current_office_id=1 => [403] Forbidden

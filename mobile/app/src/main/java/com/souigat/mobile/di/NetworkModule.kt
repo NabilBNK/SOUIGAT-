@@ -2,6 +2,7 @@ package com.souigat.mobile.di
 
 import com.souigat.mobile.BuildConfig
 import com.souigat.mobile.data.remote.interceptor.AuthInterceptor
+import com.souigat.mobile.data.remote.interceptor.BackendStatusInterceptor
 import com.souigat.mobile.data.remote.interceptor.TokenRefreshAuthenticator
 import com.souigat.mobile.util.Constants
 import dagger.Module
@@ -41,6 +42,7 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
+        backendStatusInterceptor: BackendStatusInterceptor,
         tokenRefreshAuthenticator: TokenRefreshAuthenticator
     ): OkHttpClient {
         return OkHttpClient.Builder()
@@ -48,12 +50,13 @@ object NetworkModule {
             .readTimeout(Constants.READ_TIMEOUT_S, TimeUnit.SECONDS)
             .writeTimeout(Constants.WRITE_TIMEOUT_S, TimeUnit.SECONDS)
             .addInterceptor(authInterceptor)
+            .addInterceptor(backendStatusInterceptor)
             .authenticator(tokenRefreshAuthenticator)
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(
                         HttpLoggingInterceptor().apply {
-                            level = HttpLoggingInterceptor.Level.BODY
+                            level = HttpLoggingInterceptor.Level.BASIC
                         }
                     )
                 }

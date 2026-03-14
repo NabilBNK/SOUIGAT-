@@ -1,0 +1,99 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e12]: SOUIGAT
+    - navigation [ref=e13]:
+      - link "Tableau de bord" [ref=e14] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e15]
+        - generic [ref=e20]: Tableau de bord
+      - link "Voyages" [ref=e21] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e22]
+        - generic [ref=e26]: Voyages
+      - link "Billets Passagers" [ref=e27] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e28]
+        - generic [ref=e30]: Billets Passagers
+      - link "Rapports" [ref=e31] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e32]
+        - generic [ref=e35]: Rapports
+      - link "Colis" [ref=e36] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e37]
+        - generic [ref=e41]: Colis
+      - link "Quarantaine" [ref=e42] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e43]
+        - generic [ref=e45]: Quarantaine
+    - paragraph [ref=e47]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e48]:
+    - banner [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]: Personnel Bureau
+          - generic [ref=e53]: Tous
+        - generic [ref=e54]:
+          - img [ref=e56]
+          - generic [ref=e59]:
+            - paragraph [ref=e60]: Karim Benali
+            - paragraph [ref=e61]: "0600000001"
+        - button "Déconnexion" [ref=e62]:
+          - img [ref=e63]
+    - main [ref=e66]:
+      - generic [ref=e67]:
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - link [ref=e70] [cursor=pointer]:
+              - /url: /office/trips
+              - img [ref=e71]
+            - generic [ref=e73]:
+              - generic [ref=e74]:
+                - 'heading "Voyage #47" [level=1] [ref=e75]'
+                - generic [ref=e76]: Programmé
+              - paragraph [ref=e77]:
+                - img [ref=e78]
+                - text: →
+          - generic [ref=e81]:
+            - button "Annuler" [ref=e82]:
+              - img [ref=e83]
+              - text: Annuler
+            - button "Démarrer" [ref=e87]:
+              - img [ref=e88]
+              - text: Démarrer
+        - navigation [ref=e91]:
+          - button "Informations" [ref=e92]:
+            - img [ref=e93]
+            - text: Informations
+          - button "Passagers" [ref=e95]:
+            - img [ref=e96]
+            - text: Passagers
+          - button "Messagerie" [ref=e101]:
+            - img [ref=e102]
+            - text: Messagerie
+          - button "Dépenses" [ref=e106]:
+            - img [ref=e107]
+            - text: Dépenses
+        - generic [ref=e152]:
+          - generic [ref=e154]:
+            - heading "Billets Passagers" [level=3] [ref=e155]
+            - paragraph [ref=e156]: "Total vendu: 0 / 0,00 DA"
+          - generic [ref=e157]:
+            - generic [ref=e158]:
+              - generic [ref=e159]:
+                - generic [ref=e160]: Nom du passager
+                - textbox [ref=e161]
+              - generic [ref=e162]:
+                - generic [ref=e163]: Siège (Optionnel)
+                - 'textbox "ex: 12A" [ref=e164]'
+              - generic [ref=e165]:
+                - generic [ref=e166]: Paiement
+                - combobox [ref=e167]:
+                  - option "Espèces" [selected]
+                  - option "Prépayé"
+            - generic [ref=e168]:
+              - button "Annuler" [ref=e169]
+              - button "Enregistrer" [ref=e170]
+          - paragraph [ref=e172]: Aucun billet vendu pour ce voyage.

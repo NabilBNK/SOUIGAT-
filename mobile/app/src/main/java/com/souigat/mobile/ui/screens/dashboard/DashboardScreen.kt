@@ -1,237 +1,268 @@
 package com.souigat.mobile.ui.screens.dashboard
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.souigat.mobile.ui.components.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.souigat.mobile.ui.components.ActivityItem
+import com.souigat.mobile.ui.components.ConductorPanelSurface
+import com.souigat.mobile.ui.components.EmptyStatePanel
+import com.souigat.mobile.ui.components.QuarantineWarningBanner
+import com.souigat.mobile.ui.components.StatusPill
+import com.souigat.mobile.ui.components.TripSummaryCard
 import com.souigat.mobile.ui.theme.ErrorRed
 import com.souigat.mobile.ui.theme.Success
 import com.souigat.mobile.ui.theme.Warning
-import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.*
 
-private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-
-private fun formatAmount(centimes: Long, currency: String): String {
-    val units = centimes / 100.0
-    return "${NumberFormat.getNumberInstance(Locale.FRANCE).format(units)} $currency"
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onNavigateToTrips: () -> Unit = {},
+    onNavigateToTripDetail: (Int) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "Bonjour, ${state.conductorName.substringBefore(' ')} 👋",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "Tableau de bord",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                actions = {
-                    SyncStatusBadge(
-                        pendingCount = state.pendingCount,
-                        quarantinedCount = state.quarantinedCount,
-                        modifier = Modifier.padding(end = 12.dp)
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            if (state.activeTrip != null) {
-                ExtendedFloatingActionButton(
-                    onClick = onNavigateToTrips,
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Billet") },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            }
+            ExtendedFloatingActionButton(
+                onClick = onNavigateToTrips,
+                icon = { Icon(Icons.Default.DirectionsBus, contentDescription = null) },
+                text = { Text(if (state.route != null) "Voir mes trajets" else "Mes trajets") }
+            )
         }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(start = 16.dp, top = 18.dp, end = 16.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Quarantine warning banner — non-dismissable
+            item(key = "hero", contentType = "hero") {
+                DashboardHero(
+                    firstName = state.conductorFirstName,
+                    lastSyncLabel = state.lastSyncLabel,
+                    pendingCount = state.pendingCount,
+                    quarantinedCount = state.quarantinedCount
+                )
+            }
+
             if (state.quarantinedCount > 0) {
-                item(key = "quarantine_banner") {
+                item(key = "quarantine", contentType = "banner") {
                     QuarantineWarningBanner(quarantinedCount = state.quarantinedCount)
                 }
             }
 
-            // Active trip / route card
-            item(key = "route_card") {
-                if (state.activeTrip != null) {
-                    val trip = state.activeTrip!!
-                    RouteInfoCard(
-                        origin = trip.originOffice,
-                        destination = trip.destinationOffice,
-                        busPlate = trip.busPlate,
-                        statusLabel = "En cours"
-                    )
-                } else {
-                    NoActiveTripCard(onNavigateToTrips = onNavigateToTrips)
-                }
-            }
-
-            // Stats grid
-            item(key = "stats_grid") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    val currency = state.currency
-                    StatCard(
-                        label = "Revenus",
-                        value = formatAmount(state.totalRevenueCentimes, currency),
-                        icon = Icons.Default.TrendingUp,
-                        iconTint = Success,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatCard(
-                        label = "Dépenses",
-                        value = formatAmount(state.totalExpensesCentimes, currency),
-                        icon = Icons.Default.TrendingDown,
-                        iconTint = ErrorRed,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    StatCard(
-                        label = "Passagers",
-                        value = state.passengerCount.toString(),
-                        icon = Icons.Default.People,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatCard(
-                        label = "En attente sync",
-                        value = state.pendingCount.toString(),
-                        icon = Icons.Default.Sync,
-                        iconTint = Warning,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // Recent activity section header
-            if (state.recentTickets.isNotEmpty() || state.recentExpenses.isNotEmpty()) {
-                item(key = "activity_header") {
-                    Text(
-                        text = "Activité récente",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                // Recent passenger tickets
-                items(
-                    items = state.recentTickets.take(5),
-                    key = { "ticket_${it.id}" }
-                ) { ticket ->
-                    ActivityItem(
-                        icon = Icons.Default.ConfirmationNumber,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        title = "Billet passager — ${ticket.ticketNumber}",
-                        subtitle = "${ticket.passengerName} · ${formatAmount(ticket.price, ticket.currency)}",
-                        timestamp = timeFormat.format(Date(ticket.createdAt))
-                    )
-                    HorizontalDivider(
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-                }
-
-                // Recent expenses
-                items(
-                    items = state.recentExpenses.take(3),
-                    key = { "expense_${it.id}" }
-                ) { expense ->
-                    val categoryLabel = when (expense.category) {
-                        "fuel" -> "Carburant"
-                        "food" -> "Repas"
-                        "tolls" -> "Péage"
-                        "maintenance" -> "Maintenance"
-                        else -> "Autre"
+            item(key = "route", contentType = "route") {
+                val route = state.route
+                if (route != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(
+                            modifier = Modifier.clickable {
+                                route.tripId?.let(onNavigateToTripDetail) ?: onNavigateToTrips()
+                            }
+                        ) {
+                            TripSummaryCard(
+                                origin = route.origin,
+                                destination = route.destination,
+                                busPlate = route.busPlate,
+                                departureLabel = route.departureLabel,
+                                statusLabel = route.statusLabel,
+                                supportingLabel = route.priceLabel
+                            )
+                        }
+                        Text(
+                            text = "Trajet actif",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
                     }
-                    ActivityItem(
-                        icon = Icons.Default.Receipt,
-                        iconTint = ErrorRed,
-                        title = "Dépense — $categoryLabel",
-                        subtitle = "${expense.description} · ${formatAmount(expense.amount, expense.currency)}",
-                        timestamp = timeFormat.format(Date(expense.createdAt))
-                    )
-                    HorizontalDivider(
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                } else {
+                    EmptyStatePanel(
+                        icon = Icons.Default.DirectionsBus,
+                        title = "Aucun trajet actif",
+                        message = "Vos trajets assignes apparaitront ici des qu'ils sont disponibles.",
+                        primaryActionLabel = "Ouvrir les trajets",
+                        onPrimaryAction = onNavigateToTrips
                     )
                 }
             }
 
-            // Empty state when no active trip and no history
-            if (state.activeTrip == null && state.recentTickets.isEmpty()) {
-                item(key = "empty_state") {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DirectionsBus,
-                            contentDescription = null,
-                            modifier = Modifier.size(56.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            item(key = "hero_metric", contentType = "metric_highlight") {
+                HeroMetricCard(metric = state.heroMetric)
+            }
+
+            item(key = "metrics", contentType = "metric_grid") {
+                MetricsGrid(metrics = state.secondaryMetrics)
+            }
+
+            item(key = "activity_title", contentType = "section_header") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Activite recente",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Billets et depenses du trajet en cours.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (state.activity.isEmpty()) {
+                item(key = "activity_empty", contentType = "empty_state") {
+                    EmptyStatePanel(
+                        icon = Icons.Default.History,
+                        title = "Aucune activite",
+                        message = if (state.route == null) {
+                            "Commencez un trajet pour voir les ventes et depenses apparaitre ici."
+                        } else {
+                            "Les prochaines creations hors ligne s'afficheront dans ce flux."
+                        }
+                    )
+                }
+            } else {
+                items(
+                    items = state.activity,
+                    key = { it.id },
+                    contentType = { "activity_item" }
+                ) { item ->
+                    ActivityItem(
+                        icon = when (item.kind) {
+                            DashboardActivityKind.PassengerTicket -> Icons.Default.ConfirmationNumber
+                            DashboardActivityKind.Expense -> Icons.Default.Receipt
+                        },
+                        iconTint = when (item.kind) {
+                            DashboardActivityKind.PassengerTicket -> MaterialTheme.colorScheme.primary
+                            DashboardActivityKind.Expense -> ErrorRed
+                        },
+                        title = item.title,
+                        subtitle = item.subtitle,
+                        timestamp = item.timestampLabel,
+                        amount = item.amountLabel
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardHero(
+    firstName: String,
+    lastSyncLabel: String,
+    pendingCount: Int,
+    quarantinedCount: Int
+) {
+    val gradient = remember {
+        Brush.linearGradient(
+            colors = listOf(Color(0xFF0F172A), Color(0xFF1D4ED8))
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Column(
+            modifier = Modifier
+                .background(gradient)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Bonjour, $firstName",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Tableau de bord terrain",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.78f)
+                    )
+                }
+                SyncPill(
+                    pendingCount = pendingCount,
+                    quarantinedCount = quarantinedCount
+                )
+            }
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = Color.White.copy(alpha = 0.08f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.84f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Derniere synchronisation",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.76f)
                         )
                         Text(
-                            text = "Aucun trajet actif",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Vos trajets assignés apparaîtront ici.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            text = lastSyncLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -241,38 +272,119 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun NoActiveTripCard(onNavigateToTrips: () -> Unit) {
-    Card(
+private fun SyncPill(
+    pendingCount: Int,
+    quarantinedCount: Int
+) {
+    val (label, container, content) = when {
+        quarantinedCount > 0 -> Triple("Attention", ErrorRed.copy(alpha = 0.24f), Color.White)
+        pendingCount > 0 -> Triple("$pendingCount en attente", Warning.copy(alpha = 0.24f), Color.White)
+        else -> Triple("Synchronise", Success.copy(alpha = 0.24f), Color.White)
+    }
+
+    StatusPill(
+        text = label,
+        containerColor = container,
+        contentColor = content
+    )
+}
+
+@Composable
+private fun HeroMetricCard(metric: DashboardMetricUiModel) {
+    val toneColor = metric.tone.toColor()
+
+    ConductorPanelSurface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = MaterialTheme.shapes.extraLarge
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.DirectionsBus,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(32.dp)
+            Text(
+                text = metric.label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = metric.value,
+                style = MaterialTheme.typography.displaySmall,
+                color = toneColor,
+                fontWeight = FontWeight.ExtraBold
+            )
+            if (!metric.supporting.isNullOrBlank()) {
                 Text(
-                    text = "Aucun trajet en cours",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
+                    text = metric.supporting,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetricsGrid(metrics: List<DashboardMetricUiModel>) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        metrics.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                row.forEach { metric ->
+                    DashboardMetricCard(
+                        metric = metric,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (row.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardMetricCard(
+    metric: DashboardMetricUiModel,
+    modifier: Modifier = Modifier
+) {
+    val toneColor = metric.tone.toColor()
+    ConductorPanelSurface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = metric.label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = metric.value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = toneColor
+            )
+            if (!metric.supporting.isNullOrBlank()) {
                 Text(
-                    text = "Sélectionnez un trajet pour commencer.",
+                    text = metric.supporting,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            TextButton(onClick = onNavigateToTrips) {
-                Text("Voir")
-            }
         }
     }
+}
+
+@Composable
+private fun DashboardMetricTone.toColor(): Color = when (this) {
+    DashboardMetricTone.Primary -> Color(0xFF1D4ED8)
+    DashboardMetricTone.Positive -> Success
+    DashboardMetricTone.Negative -> ErrorRed
+    DashboardMetricTone.Neutral -> MaterialTheme.colorScheme.onSurface
 }

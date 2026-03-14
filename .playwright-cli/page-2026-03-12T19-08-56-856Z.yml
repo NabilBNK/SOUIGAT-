@@ -1,0 +1,115 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - generic [ref=e25]:
+      - img [ref=e27]
+      - generic [ref=e31]: SOUIGAT
+    - navigation [ref=e32]:
+      - link "Tableau de bord" [ref=e33] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e34]
+        - generic [ref=e39]: Tableau de bord
+      - link "Voyages" [ref=e40] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e41]
+        - generic [ref=e45]: Voyages
+      - link "Billets Passagers" [ref=e46] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e47]
+        - generic [ref=e49]: Billets Passagers
+      - link "Rapports" [ref=e50] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e51]
+        - generic [ref=e54]: Rapports
+      - link "Colis" [ref=e55] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e56]
+        - generic [ref=e60]: Colis
+      - link "Quarantaine" [ref=e61] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e62]
+        - generic [ref=e64]: Quarantaine
+    - paragraph [ref=e66]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e67]:
+    - banner [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]: Personnel Bureau
+          - generic [ref=e72]: Tous
+        - generic [ref=e73]:
+          - img [ref=e75]
+          - generic [ref=e78]:
+            - paragraph [ref=e79]: Karim Benali
+            - paragraph [ref=e80]: "0600000001"
+        - button "Déconnexion" [ref=e81]:
+          - img [ref=e82]
+    - main [ref=e85]:
+      - generic [ref=e206]:
+        - generic [ref=e208]:
+          - link [ref=e209] [cursor=pointer]:
+            - /url: /office/trips
+            - img [ref=e210]
+          - generic [ref=e212]:
+            - generic [ref=e213]:
+              - 'heading "Voyage #44" [level=1] [ref=e214]'
+              - generic [ref=e215]: Terminé
+            - paragraph [ref=e216]:
+              - img [ref=e217]
+              - text: →
+        - generic [ref=e220]:
+          - img [ref=e221]
+          - generic [ref=e224]:
+            - paragraph [ref=e225]: Voyage terminé
+            - paragraph [ref=e226]: Ce voyage est archivé. Toutes les informations sont en lecture seule.
+        - navigation [ref=e228]:
+          - button "Informations" [ref=e229]:
+            - img [ref=e230]
+            - text: Informations
+          - button "Passagers" [ref=e232]:
+            - img [ref=e233]
+            - text: Passagers
+          - button "Messagerie" [ref=e238]:
+            - img [ref=e239]
+            - text: Messagerie
+          - button "Dépenses" [ref=e243]:
+            - img [ref=e244]
+            - text: Dépenses
+        - generic [ref=e248]:
+          - generic [ref=e249]:
+            - heading "Résumé" [level=3] [ref=e250]
+            - generic [ref=e251]:
+              - generic [ref=e252]:
+                - img [ref=e253]
+                - generic [ref=e255]:
+                  - paragraph [ref=e256]: Date de départ
+                  - paragraph [ref=e257]: 12/03/2026 03:32
+              - generic [ref=e258]:
+                - img [ref=e259]
+                - generic [ref=e262]:
+                  - paragraph [ref=e263]: Date d'arrivée
+                  - paragraph [ref=e264]: 12/03/2026 04:50
+              - generic [ref=e265]:
+                - img [ref=e266]
+                - generic [ref=e270]:
+                  - paragraph [ref=e271]: Bus attribué
+                  - paragraph [ref=e272]: 31-00001-31
+              - generic [ref=e273]:
+                - img [ref=e274]
+                - generic [ref=e277]:
+                  - paragraph [ref=e278]: Conducteur
+                  - paragraph [ref=e279]: Mohamed Larbi
+          - generic [ref=e280]:
+            - heading "Tarification appliquée" [level=3] [ref=e281]
+            - paragraph [ref=e282]: Ces prix ont été figés lors de la création du voyage et ne changeront pas.
+            - generic [ref=e283]:
+              - generic [ref=e284]:
+                - generic [ref=e285]: Billet Passager
+                - generic [ref=e286]: 1 000,00 DA
+              - generic [ref=e287]:
+                - generic [ref=e288]: Colis Petit
+                - generic [ref=e289]: 200,00 DA
+              - generic [ref=e290]:
+                - generic [ref=e291]: Colis Moyen
+                - generic [ref=e292]: 500,00 DA
+              - generic [ref=e293]:
+                - generic [ref=e294]: Colis Grand
+                - generic [ref=e295]: 1 500,00 DA

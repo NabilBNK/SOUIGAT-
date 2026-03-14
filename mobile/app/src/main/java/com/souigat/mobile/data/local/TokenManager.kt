@@ -123,11 +123,21 @@ class TokenManager @Inject constructor(
     }
 
     fun clearAll() {
+        val hadSession =
+            sharedPreferences.contains(KEY_ACCESS_TOKEN)
+                || sharedPreferences.contains(KEY_REFRESH_TOKEN)
+                || sharedPreferences.contains(KEY_USER_ROLE)
+                || sharedPreferences.contains(KEY_USER_ID)
+
         val deviceId = getDeviceId() // Keep deviceId intact
         sharedPreferences.edit()
             .clear()
             .putString(KEY_DEVICE_ID, deviceId)
             .apply()
-        _onSessionCleared.tryEmit(Unit)
+
+        // Avoid re-triggering login navigation loops when already logged out.
+        if (hadSession) {
+            _onSessionCleared.tryEmit(Unit)
+        }
     }
 }

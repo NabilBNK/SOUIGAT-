@@ -1,5 +1,8 @@
 package com.souigat.mobile.data.repository
 
+import com.souigat.mobile.data.local.dao.TripDao
+import com.souigat.mobile.data.local.entity.TripEntity
+import com.souigat.mobile.notification.TripReminderScheduler
 import com.souigat.mobile.data.remote.api.TripApi
 import com.souigat.mobile.data.remote.dto.TripDetailDto
 import com.souigat.mobile.data.remote.dto.TripListDto
@@ -16,24 +19,41 @@ import javax.inject.Singleton
 
 @Singleton
 class TripRepositoryImpl @Inject constructor(
-    private val tripApi: TripApi
+    private val tripApi: TripApi,
+    private val tripDao: TripDao,
+    private val tripReminderScheduler: TripReminderScheduler
 ) : TripRepository {
 
     override suspend fun getTripList(): Result<List<TripListDto>> {
         val result = safeApiCall { tripApi.getTripList() }
-        return result.map { it.results }
+        return result.mapCatching { page ->
+            persistTripListLocally(page.results)
+            page.results
+        }
     }
 
     override suspend fun getTripDetail(id: Int): Result<TripDetailDto> {
         return safeApiCall { tripApi.getTripDetail(id) }
+            .mapCatching { detail ->
+                persistTripDetailLocally(detail)
+                detail
+            }
     }
 
     override suspend fun startTrip(id: Int): Result<TripStatusDto> {
         return safeApiCall { tripApi.startTrip(id) }
+            .mapCatching { status ->
+                updateLocalTripStatus(id.toLong(), status.status)
+                status
+            }
     }
 
     override suspend fun completeTrip(id: Int): Result<TripStatusDto> {
         return safeApiCall { tripApi.completeTrip(id) }
+            .mapCatching { status ->
+                updateLocalTripStatus(id.toLong(), status.status)
+                status
+            }
     }
 
     private suspend fun <T> safeApiCall(apiCall: suspend () -> Response<T>): Result<T> {
@@ -92,6 +112,86 @@ class TripRepositoryImpl @Inject constructor(
             // Catch-all — log actual exception so logcat shows what really happened
             Timber.e(e, "safeApiCall: Unexpected exception — ${e.javaClass.simpleName}")
             Result.failure(TripException.ServerError(500))
+        }
+    }
+
+    private suspend fun persistTripListLocally(trips: List<TripListDto>) {
+        if (trips.isEmpty()) {
+            return
+        }
+
+        val existingByServerId = tripDao.getByServerIds(trips.map { it.id.toLong() })
+            .associateBy { it.serverId }
+        val updatedAt = System.currentTimeMillis()
+
+        val entities = trips.map { dto ->
+            val serverTripId = dto.id.toLong()
+            val existing = existingByServerId[serverTripId]
+
+            TripEntity(
+                id = existing?.id ?: serverTripId,
+                serverId = serverTripId,
+                originOffice = dto.origin,
+                destinationOffice = dto.destination,
+                conductorId = existing?.conductorId ?: 0L,
+                busPlate = dto.plate,
+                status = dto.status,
+                departureDateTime = parseEpochMillis(dto.departureDatetime),
+                passengerBasePrice = dto.passengerBasePrice,
+                cargoSmallPrice = existing?.cargoSmallPrice ?: 0L,
+                cargoMediumPrice = existing?.cargoMediumPrice ?: 0L,
+                cargoLargePrice = existing?.cargoLargePrice ?: 0L,
+                currency = dto.currency,
+                updatedAt = updatedAt
+            )
+        }
+
+        tripDao.upsertAll(entities)
+        tripReminderScheduler.syncTrips(entities)
+    }
+
+    private suspend fun persistTripDetailLocally(detail: TripDetailDto) {
+        val serverTripId = detail.id.toLong()
+        val existing = tripDao.getByLocalOrServerId(serverTripId)
+
+        val entity = TripEntity(
+            id = existing?.id ?: serverTripId,
+            serverId = serverTripId,
+            originOffice = detail.originName,
+            destinationOffice = detail.destinationName,
+            conductorId = detail.conductor.toLong(),
+            busPlate = detail.busPlate,
+            status = detail.status,
+            departureDateTime = parseEpochMillis(detail.departureDatetime),
+            passengerBasePrice = detail.passengerBasePrice,
+            cargoSmallPrice = detail.cargoSmallPrice,
+            cargoMediumPrice = detail.cargoMediumPrice,
+            cargoLargePrice = detail.cargoLargePrice,
+            currency = detail.currency,
+            updatedAt = System.currentTimeMillis()
+        )
+        tripDao.upsert(entity)
+        tripReminderScheduler.syncTrip(entity)
+    }
+
+    private suspend fun updateLocalTripStatus(serverTripId: Long, newStatus: String) {
+        val existing = tripDao.getByLocalOrServerId(serverTripId) ?: return
+        val updatedTrip = existing.copy(status = newStatus, updatedAt = System.currentTimeMillis())
+        tripDao.update(updatedTrip)
+        tripReminderScheduler.syncTrip(updatedTrip)
+    }
+
+    private fun parseEpochMillis(raw: String): Long {
+        return try {
+            java.time.OffsetDateTime.parse(raw).toInstant().toEpochMilli()
+        } catch (_: Exception) {
+            try {
+                java.time.LocalDateTime.parse(raw)
+                    .toInstant(java.time.ZoneOffset.UTC)
+                    .toEpochMilli()
+            } catch (_: Exception) {
+                System.currentTimeMillis()
+            }
         }
     }
 }

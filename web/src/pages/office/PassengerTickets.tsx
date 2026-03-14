@@ -85,7 +85,10 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
         )
     }
 
-    const canManageTickets = trip.status === 'scheduled' && (user?.role === 'admin' || user?.office === trip.origin_office)
+    const officeCanManage =
+        user?.role === 'office_staff' &&
+        (user?.office === trip.origin_office || user?.office === trip.destination_office)
+    const canManageTickets = trip.status === 'scheduled' && (user?.role === 'admin' || officeCanManage)
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -145,8 +148,7 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
                                 className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                             >
                                 <option value="cash">Espèces</option>
-                                <option value="cib">Carte CIB</option>
-                                <option value="baridimob">BaridiMob</option>
+                                <option value="prepaid">Prépayé</option>
                             </select>
                         </div>
                     </div>

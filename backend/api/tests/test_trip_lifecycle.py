@@ -30,6 +30,11 @@ class TripLifecycleTests(TestCase):
             first_name='Cond', last_name='B',
             role='conductor', office=self.office_a,
         )
+        self.admin = User.objects.create_user(
+            phone='0550000004', password='pass',
+            first_name='Admin', last_name='A',
+            role='admin',
+        )
 
         self.bus = Bus.objects.create(
             plate_number='00001-116-16', capacity=50, office=self.office_a,
@@ -56,7 +61,7 @@ class TripLifecycleTests(TestCase):
             destination_office=self.office_b,
             conductor=self.conductor,
             bus=self.bus,
-            departure_datetime=timezone.now() + timedelta(hours=1),
+            departure_datetime=timezone.now() + timedelta(minutes=15),
             passenger_base_price=1000,
             cargo_small_price=500,
             cargo_medium_price=1000,
@@ -155,3 +160,25 @@ class TripLifecycleTests(TestCase):
         self.client.force_authenticate(self.conductor)
         resp = self.client.post(f'/api/trips/{trip.id}/start/')
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_admin_can_delete_scheduled_trip(self):
+        trip = self._make_trip()
+        self.client.force_authenticate(self.admin)
+        resp = self.client.delete(f'/api/trips/{trip.id}/')
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Trip.all_objects.filter(pk=trip.id).exists())
+
+    def test_admin_can_delete_cancelled_trip(self):
+        trip = self._make_trip(status='cancelled')
+        self.client.force_authenticate(self.admin)
+        resp = self.client.delete(f'/api/trips/{trip.id}/')
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Trip.all_objects.filter(pk=trip.id).exists())
+
+    def test_admin_cannot_delete_in_progress_trip(self):
+        trip = self._make_trip(status='in_progress')
+        self.client.force_authenticate(self.admin)
+        resp = self.client.delete(f'/api/trips/{trip.id}/')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        trip.refresh_from_db()
+        self.assertEqual(trip.status, 'in_progress')

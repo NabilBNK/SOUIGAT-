@@ -11,7 +11,9 @@ interface TicketRepository {
         price: Long, // in centimes
         currency: String,
         paymentSource: String,
-        seatNumber: String
+        seatNumber: String,
+        boardingPoint: String = "",
+        alightingPoint: String = ""
     ): Result<PassengerTicketEntity>
 
     suspend fun createPassengerTicketBatch(
@@ -20,7 +22,9 @@ interface TicketRepository {
         price: Long, // in centimes
         currency: String,
         paymentSource: String,
-        seatNumber: String
+        seatNumber: String,
+        boardingPoint: String = "",
+        alightingPoint: String = ""
     ): Result<Int>
 
     suspend fun createCargoTicket(

@@ -1,137 +1,162 @@
 package com.souigat.mobile.ui.screens.login
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.souigat.mobile.R
-import kotlinx.coroutines.delay
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun LoginScreen(
     onNavigateToRole: (String) -> Unit,
     viewModel: LoginViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val isLoading = uiState is LoginUiState.Loading
 
-    // Handle Success Navigation
     LaunchedEffect(uiState) {
-        if (uiState is LoginUiState.Success) {
-            val role = (uiState as LoginUiState.Success).user.role
-            onNavigateToRole(role)
-        }
-    }
-
-    // Handle Error Snackbars
-    LaunchedEffect(uiState) {
-        if (uiState is LoginUiState.Error) {
-            val message = when (val errorState = uiState as LoginUiState.Error) {
-                is LoginUiState.Error.InvalidCredentials -> "Nom d'utilisateur ou mot de passe incorrect"
-                is LoginUiState.Error.AccountDisabled -> "Compte désactivé. Contactez l'admin."
-                is LoginUiState.Error.NetworkUnavailable -> "Pas de connexion. Vérifiez votre réseau."
-                is LoginUiState.Error.TooManyAttempts -> "Trop de tentatives. Attendez 1 minute."
-                is LoginUiState.Error.Unknown -> errorState.message
+        when (val state = uiState) {
+            is LoginUiState.Success -> onNavigateToRole(state.user.role)
+            is LoginUiState.Error -> {
+                val message = when (state) {
+                    LoginUiState.Error.InvalidCredentials -> "Identifiants invalides."
+                    LoginUiState.Error.AccountDisabled -> "Compte desactive. Contactez l'administrateur."
+                    LoginUiState.Error.NetworkUnavailable -> "Connexion indisponible."
+                    LoginUiState.Error.TooManyAttempts -> "Trop de tentatives. Reessayez plus tard."
+                    is LoginUiState.Error.Unknown -> state.message
+                }
+                snackbarHostState.showSnackbar(message)
+                viewModel.resetState()
             }
-            snackbarHostState.showSnackbar(message)
-            delay(4000)
-            viewModel.resetState()
+
+            else -> Unit
         }
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0xFF0F172A), Color(0xFF1D4ED8))
+                    )
+                )
+                .padding(24.dp)
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                contentDescription = "Logo SOUIGAT",
-                modifier = Modifier.size(120.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = "Bienvenue",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            val isLoading = uiState is LoginUiState.Loading
-
-            OutlinedTextField(
-                value = viewModel.phone,
-                onValueChange = viewModel::onPhoneChanged,
-                label = { Text("Numéro de téléphone") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone,
-                    imeAction = ImeAction.Next
-                ),
-                singleLine = true,
-                isError = uiState is LoginUiState.Error
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = viewModel.password,
-                onValueChange = viewModel::onPasswordChanged,
-                label = { Text("Mot de passe") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
-                singleLine = true,
-                isError = uiState is LoginUiState.Error
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = viewModel::login,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp), // Touch target > 48dp
-                enabled = !isLoading
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.DirectionsBus,
+                        contentDescription = null,
+                        tint = Color.White
                     )
-                } else {
                     Text(
-                        text = "Se connecter",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "SOUIGAT",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold
                     )
+                    Text(
+                        text = "Operations terrain pour conducteurs",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.82f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Card(
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(22.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "Connexion",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        OutlinedTextField(
+                            value = viewModel.phone,
+                            onValueChange = viewModel::onPhoneChanged,
+                            label = { Text("Telephone") },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = viewModel.password,
+                            onValueChange = viewModel::onPasswordChanged,
+                            label = { Text("Mot de passe") },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            singleLine = true
+                        )
+                        Button(
+                            onClick = viewModel::login,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp),
+                            enabled = !isLoading
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.height(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Text("Se connecter")
+                            }
+                        }
+                    }
                 }
             }
         }

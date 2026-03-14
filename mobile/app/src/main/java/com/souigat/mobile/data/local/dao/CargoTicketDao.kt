@@ -10,11 +10,26 @@ interface CargoTicketDao {
     @Query("SELECT * FROM cargo_tickets WHERE tripId = :tripId ORDER BY createdAt DESC")
     fun observeByTrip(tripId: Long): Flow<List<CargoTicketEntity>>
 
+    @Query(
+        "SELECT * FROM cargo_tickets " +
+            "WHERE tripId = :tripId " +
+            "OR tripId = COALESCE((SELECT id FROM trips WHERE serverId = :tripId LIMIT 1), -1) " +
+            "ORDER BY createdAt DESC"
+    )
+    fun observeByTripOrServerId(tripId: Long): Flow<List<CargoTicketEntity>>
+
     @Query("SELECT COUNT(*) FROM cargo_tickets WHERE tripId = :tripId")
     suspend fun getCount(tripId: Long): Int
 
     @Query("SELECT COUNT(*) FROM cargo_tickets WHERE ticketNumber LIKE :datePrefix || '%'")
     suspend fun getCountByDate(datePrefix: String): Int
+
+    @Query(
+        "SELECT ticketNumber FROM cargo_tickets " +
+            "WHERE ticketNumber LIKE :datePrefix || '-%' " +
+            "ORDER BY ticketNumber DESC LIMIT 1"
+    )
+    suspend fun getLatestTicketNumberByDate(datePrefix: String): String?
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun upsert(ticket: CargoTicketEntity): Long

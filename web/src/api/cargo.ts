@@ -1,9 +1,28 @@
 import client from './client'
 import type { CargoTicket, CargoStatus } from '../types/ticket'
 
+interface PaginatedCargoResponse {
+    count: number
+    next: string | null
+    previous?: string | null
+    results: CargoTicket[]
+}
+
 export async function getTripCargoTickets(tripId: number): Promise<CargoTicket[]> {
-    const response = await client.get<{ count: number; results: CargoTicket[] }>(`/cargo/`, { params: { trip: tripId } })
-    return response.data.results
+    const pageSize = 100
+    let page = 1
+    const all: CargoTicket[] = []
+
+    while (true) {
+        const response = await client.get<PaginatedCargoResponse>('/cargo/', {
+            params: { trip: tripId, page, page_size: pageSize },
+        })
+        all.push(...response.data.results)
+        if (!response.data.next || response.data.results.length === 0) break
+        page += 1
+    }
+
+    return all
 }
 
 export async function getCargoTickets(params?: Record<string, string | number>): Promise<{

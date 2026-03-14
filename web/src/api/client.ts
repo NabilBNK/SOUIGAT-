@@ -61,9 +61,14 @@ function processQueue(error: unknown, token: string | null) {
     failedQueue = []
 }
 
+function isPublicAuthRoute(url?: string) {
+    if (!url) return false
+    return url.includes('/auth/login/') || url.includes('/auth/token/refresh/')
+}
+
 // Request interceptor: attach Authorization header
 client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-    if (accessToken && config.headers) {
+    if (accessToken && config.headers && !isPublicAuthRoute(config.url)) {
         config.headers.Authorization = `Bearer ${accessToken}`
     }
     return config
@@ -76,15 +81,22 @@ client.interceptors.response.use(
         const original = error.config
 
         // Prevent infinite loops ONLY for login or refresh itself
-        if (original.url?.includes('/auth/login') || original.url?.includes('/auth/token/refresh')) {
+        if (isPublicAuthRoute(original.url)) {
             return Promise.reject(error)
         }
 
         if (error.response?.status === 401 && !original._retry) {
+            if (!refreshToken) {
+                clearTokens()
+                authEvents.dispatchEvent(new Event('unauthorized'))
+                return Promise.reject(error)
+            }
+
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({
                         resolve: (token) => {
+                            original.headers = original.headers ?? {}
                             original.headers.Authorization = `Bearer ${token}`
                             resolve(client(original))
                         },
@@ -102,9 +114,10 @@ client.interceptors.response.use(
                     refresh: refreshToken,
                     platform: 'web',
                 }, { withCredentials: true })
-                setTokens(data.access, data.refresh || refreshToken!)
+                setTokens(data.access, data.refresh || refreshToken)
 
                 processQueue(null, data.access)
+                original.headers = original.headers ?? {}
                 original.headers.Authorization = `Bearer ${data.access}`
                 return client(original)
             } catch (refreshError) {

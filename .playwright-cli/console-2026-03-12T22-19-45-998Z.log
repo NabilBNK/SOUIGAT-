@@ -1,0 +1,6 @@
+[   59562ms] [ERROR] Failed to load resource: the server responded with a status of 403 (Forbidden) @ http://localhost:5173/api/admin/offices/:0
+[   59567ms] [ERROR] Failed to load resource: the server responded with a status of 403 (Forbidden) @ http://localhost:5173/api/admin/users/?role=conductor:0
+[   59572ms] [ERROR] Failed to load resource: the server responded with a status of 403 (Forbidden) @ http://localhost:5173/api/admin/buses/?current_office_id=1:0
+[   60619ms] [ERROR] Failed to load resource: the server responded with a status of 403 (Forbidden) @ http://localhost:5173/api/admin/offices/:0
+[   60623ms] [ERROR] Failed to load resource: the server responded with a status of 403 (Forbidden) @ http://localhost:5173/api/admin/users/?role=conductor:0
+[   60636ms] [ERROR] Failed to load resource: the server responded with a status of 403 (Forbidden) @ http://localhost:5173/api/admin/buses/?current_office_id=1:0

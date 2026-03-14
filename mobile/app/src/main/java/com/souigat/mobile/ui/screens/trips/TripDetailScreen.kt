@@ -1,132 +1,347 @@
 package com.souigat.mobile.ui.screens.trips
-
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.LocalAtm
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.souigat.mobile.data.remote.dto.TripDetailDto
-import com.souigat.mobile.domain.repository.TripException
-import com.souigat.mobile.data.local.entity.CargoTicketEntity
-import com.souigat.mobile.data.local.entity.PassengerTicketEntity
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.souigat.mobile.ui.components.ConductorPanelSurface
+import com.souigat.mobile.ui.components.EmptyStatePanel
+import com.souigat.mobile.ui.components.StatusPill
+import com.souigat.mobile.ui.components.TripSummaryCard
+import com.souigat.mobile.ui.theme.ErrorRed
+import com.souigat.mobile.ui.theme.Success
+import com.souigat.mobile.ui.theme.Warning
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripDetailScreen(
     viewModel: TripDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToCreateTicket: (Int, String, String, String, String, String) -> Unit = { _, _, _, _, _, _ -> },
-    onNavigateToCreateExpense: (Int, String) -> Unit = { _, _ -> }
+    onNavigateToCreateTicket: (Int) -> Unit = {},
+    onNavigateToCreateExpense: (Int) -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val actionState by viewModel.actionState.collectAsState()
-    val passengerTickets by viewModel.passengerTickets.collectAsState()
-    val cargoTickets by viewModel.cargoTickets.collectAsState()
-    val snackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val actionState by viewModel.actionState.collectAsStateWithLifecycle()
+    val passengerTickets by viewModel.passengerTickets.collectAsStateWithLifecycle()
+    val cargoTickets by viewModel.cargoTickets.collectAsStateWithLifecycle()
+    val expenses by viewModel.expenses.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var showCompleteDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(actionState) {
-        if (actionState is TripDetailViewModel.ActionState.Error) {
-            snackbarHostState.showSnackbar((actionState as TripDetailViewModel.ActionState.Error).message)
-            viewModel.resetActionState()
+        when (val current = actionState) {
+            is TripDetailViewModel.ActionState.Error -> {
+                showCompleteDialog = false
+                snackbarHostState.showSnackbar(current.message)
+                viewModel.resetActionState()
+            }
+
+            TripDetailViewModel.ActionState.Success -> {
+                showCompleteDialog = false
+                snackbarHostState.showSnackbar("Mise a jour effectuee.")
+                viewModel.resetActionState()
+            }
+
+            else -> Unit
         }
-        if (actionState is TripDetailViewModel.ActionState.Success) {
-            snackbarHostState.showSnackbar("Action réussie.")
-            viewModel.resetActionState()
-        }
+    }
+
+    if (showCompleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showCompleteDialog = false },
+            title = { Text("Confirmer la fin du trajet") },
+            text = {
+                Text("Cette action cloture le trajet et bloque les nouvelles ventes et depenses. Verifiez une derniere fois avant de terminer.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::completeTrip,
+                    enabled = actionState !is TripDetailViewModel.ActionState.Loading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))
+                ) {
+                    Text("Terminer")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showCompleteDialog = false },
+                    enabled = actionState !is TripDetailViewModel.ActionState.Loading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Success)
+                ) {
+                    Text("Annuler")
+                }
+            }
+        )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Détails du Trajet") },
+                title = { Text("Detail du trajet") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
-        floatingActionButton = {
-            if (uiState is TripDetailUiState.Success) {
-                val trip = (uiState as TripDetailUiState.Success).trip
-                if (trip.status == "in_progress") {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(bottom = 16.dp, end = 16.dp)
-                    ) {
-                        FloatingActionButton(
-                            onClick = {
-                                onNavigateToCreateExpense(trip.id, trip.currency)
-                            },
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ) {
-                            Text("+ Dépense", modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold)
+        bottomBar = {
+            val trip = (uiState as? TripDetailUiState.Success)?.trip
+            if (trip != null) {
+                TripDetailActionBar(
+                    trip = trip,
+                    isLoading = actionState is TripDetailViewModel.ActionState.Loading,
+                    onCreateTicket = { onNavigateToCreateTicket(trip.id) },
+                    onCreateExpense = { onNavigateToCreateExpense(trip.id) },
+                    onStartTrip = viewModel::startTrip,
+                    onCompleteTrip = { showCompleteDialog = true }
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        when (val state = uiState) {
+            TripDetailUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            is TripDetailUiState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EmptyStatePanel(
+                        icon = Icons.Default.Inventory2,
+                        title = "Trajet indisponible",
+                        message = state.message,
+                        primaryActionLabel = "Reessayer",
+                        onPrimaryAction = viewModel::loadTripDetail,
+                        secondaryActionLabel = "Retour",
+                        onSecondaryAction = onNavigateBack
+                    )
+                }
+            }
+
+            is TripDetailUiState.Success -> {
+                val trip = state.trip
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 140.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item(key = "trip_summary", contentType = "trip_summary") {
+                        TripSummaryCard(
+                            origin = trip.origin,
+                            destination = trip.destination,
+                            busPlate = trip.busPlate,
+                            departureLabel = trip.departureLabel,
+                            statusLabel = trip.statusLabel,
+                            supportingLabel = trip.arrivalLabel ?: "Arrivee non renseignee"
+                        )
+                    }
+
+                    item(key = "operator", contentType = "section_card") {
+                        DetailSectionCard(
+                            title = "Equipe de conduite",
+                            lines = listOf(
+                                "Conducteur" to trip.conductorName,
+                                "Bus" to trip.busPlate
+                            )
+                        )
+                    }
+
+                    item(key = "pricing", contentType = "section_card") {
+                        PriceSectionCard(priceLines = trip.priceLines)
+                    }
+
+                    item(key = "offline_title", contentType = "section_header") {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "Activite hors ligne",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Billets, colis et depenses crees localement avant synchronisation serveur.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        FloatingActionButton(
-                            onClick = {
-                                onNavigateToCreateTicket(
-                                    trip.id,
-                                    trip.passengerBasePrice.toString(),
-                                    trip.cargoSmallPrice.toString(),
-                                    trip.cargoMediumPrice.toString(),
-                                    trip.cargoLargePrice.toString(),
-                                    trip.currency
-                                )
-                            },
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Text("+ Billet", modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold)
+                    }
+
+                    item(key = "offline_tabs", contentType = "tab_row") {
+                        TabRow(selectedTabIndex = selectedTab) {
+                            Tab(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                text = { Text("Passagers") },
+                                icon = { Icon(Icons.Default.Person, contentDescription = null) }
+                            )
+                            Tab(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                text = { Text("Colis") },
+                                icon = { Icon(Icons.Default.Inventory2, contentDescription = null) }
+                            )
+                            Tab(
+                                selected = selectedTab == 2,
+                                onClick = { selectedTab = 2 },
+                                text = { Text("Depenses") },
+                                icon = { Icon(Icons.Default.LocalAtm, contentDescription = null) }
+                            )
+                        }
+                    }
+
+                    when (selectedTab) {
+                        0 -> {
+                            if (passengerTickets.isEmpty()) {
+                                item(key = "passenger_empty") {
+                                    EmptyStatePanel(
+                                        icon = Icons.Default.Person,
+                                        title = "Aucun billet passager",
+                                        message = "Les billets crees hors ligne apparaitront ici."
+                                    )
+                                }
+                            } else {
+                                items(
+                                    items = passengerTickets,
+                                    key = { it.id },
+                                    contentType = { "offline_activity" }
+                                ) { item ->
+                                    OfflineActivityCard(item = item)
+                                }
+                            }
+                        }
+
+                        1 -> {
+                            if (cargoTickets.isEmpty()) {
+                                item(key = "cargo_empty") {
+                                    EmptyStatePanel(
+                                        icon = Icons.Default.Inventory2,
+                                        title = "Aucun colis hors ligne",
+                                        message = "Les enregistrements colis apparaitront ici."
+                                    )
+                                }
+                            } else {
+                                items(
+                                    items = cargoTickets,
+                                    key = { it.id },
+                                    contentType = { "offline_activity" }
+                                ) { item ->
+                                    OfflineActivityCard(item = item)
+                                }
+                            }
+                        }
+
+                        else -> {
+                            if (expenses.isEmpty()) {
+                                item(key = "expense_empty") {
+                                    EmptyStatePanel(
+                                        icon = Icons.Default.LocalAtm,
+                                        title = "Aucune depense hors ligne",
+                                        message = "Les depenses creees sur ce trajet apparaitront ici."
+                                    )
+                                }
+                            } else {
+                                items(
+                                    items = expenses,
+                                    key = { it.id },
+                                    contentType = { "offline_activity" }
+                                ) { item ->
+                                    OfflineActivityCard(item = item)
+                                }
+                            }
                         }
                     }
                 }
             }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            when (val state = uiState) {
-                is TripDetailUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                is TripDetailUiState.Error -> {
-                    val msg = when (state.error) {
-                        is TripException.NetworkUnavailable -> "Hors ligne. Vérifiez votre connexion."
-                        else -> "Erreur de chargement."
-                    }
+        }
+    }
+}
+
+@Composable
+private fun DetailSectionCard(
+    title: String,
+    lines: List<Pair<String, String>>
+) {
+    ConductorPanelSurface(shape = MaterialTheme.shapes.extraLarge) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            lines.forEach { (label, value) ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        msg,
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.error
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-                is TripDetailUiState.Success -> {
-                    TripDetailContent(
-                        trip = state.trip,
-                        actionState = actionState,
-                        passengerTickets = passengerTickets,
-                        cargoTickets = cargoTickets,
-                        onStartTrip = viewModel::startTrip,
-                        onCompleteTrip = viewModel::completeTrip
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             }
@@ -135,114 +350,159 @@ fun TripDetailScreen(
 }
 
 @Composable
-fun TripDetailContent(
-    trip: TripDetailDto,
-    actionState: TripDetailViewModel.ActionState,
-    passengerTickets: List<PassengerTicketEntity>,
-    cargoTickets: List<CargoTicketEntity>,
+private fun PriceSectionCard(priceLines: List<TripPriceLineUiModel>) {
+    ConductorPanelSurface(shape = MaterialTheme.shapes.extraLarge) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Tarification",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            priceLines.forEach { price ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = price.label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = price.value,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OfflineActivityCard(item: OfflineActivityUiModel) {
+    val tone = when (item.kind) {
+        OfflineActivityKind.Passenger -> MaterialTheme.colorScheme.primary
+        OfflineActivityKind.Cargo -> Warning
+        OfflineActivityKind.Expense -> ErrorRed
+    }
+
+    ConductorPanelSurface(shape = MaterialTheme.shapes.extraLarge) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                StatusPill(
+                    text = item.amountLabel,
+                    containerColor = tone.copy(alpha = 0.14f),
+                    contentColor = tone
+                )
+            }
+            Text(
+                text = item.subtitle,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = item.meta,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun TripDetailActionBar(
+    trip: TripDetailUiModel,
+    isLoading: Boolean,
+    onCreateTicket: () -> Unit,
+    onCreateExpense: () -> Unit,
     onStartTrip: () -> Unit,
     onCompleteTrip: () -> Unit
 ) {
-    Column(
+    ConductorPanelSurface(
+        shape = MaterialTheme.shapes.extraLarge,
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
-        val formatter = androidx.compose.runtime.remember { DateTimeFormatter.ofPattern("dd MMM yyyy à HH:mm", Locale.FRANCE) }
-        val departureStr = try {
-            OffsetDateTime.parse(trip.departureDatetime).format(formatter)
-        } catch (e: Exception) {
-            trip.departureDatetime
-        }
-
-        // Header info
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TripStatusBadge(status = trip.status)
-                Text("De : ${trip.originName}", style = MaterialTheme.typography.titleMedium)
-                Text("À : ${trip.destinationName}", style = MaterialTheme.typography.titleMedium)
-                Text("Départ : $departureStr", style = MaterialTheme.typography.bodyLarge)
-                if (trip.arrivalDatetime != null) {
-                    val arrivalStr = try {
-                        OffsetDateTime.parse(trip.arrivalDatetime).format(formatter)
-                    } catch (e: Exception) { trip.arrivalDatetime }
-                    Text("Arrivée : $arrivalStr", style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Conducteur : ${trip.conductorName}", style = MaterialTheme.typography.bodyLarge)
-                Text("Bus (Immatriculation) : ${trip.busPlate}", style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-        
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Prix Passager : ${trip.passengerBasePrice} ${trip.currency}", style = MaterialTheme.typography.bodyMedium)
-                Text("Colis Petit : ${trip.cargoSmallPrice} ${trip.currency}", style = MaterialTheme.typography.bodyMedium)
-                Text("Colis Moyen : ${trip.cargoMediumPrice} ${trip.currency}", style = MaterialTheme.typography.bodyMedium)
-                Text("Colis Grand : ${trip.cargoLargePrice} ${trip.currency}", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-
-        if (passengerTickets.isNotEmpty() || cargoTickets.isNotEmpty()) {
-            Text("Billets créés hors ligne", style = MaterialTheme.typography.titleMedium)
-            
-            passengerTickets.forEach { pt ->
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(pt.ticketNumber, fontWeight = FontWeight.Bold)
-                        Text("Passager: ${pt.passengerName}")
-                        Text("Prix: ${pt.price / 100} ${pt.currency}")
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (trip.canCreateOfflineItems) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onCreateTicket,
+                        enabled = !isLoading,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Billet")
+                    }
+                    OutlinedButton(
+                        onClick = onCreateExpense,
+                        enabled = !isLoading,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Depense")
                     }
                 }
             }
-            
-            cargoTickets.forEach { ct ->
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(ct.ticketNumber, fontWeight = FontWeight.Bold)
-                        Text("Expéditeur: ${ct.senderName} -> Destinataire: ${ct.receiverName}")
-                        Text("Taille: ${ct.cargoTier} | Prix: ${ct.price / 100} ${ct.currency}")
+
+            when {
+                trip.canStartTrip -> {
+                    Button(
+                        onClick = onStartTrip,
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(vertical = 2.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Demarrer")
+                        }
+                    }
+                }
+
+                trip.canCompleteTrip -> {
+                    Button(
+                        onClick = onCompleteTrip,
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(vertical = 2.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Terminer")
+                        }
                     }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(60.dp)) // Leave space for FAB
-
-        // Action Buttons mapped purely by status
-        val isLoading = actionState is TripDetailViewModel.ActionState.Loading
-        if (trip.status == "scheduled") {
-            Button(
-                onClick = onStartTrip,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                enabled = !isLoading
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text("Démarrer le trajet", fontWeight = FontWeight.Bold)
-                }
-            }
-        } else if (trip.status == "in_progress") {
-            Button(
-                onClick = onCompleteTrip,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text("Terminer le trajet", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-        // Cancel logic is strictly Office Staff only, hence purposefully omitted from Conductor UI
     }
 }

@@ -1,0 +1,171 @@
+{
+  "steps": [
+    {
+      "step": "login",
+      "status_code": 200,
+      "json": {
+        "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzczMzQ2OTUwLCJpYXQiOjE3NzMzMzk3NTAsImp0aSI6ImQyZjY0Mjk0NWQ2ZjRjYTM5MTVmOWMyYWNjOTA3OGI0IiwidXNlcl9pZCI6IjUiLCJyb2xlIjoiY29uZHVjdG9yIiwiZGVwYXJ0bWVudCI6ImFsbCIsIm9mZmljZV9pZCI6MSwiZGV2aWNlX2lkIjoicmVwcm8tZGV2aWNlLTAwMSIsImRldmljZV9maW5nZXJwcmludCI6IjkyNjA1MzNjNWEyZmJlZDk5Y2ZlNWQ5MjA1YTJmN2JmIiwicGxhdGZvcm0iOiJtb2JpbGUifQ.B8grEUQd-kO8Wxx1lrfNc_-iAQeoEAp4xab-i7LUsjk",
+        "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3MzQyNjE1MCwiaWF0IjoxNzczMzM5NzUwLCJqdGkiOiI0ZjQxYmFkNzFhMzA0OTAxYTA0YTUwNTZkN2Q3ZDcyOSIsInVzZXJfaWQiOiI1Iiwicm9sZSI6ImNvbmR1Y3RvciIsImRlcGFydG1lbnQiOiJhbGwiLCJvZmZpY2VfaWQiOjEsImRldmljZV9pZCI6InJlcHJvLWRldmljZS0wMDEiLCJkZXZpY2VfZmluZ2VycHJpbnQiOiI5MjYwNTMzYzVhMmZiZWQ5OWNmZTVkOTIwNWEyZjdiZiIsInBsYXRmb3JtIjoibW9iaWxlIn0.7OxkPa49UaZVp5qpTHoAm_ZUb4k-zpByFqavB0pD4FI",
+        "user": {
+          "id": 5,
+          "phone": "0700000001",
+          "first_name": "Mohamed",
+          "last_name": "Larbi",
+          "role": "conductor",
+          "department": null,
+          "office": 1,
+          "office_name": "Algiers Central",
+          "office_city": "Algiers",
+          "is_active": true,
+          "device_id": "repro-device-001",
+          "device_bound_at": "2026-03-12T19:22:30.608600+01:00",
+          "last_login": "2026-03-12T19:22:30.608584+01:00",
+          "date_joined": "2026-02-13T19:06:39.426109+01:00",
+          "permissions": [
+            "start_trip",
+            "complete_trip",
+            "create_passenger_ticket",
+            "create_cargo_ticket",
+            "transition_cargo_status",
+            "create_expense",
+            "view_own_trip",
+            "sync_batch"
+          ]
+        },
+        "device_bound": true,
+        "token_strategy": "persistent"
+      }
+    },
+    {
+      "step": "me_initial",
+      "status_code": 200,
+      "json": {
+        "id": 5,
+        "phone": "0700000001",
+        "first_name": "Mohamed",
+        "last_name": "Larbi",
+        "role": "conductor",
+        "department": null,
+        "office": 1,
+        "office_name": "Algiers Central",
+        "office_city": "Algiers",
+        "is_active": true,
+        "device_id": "repro-device-001",
+        "device_bound_at": "2026-03-12T19:22:30.608600+01:00",
+        "last_login": "2026-03-12T19:22:30.608584+01:00",
+        "date_joined": "2026-02-13T19:06:39.426109+01:00",
+        "permissions": [
+          "start_trip",
+          "complete_trip",
+          "create_passenger_ticket",
+          "create_cargo_ticket",
+          "transition_cargo_status",
+          "create_expense",
+          "view_own_trip",
+          "sync_batch"
+        ]
+      }
+    },
+    {
+      "step": "trips_list",
+      "status_code": 200,
+      "json": {
+        "count": 1,
+        "next": null,
+        "previous": null,
+        "results": [
+          {
+            "id": 1,
+            "origin": "Algiers Central",
+            "destination": "Annaba Office",
+            "conductor": "Mohamed Larbi",
+            "plate": "16-00001-16",
+            "departure_datetime": "2026-06-01T10:00:00+01:00",
+            "status": "scheduled",
+            "passenger_base_price": 2500,
+            "currency": "DZD"
+          }
+        ]
+      }
+    },
+    {
+      "step": "trip_detail",
+      "status_code": 200,
+      "json": {
+        "id": 1,
+        "origin_office": 1,
+        "destination_office": 4,
+        "conductor": 5,
+        "bus": 1,
+        "departure_datetime": "2026-06-01T10:00:00+01:00",
+        "arrival_datetime": null,
+        "status": "scheduled",
+        "passenger_base_price": 2500,
+        "cargo_small_price": 500,
+        "cargo_medium_price": 1000,
+        "cargo_large_price": 2000,
+        "currency": "DZD",
+        "conductor_name": "Mohamed Larbi",
+        "bus_plate": "16-00001-16",
+        "origin_name": "Algiers Central",
+        "destination_name": "Annaba Office"
+      },
+      "extra": {
+        "trip_id": 1
+      }
+    },
+    {
+      "step": "sync_spam_summary",
+      "extra": {
+        "requests": 30,
+        "status_code_counts": {
+          "200": 30
+        },
+        "item_status_counts": {
+          "accepted": 1,
+          "duplicate": 29
+        },
+        "error_samples": [],
+        "idempotency_key": "repro-spam-1773339756"
+      }
+    },
+    {
+      "step": "me_after_spam",
+      "status_code": 200,
+      "json": {
+        "id": 5,
+        "phone": "0700000001",
+        "first_name": "Mohamed",
+        "last_name": "Larbi",
+        "role": "conductor",
+        "department": null,
+        "office": 1,
+        "office_name": "Algiers Central",
+        "office_city": "Algiers",
+        "is_active": true,
+        "device_id": "repro-device-001",
+        "device_bound_at": "2026-03-12T19:22:30.608600+01:00",
+        "last_login": "2026-03-12T19:22:30.608584+01:00",
+        "date_joined": "2026-02-13T19:06:39.426109+01:00",
+        "permissions": [
+          "start_trip",
+          "complete_trip",
+          "create_passenger_ticket",
+          "create_cargo_ticket",
+          "transition_cargo_status",
+          "create_expense",
+          "view_own_trip",
+          "sync_batch"
+        ]
+      }
+    },
+    {
+      "step": "refresh_after_spam",
+      "status_code": 200,
+      "json": {
+        "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzczMzQ2OTY3LCJpYXQiOjE3NzMzMzk3NjcsImp0aSI6ImFmMTgzODNjODQ2NzRmMDFhM2MzZGNiODA1YWU4OTViIiwidXNlcl9pZCI6IjUiLCJyb2xlIjoiY29uZHVjdG9yIiwiZGVwYXJ0bWVudCI6ImFsbCIsIm9mZmljZV9pZCI6MSwiZGV2aWNlX2lkIjoicmVwcm8tZGV2aWNlLTAwMSIsImRldmljZV9maW5nZXJwcmludCI6IjkyNjA1MzNjNWEyZmJlZDk5Y2ZlNWQ5MjA1YTJmN2JmIiwicGxhdGZvcm0iOiJtb2JpbGUifQ.QHcy0wWsbfWH_mIqfBhqsPChUxweAy48QilceNDbsrQ",
+        "strategy": "persistent"
+      }
+    }
+  ]
+}

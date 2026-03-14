@@ -1,5 +1,7 @@
 package com.souigat.mobile.util
 
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.*
 
@@ -30,4 +32,29 @@ fun formatCompact(centimes: Long): String {
         maximumFractionDigits = 0
     }
     return formatter.format(centimes / 100.0)
+}
+
+/**
+ * Parses a user-entered currency amount expressed in base units (for example "1 200" DZD)
+ * and converts it to centimes once, at the view-model boundary.
+ */
+fun parseCurrencyInput(raw: String): Long? {
+    val normalized = raw
+        .trim()
+        .replace(" ", "")
+        .replace("\u00A0", "")
+        .replace(',', '.')
+
+    if (normalized.isBlank()) {
+        return null
+    }
+
+    return try {
+        BigDecimal(normalized)
+            .movePointRight(2)
+            .setScale(0, RoundingMode.HALF_UP)
+            .longValueExact()
+    } catch (_: Exception) {
+        null
+    }
 }

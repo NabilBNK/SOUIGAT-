@@ -163,6 +163,83 @@ class BatchSyncTests(TestCase):
         }, format='json')
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_sync_allows_boarding_after_intermediate_dropoff(self):
+        small_bus = Bus.objects.create(
+            plate_number='BUS-INT-01', capacity=2, office=self.office,
+        )
+        intermediate_trip = Trip.objects.create(
+            origin_office=self.office,
+            destination_office=self.office_b,
+            conductor=self.conductor,
+            bus=small_bus,
+            departure_datetime=timezone.now() + timedelta(hours=2),
+            status='in_progress',
+            passenger_base_price=1000,
+            cargo_small_price=500,
+            cargo_medium_price=1000,
+            cargo_large_price=1500,
+        )
+        PassengerTicket.objects.create(
+            trip=intermediate_trip,
+            ticket_number='PT-INT-001',
+            passenger_name='Leaves early',
+            price=700,
+            currency='DZD',
+            payment_source='cash',
+            boarding_point=self.office.name,
+            alighting_point='Ghardaia',
+            created_by=self.conductor,
+        )
+        PassengerTicket.objects.create(
+            trip=intermediate_trip,
+            ticket_number='PT-INT-002',
+            passenger_name='Stays onboard',
+            price=1000,
+            currency='DZD',
+            payment_source='cash',
+            boarding_point=self.office.name,
+            alighting_point=self.office_b.name,
+            created_by=self.conductor,
+        )
+
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            key='int-reboard-1',
+            payload={
+                'passenger_name': 'Boards at Ghardaia',
+                'payment_source': 'cash',
+                'boarding_point': 'Ghardaia',
+                'alighting_point': self.office_b.name,
+                'price': 600,
+            },
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': intermediate_trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['accepted'], 1)
+        self.assertEqual(resp.data['quarantined'], 0)
+
+    def test_sync_keeps_manual_price_for_full_route_ticket(self):
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            key='manual-price-full-route',
+            payload={
+                'passenger_name': 'Tarif manuel',
+                'payment_source': 'cash',
+                'price': 750,
+            },
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['accepted'], 1)
+        ticket = PassengerTicket.objects.get(passenger_name='Tarif manuel')
+        self.assertEqual(ticket.price, 750)
+
     # --- Regression tests for Week 4 audit bugs ---
 
     def test_ticket_number_no_collision_after_cancel(self):

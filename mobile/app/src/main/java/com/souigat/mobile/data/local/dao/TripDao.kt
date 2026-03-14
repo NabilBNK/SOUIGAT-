@@ -10,6 +10,16 @@ interface TripDao {
     @Query("SELECT * FROM trips ORDER BY departureDateTime DESC")
     fun observeAll(): Flow<List<TripEntity>>
 
+    @Query("SELECT * FROM trips ORDER BY departureDateTime DESC")
+    suspend fun getAllNow(): List<TripEntity>
+
+    @Query(
+        "SELECT * FROM trips " +
+            "WHERE status IN ('scheduled', 'in_progress') " +
+            "ORDER BY CASE WHEN status = 'in_progress' THEN 0 ELSE 1 END, departureDateTime ASC"
+    )
+    fun observeOperationalTrips(): Flow<List<TripEntity>>
+
     /** Observe the single active trip (in_progress). Returns null when no active trip. */
     @Query("SELECT * FROM trips WHERE status = 'in_progress' ORDER BY departureDateTime DESC LIMIT 1")
     fun observeActiveTrip(): Flow<TripEntity?>
@@ -17,14 +27,26 @@ interface TripDao {
     @Query("SELECT * FROM trips WHERE status IN (:statuses) ORDER BY departureDateTime DESC")
     fun observeByStatus(statuses: List<String>): Flow<List<TripEntity>>
 
+    @Query("SELECT * FROM trips WHERE id = :id OR serverId = :id LIMIT 1")
+    fun observeByLocalOrServerId(id: Long): Flow<TripEntity?>
+
     @Query("SELECT * FROM trips WHERE id = :id")
     suspend fun getById(id: Long): TripEntity?
 
     @Query("SELECT * FROM trips WHERE serverId = :serverId")
     suspend fun getByServerId(serverId: Long): TripEntity?
 
+    @Query("SELECT * FROM trips WHERE id = :id OR serverId = :id LIMIT 1")
+    suspend fun getByLocalOrServerId(id: Long): TripEntity?
+
+    @Query("SELECT * FROM trips WHERE serverId IN (:serverIds)")
+    suspend fun getByServerIds(serverIds: List<Long>): List<TripEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(trip: TripEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(trips: List<TripEntity>)
 
     @Update
     suspend fun update(trip: TripEntity)

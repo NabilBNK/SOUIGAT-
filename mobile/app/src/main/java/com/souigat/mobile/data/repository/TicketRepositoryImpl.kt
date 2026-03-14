@@ -1,29 +1,36 @@
 package com.souigat.mobile.data.repository
 
+import androidx.room.withTransaction
+import com.souigat.mobile.data.local.SouigatDatabase
 import com.souigat.mobile.data.local.dao.CargoTicketDao
 import com.souigat.mobile.data.local.dao.PassengerTicketDao
 import com.souigat.mobile.data.local.dao.SyncQueueDao
-import com.souigat.mobile.data.local.SouigatDatabase
 import com.souigat.mobile.data.local.entity.CargoTicketEntity
 import com.souigat.mobile.data.local.entity.PassengerTicketEntity
 import com.souigat.mobile.data.local.entity.SyncQueueEntity
-import androidx.room.withTransaction
 import com.souigat.mobile.domain.model.SyncStatus
 import com.souigat.mobile.domain.repository.TicketRepository
+import com.souigat.mobile.worker.SyncScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 @Singleton
 class TicketRepositoryImpl @Inject constructor(
     private val db: SouigatDatabase,
     private val passengerDao: PassengerTicketDao,
     private val cargoDao: CargoTicketDao,
-    private val syncQueueDao: SyncQueueDao
+    private val syncQueueDao: SyncQueueDao,
+    private val syncScheduler: SyncScheduler
 ) : TicketRepository {
 
     override suspend fun createPassengerTicket(
@@ -32,34 +39,35 @@ class TicketRepositoryImpl @Inject constructor(
         price: Long,
         currency: String,
         paymentSource: String,
-        seatNumber: String
+        seatNumber: String,
+        boardingPoint: String,
+        alightingPoint: String
     ): Result<PassengerTicketEntity> = withContext(Dispatchers.IO) {
+        val localTripId = resolveLocalTripId(tripId)
+            ?: run {
+                Timber.w("createPassengerTicket aborted: trip not found locally. requestedTripId=%d", tripId)
+                return@withContext Result.failure(buildMissingTripException(tripId))
+            }
+
         var retries = 0
         val maxRetries = 5
         var lastException: Exception? = null
-
-        // Stable idempotency key generated ONCE per creation request
         val idempotencyKey = UUID.randomUUID().toString()
-
-        // Date initialized safely outside loop in UTC for stability across attempts
-        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
-        }
-        val dateString = sdf.format(java.util.Date())
+        val dateString = currentDateStampUtc()
+        val ticketPrefix = "PT-$localTripId-$dateString"
 
         while (retries < maxRetries) {
             try {
                 val savedEntity = db.withTransaction {
-                    // Generate ticket number: PT-YYYYMMDD-0001
-                    // Offset sequence by retries to safely bypass collisions
-                    val count = passengerDao.getCountByDate("PT-$dateString")
-                    val seq = count + 1 + retries
-                    val seqString = String.format(java.util.Locale.US, "%04d", seq)
-                    val ticketNumber = "PT-$dateString-$seqString"
+                    val latestTicketNumber = passengerDao.getLatestTicketNumberByDate(ticketPrefix)
+                    val lastSeq = extractTicketSequence(latestTicketNumber, ticketPrefix)
+                        ?: passengerDao.getCountByDate(ticketPrefix)
+                    val seq = lastSeq + 1 + retries
+                    val ticketNumber = "$ticketPrefix-${formatSequence(seq)}"
 
                     val entity = PassengerTicketEntity(
                         serverId = null,
-                        tripId = tripId,
+                        tripId = localTripId,
                         ticketNumber = ticketNumber,
                         idempotencyKey = idempotencyKey,
                         passengerName = passengerName,
@@ -71,9 +79,6 @@ class TicketRepositoryImpl @Inject constructor(
                     )
 
                     val localId = passengerDao.upsert(entity)
-                    val newSavedEntity = entity.copy(id = localId)
-
-                    // Prepare SyncQueue payload
                     val jsonPayload = JSONObject().apply {
                         put("trip", tripId)
                         put("ticket_number", ticketNumber)
@@ -82,29 +87,50 @@ class TicketRepositoryImpl @Inject constructor(
                         put("currency", currency)
                         put("payment_source", paymentSource)
                         put("seat_number", seatNumber)
+                        if (boardingPoint.isNotBlank()) {
+                            put("boarding_point", boardingPoint)
+                        }
+                        if (alightingPoint.isNotBlank()) {
+                            put("alighting_point", alightingPoint)
+                        }
                     }.toString()
 
-                    val syncItem = SyncQueueEntity(
-                        tripId = tripId,
-                        itemType = "passenger_ticket",
-                        payload = jsonPayload,
-                        idempotencyKey = idempotencyKey,
-                        status = SyncStatus.PENDING
+                    syncQueueDao.enqueue(
+                        SyncQueueEntity(
+                            tripId = tripId,
+                            itemType = "passenger_ticket",
+                            payload = jsonPayload,
+                            idempotencyKey = idempotencyKey,
+                            status = SyncStatus.PENDING
+                        )
                     )
-                    syncQueueDao.enqueue(syncItem)
-                    
-                    newSavedEntity
+
+                    entity.copy(id = localId)
                 }
+
+                syncScheduler.triggerOneTimeSync()
                 return@withContext Result.success(savedEntity)
-            } catch (e: android.database.sqlite.SQLiteConstraintException) {
+            } catch (e: Exception) {
+                if (isForeignKeyConstraint(e)) {
+                    Timber.w(e, "createPassengerTicket FK violation. requestedTripId=%d localTripId=%d", tripId, localTripId)
+                    return@withContext Result.failure(buildMissingTripException(tripId, e))
+                }
+                if (!isTicketNumberConflict(e)) {
+                    Timber.e(e, "createPassengerTicket failed. requestedTripId=%d localTripId=%d", tripId, localTripId)
+                    return@withContext Result.failure(e)
+                }
+                Timber.w(e, "createPassengerTicket ticket-number collision. retry=%d/%d prefix=%s", retries + 1, maxRetries, ticketPrefix)
                 lastException = e
                 retries++
-                // Loop continues with updated retry count to bypass sequence collision
-            } catch (e: Exception) {
-                return@withContext Result.failure(e)
             }
         }
-        Result.failure(Exception("Impossible de générer un billet unique après $maxRetries tentatives", lastException))
+
+        Result.failure(
+            Exception(
+                "Impossible de generer un billet unique apres $maxRetries tentatives",
+                lastException
+            )
+        )
     }
 
     override suspend fun createPassengerTicketBatch(
@@ -113,34 +139,41 @@ class TicketRepositoryImpl @Inject constructor(
         price: Long,
         currency: String,
         paymentSource: String,
-        seatNumber: String
+        seatNumber: String,
+        boardingPoint: String,
+        alightingPoint: String
     ): Result<Int> = withContext(Dispatchers.IO) {
+        val localTripId = resolveLocalTripId(tripId)
+            ?: run {
+                Timber.w("createPassengerTicketBatch aborted: trip not found locally. requestedTripId=%d", tripId)
+                return@withContext Result.failure(buildMissingTripException(tripId))
+            }
+
         var retries = 0
         val maxRetries = 5
         var lastException: Exception? = null
-
-        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
-        }
-        val dateString = sdf.format(java.util.Date())
+        val dateString = currentDateStampUtc()
+        val ticketPrefix = "PT-$localTripId-$dateString"
 
         while (retries < maxRetries) {
             try {
                 db.withTransaction {
                     val entities = mutableListOf<PassengerTicketEntity>()
                     val syncItems = mutableListOf<SyncQueueEntity>()
-                    
-                    val currentCount = passengerDao.getCountByDate("PT-$dateString")
-                    
+
+                    val latestTicketNumber = passengerDao.getLatestTicketNumberByDate(ticketPrefix)
+                    val lastSeq = extractTicketSequence(latestTicketNumber, ticketPrefix)
+                        ?: passengerDao.getCountByDate(ticketPrefix)
+                    val startingSeq = lastSeq + 1 + (retries * count)
+
                     for (i in 1..count) {
-                        val seq = currentCount + i + (retries * count)
-                        val seqString = String.format(java.util.Locale.US, "%04d", seq)
-                        val ticketNumber = "PT-$dateString-$seqString"
+                        val seq = startingSeq + (i - 1)
+                        val ticketNumber = "$ticketPrefix-${formatSequence(seq)}"
                         val idempotencyKey = UUID.randomUUID().toString()
 
-                        val entity = PassengerTicketEntity(
+                        entities += PassengerTicketEntity(
                             serverId = null,
-                            tripId = tripId,
+                            tripId = localTripId,
                             ticketNumber = ticketNumber,
                             idempotencyKey = idempotencyKey,
                             passengerName = "Passager",
@@ -150,7 +183,6 @@ class TicketRepositoryImpl @Inject constructor(
                             seatNumber = seatNumber,
                             status = "active"
                         )
-                        entities.add(entity)
 
                         val jsonPayload = JSONObject().apply {
                             put("trip", tripId)
@@ -160,32 +192,50 @@ class TicketRepositoryImpl @Inject constructor(
                             put("currency", currency)
                             put("payment_source", paymentSource)
                             put("seat_number", seatNumber)
+                            if (boardingPoint.isNotBlank()) {
+                                put("boarding_point", boardingPoint)
+                            }
+                            if (alightingPoint.isNotBlank()) {
+                                put("alighting_point", alightingPoint)
+                            }
                         }.toString()
 
-                        val syncItem = SyncQueueEntity(
+                        syncItems += SyncQueueEntity(
                             tripId = tripId,
                             itemType = "passenger_ticket",
                             payload = jsonPayload,
                             idempotencyKey = idempotencyKey,
                             status = SyncStatus.PENDING
                         )
-                        syncItems.add(syncItem)
                     }
 
                     passengerDao.insertBatch(entities)
-                    for (item in syncItems) {
-                        syncQueueDao.enqueue(item)
-                    }
+                    syncQueueDao.enqueueAll(syncItems)
                 }
+
+                syncScheduler.triggerOneTimeSync()
                 return@withContext Result.success(count)
-            } catch (e: android.database.sqlite.SQLiteConstraintException) {
+            } catch (e: Exception) {
+                if (isForeignKeyConstraint(e)) {
+                    Timber.w(e, "createPassengerTicketBatch FK violation. requestedTripId=%d localTripId=%d", tripId, localTripId)
+                    return@withContext Result.failure(buildMissingTripException(tripId, e))
+                }
+                if (!isTicketNumberConflict(e)) {
+                    Timber.e(e, "createPassengerTicketBatch failed. requestedTripId=%d localTripId=%d", tripId, localTripId)
+                    return@withContext Result.failure(e)
+                }
+                Timber.w(e, "createPassengerTicketBatch ticket-number collision. retry=%d/%d prefix=%s", retries + 1, maxRetries, ticketPrefix)
                 lastException = e
                 retries++
-            } catch (e: Exception) {
-                return@withContext Result.failure(e)
             }
         }
-        Result.failure(Exception("Impossible de générer les $count billets après $maxRetries tentatives", lastException))
+
+        Result.failure(
+            Exception(
+                "Impossible de generer les $count billets apres $maxRetries tentatives",
+                lastException
+            )
+        )
     }
 
     override suspend fun createCargoTicket(
@@ -200,31 +250,31 @@ class TicketRepositoryImpl @Inject constructor(
         currency: String,
         paymentSource: String
     ): Result<CargoTicketEntity> = withContext(Dispatchers.IO) {
+        val localTripId = resolveLocalTripId(tripId)
+            ?: run {
+                Timber.w("createCargoTicket aborted: trip not found locally. requestedTripId=%d", tripId)
+                return@withContext Result.failure(buildMissingTripException(tripId))
+            }
+
         var retries = 0
         val maxRetries = 5
         var lastException: Exception? = null
-
-        // Stable idempotency key generated ONCE per creation request
         val idempotencyKey = UUID.randomUUID().toString()
-
-        // Date initialized safely outside loop in UTC for stability across attempts
-        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
-        }
-        val dateString = sdf.format(java.util.Date())
+        val dateString = currentDateStampUtc()
+        val ticketPrefix = "CT-$localTripId-$dateString"
 
         while (retries < maxRetries) {
             try {
                 val savedEntity = db.withTransaction {
-                    // Generate ticket number: CT-YYYYMMDD-0001
-                    val count = cargoDao.getCountByDate("CT-$dateString")
-                    val seq = count + 1 + retries
-                    val seqString = String.format(java.util.Locale.US, "%04d", seq)
-                    val ticketNumber = "CT-$dateString-$seqString"
+                    val latestTicketNumber = cargoDao.getLatestTicketNumberByDate(ticketPrefix)
+                    val lastSeq = extractTicketSequence(latestTicketNumber, ticketPrefix)
+                        ?: cargoDao.getCountByDate(ticketPrefix)
+                    val seq = lastSeq + 1 + retries
+                    val ticketNumber = "$ticketPrefix-${formatSequence(seq)}"
 
                     val entity = CargoTicketEntity(
                         serverId = null,
-                        tripId = tripId,
+                        tripId = localTripId,
                         ticketNumber = ticketNumber,
                         idempotencyKey = idempotencyKey,
                         senderName = senderName,
@@ -240,9 +290,6 @@ class TicketRepositoryImpl @Inject constructor(
                     )
 
                     val localId = cargoDao.upsert(entity)
-                    val newSavedEntity = entity.copy(id = localId)
-
-                    // Prepare SyncQueue payload
                     val jsonPayload = JSONObject().apply {
                         put("trip", tripId)
                         put("ticket_number", ticketNumber)
@@ -257,34 +304,132 @@ class TicketRepositoryImpl @Inject constructor(
                         put("payment_source", paymentSource)
                     }.toString()
 
-                    val syncItem = SyncQueueEntity(
-                        tripId = tripId,
-                        itemType = "cargo_ticket",
-                        payload = jsonPayload,
-                        idempotencyKey = idempotencyKey,
-                        status = SyncStatus.PENDING
+                    syncQueueDao.enqueue(
+                        SyncQueueEntity(
+                            tripId = tripId,
+                            itemType = "cargo_ticket",
+                            payload = jsonPayload,
+                            idempotencyKey = idempotencyKey,
+                            status = SyncStatus.PENDING
+                        )
                     )
-                    syncQueueDao.enqueue(syncItem)
-                    
-                    newSavedEntity
+
+                    entity.copy(id = localId)
                 }
+
+                syncScheduler.triggerOneTimeSync()
                 return@withContext Result.success(savedEntity)
-            } catch (e: android.database.sqlite.SQLiteConstraintException) {
+            } catch (e: Exception) {
+                if (isForeignKeyConstraint(e)) {
+                    Timber.w(e, "createCargoTicket FK violation. requestedTripId=%d localTripId=%d", tripId, localTripId)
+                    return@withContext Result.failure(buildMissingTripException(tripId, e))
+                }
+                if (!isTicketNumberConflict(e)) {
+                    Timber.e(e, "createCargoTicket failed. requestedTripId=%d localTripId=%d", tripId, localTripId)
+                    return@withContext Result.failure(e)
+                }
+                Timber.w(e, "createCargoTicket ticket-number collision. retry=%d/%d prefix=%s", retries + 1, maxRetries, ticketPrefix)
                 lastException = e
                 retries++
-                // Loop continues with updated retry count to bypass sequence collision
-            } catch (e: Exception) {
-                return@withContext Result.failure(e)
             }
         }
-        Result.failure(Exception("Impossible de générer un billet unique après $maxRetries tentatives", lastException))
+
+        Result.failure(
+            Exception(
+                "Impossible de generer un billet unique apres $maxRetries tentatives",
+                lastException
+            )
+        )
     }
 
     override fun observePassengerTickets(tripId: Long): Flow<List<PassengerTicketEntity>> {
-        return passengerDao.observeByTrip(tripId)
+        return passengerDao.observeByTripOrServerId(tripId)
     }
 
     override fun observeCargoTickets(tripId: Long): Flow<List<CargoTicketEntity>> {
-        return cargoDao.observeByTrip(tripId)
+        return cargoDao.observeByTripOrServerId(tripId)
+    }
+
+    private fun extractTicketSequence(ticketNumber: String?, expectedPrefix: String): Int? {
+        if (ticketNumber.isNullOrBlank()) {
+            return null
+        }
+
+        val strictPattern = Regex("^${Regex.escape(expectedPrefix)}-(\\d+)$")
+        val strictValue = strictPattern.find(ticketNumber)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+
+        if (strictValue != null) {
+            return strictValue
+        }
+
+        // Legacy fallback for old ticket formats kept in local DB.
+        return ticketNumber.substringAfterLast("-", "").toIntOrNull()
+    }
+
+    private fun formatSequence(seq: Int): String {
+        return String.format(Locale.US, "%04d", seq)
+    }
+
+    private fun currentDateStampUtc(): String {
+        val formatter = SimpleDateFormat("yyyyMMdd", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        return formatter.format(Date())
+    }
+
+    private suspend fun resolveLocalTripId(requestedTripId: Long): Long? {
+        val tripDao = db.tripDao()
+        val resolved = tripDao.getByLocalOrServerId(requestedTripId)?.id
+
+        Timber.d(
+            "resolveLocalTripId(ticket): requestedTripId=%d resolvedLocalTripId=%s",
+            requestedTripId,
+            resolved?.toString() ?: "null"
+        )
+        return resolved
+    }
+
+    private fun buildMissingTripException(tripId: Long, cause: Throwable? = null): Exception {
+        return IllegalStateException(
+            "Trajet introuvable localement (id=$tripId). Rafraichissez la liste des trajets puis reessayez.",
+            cause
+        )
+    }
+
+    private fun isForeignKeyConstraint(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            val message = current.message?.lowercase().orEmpty()
+            if (
+                message.contains("foreign key constraint failed")
+                || message.contains("sqlite_constraint_foreignkey")
+                || message.contains("code 787")
+            ) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
+    }
+
+    private fun isTicketNumberConflict(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            val message = current.message?.lowercase().orEmpty()
+            if (
+                message.contains("unique")
+                && (message.contains("ticketnumber")
+                    || message.contains("ticket_number")
+                    || message.contains("passenger_tickets.ticketnumber")
+                    || message.contains("cargo_tickets.ticketnumber"))
+            ) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
     }
 }

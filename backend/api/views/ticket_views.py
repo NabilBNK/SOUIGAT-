@@ -6,7 +6,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from api.models import PassengerTicket, Trip
 from api.serializers.ticket import PassengerTicketSerializer, PassengerTicketListSerializer
-from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission
+from api.permissions import MatrixPermission, OfficeScopePermission
 
 
 class PassengerTicketViewSet(viewsets.ModelViewSet):
@@ -68,7 +68,7 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
 
         1. Lock Trip row via select_for_update (serializes concurrent creation).
         2. Validate status (scheduled / in_progress).
-        3. Count active tickets vs bus capacity.
+        3. Count occupied seats for the requested boarding point.
         4. Freeze price from Trip snapshot.
         5. Assign ticket_number from total count (safe: Trip row lock prevents race).
         """
@@ -79,7 +79,12 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             # Row lock serializes concurrent ticket creation for this trip
-            trip = Trip.objects.select_for_update().get(pk=trip_id)
+            trip = (
+                Trip.objects
+                .select_for_update()
+                .select_related('bus', 'origin_office', 'destination_office')
+                .get(pk=trip_id)
+            )
 
             if trip.status not in ('scheduled', 'in_progress'):
                 raise ValidationError(
@@ -89,11 +94,35 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
             if request.user.role == 'conductor' and trip.conductor_id != request.user.id:
                 raise PermissionDenied('You can only sell tickets for your assigned trip.')
 
-            active_count = PassengerTicket.objects.filter(
-                trip=trip, status='active',
+            if request.user.role == 'office_staff':
+                if request.user.office_id not in (trip.origin_office_id, trip.destination_office_id):
+                    raise PermissionDenied(
+                        'Office staff can only create tickets for trips linked to their office.'
+                    )
+
+            boarding_point = (
+                (serializer.validated_data.get('boarding_point') or trip.origin_office.name)
+                .strip()
+            )
+            alighting_point = (
+                (serializer.validated_data.get('alighting_point') or trip.destination_office.name)
+                .strip()
+            )
+            if not boarding_point:
+                raise ValidationError({'boarding_point': 'Boarding point is required.'})
+            if not alighting_point:
+                raise ValidationError({'alighting_point': 'Alighting point is required.'})
+            if boarding_point == alighting_point:
+                raise ValidationError({'alighting_point': 'Alighting point must differ from boarding point.'})
+
+            active_qs = PassengerTicket.objects.filter(trip=trip, status='active')
+            occupied_count = active_qs.count() - active_qs.filter(
+                alighting_point__iexact=boarding_point,
             ).count()
-            if active_count >= trip.bus.capacity:
-                raise ValidationError('Bus is at full capacity.')
+            if occupied_count >= trip.bus.capacity:
+                raise ValidationError(
+                    f'Bus is at full capacity for boarding at {boarding_point}.'
+                )
 
             total_count = PassengerTicket.objects.filter(trip=trip).count()
             ticket_number = f'PT-{trip.id}-{total_count + 1:03d}'
@@ -110,6 +139,8 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
                 price=final_price,
                 currency=trip.currency,
                 payment_source=serializer.validated_data.get('payment_source', 'cash'),
+                boarding_point=boarding_point,
+                alighting_point=alighting_point,
                 seat_number=serializer.validated_data.get('seat_number', ''),
                 created_by=request.user,
             )

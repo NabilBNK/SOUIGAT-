@@ -10,6 +10,15 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE tripId = :tripId ORDER BY createdAt DESC")
     fun observeByTrip(tripId: Long): Flow<List<ExpenseEntity>>
 
+    @Query(
+        "SELECT expenses.* FROM expenses " +
+            "INNER JOIN trips ON expenses.tripId = trips.id " +
+            "WHERE trips.id = :tripId " +
+            "OR trips.serverId = :tripId " +
+            "ORDER BY expenses.createdAt DESC"
+    )
+    fun observeByTripOrServerId(tripId: Long): Flow<List<ExpenseEntity>>
+
     /** Last 5 expenses for the Dashboard activity feed. */
     @Query("SELECT * FROM expenses WHERE tripId = :tripId ORDER BY createdAt DESC LIMIT 5")
     fun observeRecentByTrip(tripId: Long): Flow<List<ExpenseEntity>>

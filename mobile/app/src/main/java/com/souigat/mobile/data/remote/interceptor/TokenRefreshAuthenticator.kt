@@ -10,7 +10,6 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
 import timber.log.Timber
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -23,12 +22,32 @@ class TokenRefreshAuthenticator @Inject constructor(
 ) : Authenticator {
 
     override fun authenticate(route: Route?, response: Response): Request? = synchronized(RefreshLock) {
+        // Ignore anonymous failures (e.g. login endpoint or background requests while logged out).
+        val failedToken = response.request.header("Authorization")
+            ?.removePrefix("Bearer ")
+            ?.trim()
+        if (failedToken.isNullOrEmpty()) {
+            Timber.d("401 on unauthenticated request (${response.request.url.encodedPath}); skip refresh.")
+            return null
+        }
+
+        // Prevent infinite loops if the refresh endpoint itself throws 401.
+        if (response.request.url.encodedPath.contains("token/refresh")) {
+            Timber.w("Refresh token endpoint returned 401. Session expired.")
+            tokenManager.clearAll()
+            return null
+        }
+
+        // Limit retries.
+        if (responseCount(response) >= 2) {
+            Timber.w("Refresh retry limit reached.")
+            return null
+        }
+
         // Step 1: Check if the token on the FAILED REQUEST is still the
         // current token. If another thread already refreshed it, just retry
         // with the new token without calling refresh again.
         val currentToken = tokenManager.getAccessToken()
-        val failedToken = response.request.header("Authorization")
-            ?.removePrefix("Bearer ")
 
         if (currentToken != null && currentToken != failedToken) {
             Timber.i("Token already refreshed by concurrent thread. Retrying Request: ${response.request.url.encodedPath}")
@@ -37,29 +56,22 @@ class TokenRefreshAuthenticator @Inject constructor(
                 .build()
         }
 
-        // Prevent infinite loops if the refresh endpoint itself throws 401
-        if (response.request.url.encodedPath.contains("token/refresh")) {
-            Timber.w("Refresh token endpoint returned 401. Session expired.")
-            tokenManager.clearAll()
-            return null
-        }
-
-        // Limit retries
-        if (responseCount(response) >= 2) {
-            Timber.w("Refresh retry limit reached.")
-            return null
-        }
-
         // Attempt refresh — this is now single-threaded due to @Synchronized
         val refreshToken = tokenManager.getRefreshToken() ?: run {
+            Timber.w("Missing refresh token during authenticated 401. Clearing session.")
             tokenManager.clearAll()
             return null
         }
         val deviceId = tokenManager.getDeviceId()
 
         Timber.i("Executing refresh API call locally under Synchronized lock...")
-        val refreshResponse = runBlocking(Dispatchers.IO) {
-            authApiProvider.get().refreshToken(RefreshRequest(refreshToken, deviceId))
+        val refreshResponse = try {
+            runBlocking(Dispatchers.IO) {
+                authApiProvider.get().refreshToken(RefreshRequest(refreshToken, deviceId))
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Refresh request failed due to network/runtime issue; keeping current session.")
+            return null
         }
 
         return if (refreshResponse.isSuccessful) {
@@ -70,8 +82,13 @@ class TokenRefreshAuthenticator @Inject constructor(
                 .header("Authorization", "Bearer $newAccessToken")
                 .build()
         } else {
-            Timber.e("Refresh failed. Clearing tokens (HTTP ${refreshResponse.code()})")
-            tokenManager.clearAll()
+            val code = refreshResponse.code()
+            if (code == 401 || code == 403) {
+                Timber.e("Refresh rejected (HTTP $code). Clearing session.")
+                tokenManager.clearAll()
+            } else {
+                Timber.w("Refresh failed (HTTP $code). Keeping session for retry.")
+            }
             null
         }
     }

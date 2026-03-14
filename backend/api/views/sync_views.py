@@ -82,7 +82,6 @@ def batch_sync(request):
 
             # Cache counts for processing
             trip_state = {
-                'active_passenger_count': PassengerTicket.objects.filter(trip=trip, status='active').count(),
                 'total_passenger_count': PassengerTicket.objects.filter(trip=trip).count(),
                 'cargo_count': CargoTicket.objects.filter(trip=trip).count(),
             }
@@ -269,33 +268,49 @@ def _process_item(item_type, payload, trip, user, trip_state):
         raise ValidationError(f'Unknown item type: {item_type}')
 
 
+def _count_occupied_seats_for_boarding(trip, boarding_point):
+    """
+    Capacity is evaluated at the boarding stop:
+    active passengers alighting at this same stop free their seat first.
+    """
+    active_qs = PassengerTicket.objects.filter(trip=trip, status='active')
+    return active_qs.count() - active_qs.filter(
+        alighting_point__iexact=boarding_point,
+    ).count()
+
+
 def _create_passenger_ticket(payload, trip, user, trip_state):
     """Create passenger ticket from sync payload."""
-    active_count = trip_state['active_passenger_count']
-    if active_count >= trip.bus.capacity:
-        raise ValidationError(f'Bus is at full capacity ({trip.bus.capacity} seats).')
-
     passenger_name = str(payload.get('passenger_name', 'Walk-in'))[:100]
     payment_source = payload.get('payment_source', 'cash')
     if payment_source not in ('cash', 'prepaid'):
         raise ValidationError(f"Invalid payment_source: '{payment_source}'")
 
-    boarding_point = payload.get('boarding_point') or trip.origin_office.name
-    alighting_point = payload.get('alighting_point') or trip.destination_office.name
-    is_intermediate = (boarding_point != trip.origin_office.name or alighting_point != trip.destination_office.name)
+    boarding_point = str(payload.get('boarding_point') or trip.origin_office.name).strip()
+    alighting_point = str(payload.get('alighting_point') or trip.destination_office.name).strip()
+    if not boarding_point:
+        raise ValidationError('boarding_point is required.')
+    if not alighting_point:
+        raise ValidationError('alighting_point is required.')
+    if boarding_point == alighting_point:
+        raise ValidationError('alighting_point must differ from boarding_point.')
 
-    if is_intermediate:
-        raw_price = payload.get('price')
-        if raw_price is None:
-            raise ValidationError('Intermediate stop tickets must include a price.')
+    occupied_count = _count_occupied_seats_for_boarding(trip, boarding_point)
+    if occupied_count >= trip.bus.capacity:
+        raise ValidationError(
+            f'Bus is at full capacity for boarding at {boarding_point} ({trip.bus.capacity} seats).'
+        )
+
+    raw_price = payload.get('price')
+    if raw_price in (None, ''):
+        price = trip.passenger_base_price
+    else:
         try:
             price = int(Decimal(str(raw_price)))
         except (TypeError, ValueError, InvalidOperation):
             raise ValidationError(f'Invalid price: {raw_price!r}')
-        if price <= 0 or price > trip.passenger_base_price:
-            raise ValidationError(f'Intermediate price must be between 1 and {trip.passenger_base_price}.')
-    else:
-        price = trip.passenger_base_price
+        if price < 100:
+            raise ValidationError('Ticket price must be at least 100 DA.')
 
     total_count = trip_state['total_passenger_count']
     ticket_number = f'PT-{trip.id}-{total_count + 1:03d}'
@@ -314,8 +329,6 @@ def _create_passenger_ticket(payload, trip, user, trip_state):
     )
 
     trip_state['total_passenger_count'] += 1
-    if ticket.status == 'active':
-        trip_state['active_passenger_count'] += 1
 
     return ticket.id
 

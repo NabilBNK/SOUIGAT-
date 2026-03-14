@@ -1,0 +1,15 @@
+{
+    "login_phone_persisted":  true,
+    "login_phone_value":  "0700000001",
+    "after_login_dashboard":  false,
+    "after_login_still_login":  true,
+    "after_login_retry_dashboard":  true,
+    "trips_screen_visible":  false,
+    "trip_detail_visible":  false,
+    "trip_detail_error_visible":  false,
+    "start_trip_clicked":  false,
+    "profile_screen_visible":  false,
+    "sync_spam_taps":  0,
+    "after_spam_on_login":  false,
+    "after_spam_on_profile":  false
+}

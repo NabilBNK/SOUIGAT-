@@ -1,13 +1,51 @@
-"""seed_data: Populate dev database with 5 offices, users, buses, and pricing."""
+"""seed_data: Populate dev database with offices, users, buses, and pricing."""
 from datetime import date
 
 from django.core.management.base import BaseCommand
 
-from api.models import Office, User, Bus, PricingConfig
+from api.models import Bus, Office, PricingConfig, User
 
 
 class Command(BaseCommand):
-    help = 'Seed development database with initial data'
+    help = 'Seed development database with deterministic initial data'
+
+    def _upsert_user(self, *, phone, password, defaults, superuser=False):
+        if superuser:
+            user, created = User.objects.get_or_create(
+                phone=phone,
+                defaults={
+                    **defaults,
+                    'is_staff': True,
+                    'is_superuser': True,
+                    'is_active': True,
+                },
+            )
+        else:
+            user, created = User.objects.get_or_create(phone=phone, defaults=defaults)
+
+        changed = []
+        for field, expected in defaults.items():
+            if getattr(user, field) != expected:
+                setattr(user, field, expected)
+                changed.append(field)
+
+        if superuser:
+            if not user.is_staff:
+                user.is_staff = True
+                changed.append('is_staff')
+            if not user.is_superuser:
+                user.is_superuser = True
+                changed.append('is_superuser')
+            if not user.is_active:
+                user.is_active = True
+                changed.append('is_active')
+
+        user.set_password(password)
+        changed.append('password')
+        user.save()
+
+        status = 'created' if created else 'updated'
+        self.stdout.write(f"  User: {defaults['first_name']} ({phone}) [{status}]")
 
     def handle(self, *args, **options):
         self.stdout.write('Seeding database...\n')
@@ -18,7 +56,7 @@ class Command(BaseCommand):
             {'name': 'Oran Office', 'city': 'Oran', 'phone': '041000001'},
             {'name': 'Constantine Office', 'city': 'Constantine', 'phone': '031000001'},
             {'name': 'Annaba Office', 'city': 'Annaba', 'phone': '038000001'},
-            {'name': 'Sétif Office', 'city': 'Sétif', 'phone': '036000001'},
+            {'name': 'Setif Office', 'city': 'Setif', 'phone': '036000001'},
         ]
         offices = {}
         for data in offices_data:
@@ -27,44 +65,97 @@ class Command(BaseCommand):
             status = 'created' if created else 'exists'
             self.stdout.write(f"  Office: {office.name} [{status}]")
 
-        # --- Admin user ---
-        if not User.objects.filter(phone='0500000001').exists():
-            User.objects.create_superuser(
-                phone='0500000001',
-                password='admin123',
-                first_name='Admin',
-                last_name='SOUIGAT',
-                role='admin',
-            )
-            self.stdout.write('  User: Admin (0500000001) [created]')
-        else:
-            self.stdout.write('  User: Admin (0500000001) [exists]')
+        # --- Users (deterministic password reset on every seed run) ---
+        self._upsert_user(
+            phone='0500000001',
+            password='admin123',
+            superuser=True,
+            defaults={
+                'first_name': 'Admin',
+                'last_name': 'SOUIGAT',
+                'role': 'admin',
+                'department': None,
+                'office': None,
+            },
+        )
 
-        # --- Office staff ---
         staff_data = [
-            {'phone': '0600000001', 'first_name': 'Karim', 'last_name': 'Benali',
-             'role': 'office_staff', 'department': 'all', 'office': offices['Algiers']},
-            {'phone': '0600000002', 'first_name': 'Amina', 'last_name': 'Hadj',
-             'role': 'office_staff', 'department': 'all', 'office': offices['Oran']},
-            {'phone': '0600000003', 'first_name': 'Youcef', 'last_name': 'Kaci',
-             'role': 'office_staff', 'department': 'cargo', 'office': offices['Algiers']},
+            {
+                'phone': '0600000001',
+                'password': 'staff123',
+                'defaults': {
+                    'first_name': 'Karim',
+                    'last_name': 'Benali',
+                    'role': 'office_staff',
+                    'department': 'all',
+                    'office': offices['Algiers'],
+                    'is_active': True,
+                },
+            },
+            {
+                'phone': '0600000002',
+                'password': 'staff123',
+                'defaults': {
+                    'first_name': 'Amina',
+                    'last_name': 'Hadj',
+                    'role': 'office_staff',
+                    'department': 'all',
+                    'office': offices['Oran'],
+                    'is_active': True,
+                },
+            },
+            {
+                'phone': '0600000003',
+                'password': 'staff123',
+                'defaults': {
+                    'first_name': 'Youcef',
+                    'last_name': 'Kaci',
+                    'role': 'office_staff',
+                    'department': 'cargo',
+                    'office': offices['Algiers'],
+                    'is_active': True,
+                },
+            },
         ]
-        for data in staff_data:
-            if not User.objects.filter(phone=data['phone']).exists():
-                User.objects.create_user(password='staff123', **data)
-                self.stdout.write(f"  User: {data['first_name']} ({data['phone']}) [created]")
+        for entry in staff_data:
+            self._upsert_user(
+                phone=entry['phone'],
+                password=entry['password'],
+                defaults=entry['defaults'],
+            )
 
-        # --- Conductors ---
         conductor_data = [
-            {'phone': '0700000001', 'first_name': 'Mohamed', 'last_name': 'Larbi',
-             'role': 'conductor', 'office': offices['Algiers']},
-            {'phone': '0700000002', 'first_name': 'Rachid', 'last_name': 'Saidi',
-             'role': 'conductor', 'office': offices['Oran']},
+            {
+                'phone': '0700000001',
+                'password': 'conductor123',
+                'defaults': {
+                    'first_name': 'Mohamed',
+                    'last_name': 'Larbi',
+                    'role': 'conductor',
+                    'department': None,
+                    'office': offices['Algiers'],
+                    'is_active': True,
+                },
+            },
+            {
+                'phone': '0700000002',
+                'password': 'conductor123',
+                'defaults': {
+                    'first_name': 'Rachid',
+                    'last_name': 'Saidi',
+                    'role': 'conductor',
+                    'department': None,
+                    'office': offices['Oran'],
+                    'is_active': True,
+                },
+            },
         ]
-        for data in conductor_data:
-            if not User.objects.filter(phone=data['phone']).exists():
-                User.objects.create_user(password='conductor123', **data)
-                self.stdout.write(f"  User: {data['first_name']} ({data['phone']}) [created]")
+        for entry in conductor_data:
+            self._upsert_user(
+                phone=entry['phone'],
+                password=entry['password'],
+                defaults=entry['defaults'],
+            )
 
         # --- Buses ---
         bus_data = [

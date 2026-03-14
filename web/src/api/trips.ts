@@ -1,11 +1,19 @@
 import client from './client'
 import type { Trip, TripCreate, TripFilters } from '../types/trip'
+import type { Office, Bus } from '../types/admin'
+import type { User } from '../types/auth'
 
 interface PaginatedResponse<T> {
     count: number
     next: string | null
     previous: string | null
     results: T[]
+}
+
+export interface TripReferenceData {
+    offices: Office[]
+    buses: Bus[]
+    conductors: User[]
 }
 
 export async function getTrips(filters?: TripFilters): Promise<PaginatedResponse<Trip>> {
@@ -20,6 +28,13 @@ export async function getTrip(id: number): Promise<Trip> {
 
 export async function createTrip(data: TripCreate): Promise<Trip> {
     const response = await client.post<Trip>('/trips/', data)
+    return response.data
+}
+
+export async function getTripReferenceData(currentOfficeId?: number): Promise<TripReferenceData> {
+    const response = await client.get<TripReferenceData>('/trips/reference-data/', {
+        params: currentOfficeId ? { current_office_id: currentOfficeId } : undefined,
+    })
     return response.data
 }
 
@@ -41,4 +56,8 @@ export async function cancelTrip(id: number): Promise<Trip> {
 export async function forceCompleteTrip(id: number, force_reason: string): Promise<Trip> {
     const response = await client.post<Trip>(`/trips/${id}/force_complete/`, { force_reason })
     return response.data
+}
+
+export async function deleteTrip(id: number): Promise<void> {
+    await client.delete(`/trips/${id}/`)
 }

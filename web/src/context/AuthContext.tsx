@@ -10,6 +10,10 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+// Prevent duplicate bootstrap /auth/me calls in React StrictMode.
+let bootstrapMePromise: Promise<Awaited<ReturnType<typeof getMe>>> | null = null
+let bootstrapMeResult: Awaited<ReturnType<typeof getMe>> | null | undefined = undefined
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [state, setState] = useState<AuthState>({
         user: null,
@@ -23,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const handler = () => {
             clearTokens()
+            bootstrapMeResult = null
             setState({
                 user: null,
                 accessToken: null,
@@ -38,8 +43,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Attempt to restore session
     useEffect(() => {
         let mounted = true
-        // Without sessionStorage, we must check if tokens exist in client memory (though typically they wouldn't on full reload)
-        getMe()
+
+        const access = getAccessToken()
+        if (!access) {
+            bootstrapMeResult = null
+            if (mounted) {
+                setState({
+                    user: null,
+                    accessToken: null,
+                    refreshToken: null,
+                    isAuthenticated: false,
+                    isLoading: false,
+                })
+            }
+            return () => {
+                mounted = false
+            }
+        }
+
+        if (bootstrapMeResult !== undefined) {
+            if (mounted) {
+                if (bootstrapMeResult) {
+                    setState({
+                        user: bootstrapMeResult,
+                        accessToken: getAccessToken(),
+                        refreshToken: null,
+                        isAuthenticated: true,
+                        isLoading: false,
+                    })
+                } else {
+                    clearTokens()
+                    setState({
+                        user: null,
+                        accessToken: null,
+                        refreshToken: null,
+                        isAuthenticated: false,
+                        isLoading: false,
+                    })
+                }
+            }
+            return () => {
+                mounted = false
+            }
+        }
+
+        if (!bootstrapMePromise) {
+            bootstrapMePromise = getMe()
+                .then((user) => {
+                    bootstrapMeResult = user
+                    return user
+                })
+                .catch((error) => {
+                    bootstrapMeResult = null
+                    throw error
+                })
+                .finally(() => {
+                    bootstrapMePromise = null
+                })
+        }
+
+        bootstrapMePromise
             .then((user) => {
                 if (mounted) {
                     setState({
@@ -53,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             })
             .catch(() => {
                 clearTokens()
+                bootstrapMeResult = null
                 if (mounted) {
                     setState({
                         user: null,
@@ -74,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const tokens = await loginApi({ phone, password, platform: 'web' })
         setTokens(tokens.access, tokens.refresh)
         const user = await getMe()
+        bootstrapMeResult = user
         setState({
             user,
             accessToken: tokens.access,
@@ -90,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Ignore logout errors
         }
         clearTokens()
+        bootstrapMeResult = null
         setState({
             user: null,
             accessToken: null,

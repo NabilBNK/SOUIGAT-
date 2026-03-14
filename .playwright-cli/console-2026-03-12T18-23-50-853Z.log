@@ -1,0 +1,6 @@
+[     640ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:5173/api/auth/me/:0
+[     678ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:5173/api/auth/me/:0
+[     688ms] [ERROR] Failed to load resource: the server responded with a status of 400 (Bad Request) @ http://localhost:5173/api/auth/token/refresh/:0
+[     690ms] [ERROR] [CLIENT] Attempting to redirect to login after refresh failure @ http://localhost:5173/src/api/client.ts:85
+[  127738ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:5173/api/auth/me/:0
+[  127840ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:5173/api/auth/me/:0

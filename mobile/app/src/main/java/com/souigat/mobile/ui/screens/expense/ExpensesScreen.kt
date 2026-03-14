@@ -1,80 +1,114 @@
 package com.souigat.mobile.ui.screens.expense
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.souigat.mobile.data.local.entity.ExpenseEntity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.souigat.mobile.ui.components.ConductorPanelSurface
+import com.souigat.mobile.ui.components.EmptyStatePanel
+import com.souigat.mobile.ui.components.TripSummaryCard
 import com.souigat.mobile.ui.theme.ErrorRed
-import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.*
-
-private val dateFormat = SimpleDateFormat("dd MMM · HH:mm", Locale.FRANCE)
-private fun formatAmount(centimes: Long, currency: String): String {
-    val units = centimes / 100.0
-    return "${NumberFormat.getNumberInstance(Locale.FRANCE).format(units)} $currency"
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpensesScreen(
-    onNavigateToCreate: (tripId: Long, currency: String) -> Unit = { _, _ -> },
+    onNavigateToCreate: (tripId: Long) -> Unit = {},
     viewModel: ExpensesViewModel = hiltViewModel()
 ) {
-    val state by viewModel.uiState.collectAsState()
-    val trip = state.activeTrip
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val activeTripId = state.activeTripId
+    val activeTripHeader = state.activeTripHeader
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dépenses") },
+                title = { Text("Depenses") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
         floatingActionButton = {
-            if (trip != null && trip.status == "in_progress") {
-                FloatingActionButton(
-                    onClick = { onNavigateToCreate(trip.id, trip.currency) },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Ajouter dépense", tint = MaterialTheme.colorScheme.onPrimary)
+            if (state.canCreateExpense && activeTripId != null) {
+                FloatingActionButton(onClick = { onNavigateToCreate(activeTripId) }) {
+                    Icon(Icons.Default.Add, contentDescription = "Ajouter une depense")
                 }
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Column(
-            modifier = Modifier.padding(paddingValues).fillMaxSize()
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Summary card
-            if (state.expenses.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = ErrorRed.copy(alpha = 0.08f)),
-                    elevation = CardDefaults.cardElevation(0.dp)
-                ) {
+            if (activeTripHeader != null) {
+                item(key = "trip_header") {
+                    TripSummaryCard(
+                        origin = activeTripHeader.origin,
+                        destination = activeTripHeader.destination,
+                        busPlate = activeTripHeader.busPlate,
+                        departureLabel = activeTripHeader.departureLabel,
+                        statusLabel = activeTripHeader.statusLabel,
+                        supportingLabel = state.totalLabel
+                    )
+                }
+            }
+
+            item(key = "summary") {
+                ConductorPanelSurface(shape = MaterialTheme.shapes.extraLarge) {
                     Row(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Total dépenses", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "Total depenses",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (state.expenses.isEmpty()) {
+                                    "Aucune depense"
+                                } else {
+                                    "${state.expenses.size} ligne(s)"
+                                },
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                         Text(
-                            text = formatAmount(state.totalCentimes, trip?.currency ?: "DZD"),
-                            style = MaterialTheme.typography.titleMedium,
+                            text = state.totalLabel,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = ErrorRed
                         )
@@ -83,23 +117,30 @@ fun ExpensesScreen(
             }
 
             if (state.expenses.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Receipt, null, Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                        Text("Aucune dépense enregistrée", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (trip == null) {
-                            Text("Démarrez un trajet pour ajouter des dépenses.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                item(key = "empty") {
+                    EmptyStatePanel(
+                        icon = Icons.Default.Receipt,
+                        title = "Aucune depense enregistree",
+                        message = if (state.activeTripHeader == null) {
+                            "Demarrez un trajet pour enregistrer des depenses hors ligne."
+                        } else {
+                            "Les depenses du trajet en cours apparaitront ici."
+                        },
+                        primaryActionLabel = if (state.canCreateExpense) "Ajouter une depense" else null,
+                        onPrimaryAction = if (state.canCreateExpense && activeTripId != null) {
+                            { onNavigateToCreate(activeTripId) }
+                        } else {
+                            null
                         }
-                    }
+                    )
                 }
             } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(state.expenses, key = { it.id }) { expense ->
-                        ExpenseItemCard(expense = expense, currency = trip?.currency ?: "DZD")
-                    }
+                items(
+                    items = state.expenses,
+                    key = { it.id },
+                    contentType = { "expense_item" }
+                ) { expense ->
+                    ExpenseItemCard(expense = expense)
                 }
             }
         }
@@ -107,32 +148,33 @@ fun ExpensesScreen(
 }
 
 @Composable
-private fun ExpenseItemCard(expense: ExpenseEntity, currency: String) {
-    val categoryLabel = when (expense.category) {
-        "fuel"        -> "⛽ Carburant"
-        "food"        -> "🍽 Repas"
-        "tolls"       -> "🛣 Péage"
-        "maintenance" -> "🔧 Maintenance"
-        else          -> "📦 Autre"
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+private fun ExpenseItemCard(expense: ExpenseListItemUiModel) {
+    ConductorPanelSurface(shape = MaterialTheme.shapes.extraLarge) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(categoryLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                if (expense.description.isNotBlank()) {
-                    Text(expense.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Text(dateFormat.format(Date(expense.createdAt)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = expense.categoryLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = expense.description,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = expense.dateLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Text(
-                text = formatAmount(expense.amount, currency),
+                text = expense.amountLabel,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = ErrorRed

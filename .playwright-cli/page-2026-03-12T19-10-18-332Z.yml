@@ -1,0 +1,6 @@
+- generic [ref=e23]:
+  - img [ref=e24]
+  - heading "Accès refusé" [level=1] [ref=e26]
+  - paragraph [ref=e27]: Vous n'avez pas les permissions nécessaires
+  - link "Retour à l'accueil" [ref=e28] [cursor=pointer]:
+    - /url: /

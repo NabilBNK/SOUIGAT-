@@ -1,0 +1,6 @@
+[GET] http://localhost:5173/api/auth/me/ => [401] Unauthorized
+[GET] http://localhost:5173/api/auth/me/ => [401] Unauthorized
+[POST] http://localhost:5173/api/auth/login/ => [200] OK
+[GET] http://localhost:5173/api/auth/me/ => [200] OK
+[GET] http://localhost:5173/api/trips/?page=1 => [200] OK
+[GET] http://localhost:5173/api/trips/44/ => [200] OK

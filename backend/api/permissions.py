@@ -184,18 +184,40 @@ class OfficeScopePermission(BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
-        if request.user.role == 'admin':
+        user = request.user
+
+        if not user or not user.is_authenticated:
+            return False
+
+        if user.role == 'admin':
             return True
-        
-        # Handle Trip objects (check origin or destination)
-        if hasattr(obj, 'origin_office_id'):
-            return (obj.origin_office_id == request.user.office_id or
-                    obj.destination_office_id == request.user.office_id)
-            
-        obj_office = getattr(obj, 'office', None) or getattr(obj, 'origin', None)
-        if obj_office is None:
-            return True
-        return obj_office.id == request.user.office_id
+
+        # Resolve the trip context when object is a trip itself or trip-owned model.
+        trip_obj = obj if hasattr(obj, 'conductor_id') else getattr(obj, 'trip', None)
+
+        # Conductors/drivers are scoped by assignment, not office.
+        if user.role in ('conductor', 'driver'):
+            conductor_id = getattr(trip_obj, 'conductor_id', None) if trip_obj is not None else None
+            return conductor_id == user.id
+
+        # Office staff scope by origin/destination office for trip-scoped records.
+        if user.role == 'office_staff':
+            office_id = getattr(user, 'office_id', None)
+            if office_id is None:
+                return False
+
+            if trip_obj is not None:
+                return (
+                    getattr(trip_obj, 'origin_office_id', None) == office_id
+                    or getattr(trip_obj, 'destination_office_id', None) == office_id
+                )
+
+            obj_office = getattr(obj, 'office', None) or getattr(obj, 'origin', None)
+            if obj_office is None:
+                return False
+            return obj_office.id == office_id
+
+        return False
 
 
 class TripStatusPermission(BasePermission):

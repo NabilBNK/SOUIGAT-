@@ -1,12 +1,13 @@
 from datetime import timedelta
 from django.db import models, transaction
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 
-from api.models import Trip, Bus, User
+from api.models import Trip, Bus, User, Office
 from api.serializers.trip import TripSerializer, TripListSerializer
 from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission, IsAdminUser
 
@@ -30,7 +31,8 @@ class TripViewSet(viewsets.ModelViewSet):
         'cancel': ['cancel_trip'],
         'start': ['start_trip'],
         'complete': ['complete_trip'],
-        'force_complete': ['override_status']
+        'force_complete': ['override_status'],
+        'reference_data': ['create_trip'],
     }
 
     def get_serializer_class(self):
@@ -41,10 +43,16 @@ class TripViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
+
+        if self.action == 'destroy':
+            return [IsAuthenticated(), IsAdminUser()]
         
         if self.action in ('create', 'update', 'partial_update', 'destroy', 'cancel'):
             return [IsAuthenticated(), MatrixPermission(), OfficeScopePermission()]
             
+        if self.action == 'reference_data':
+            return [IsAuthenticated(), MatrixPermission()]
+
         if self.action in ('start', 'complete'):
             return [IsAuthenticated(), MatrixPermission()]
             
@@ -53,6 +61,26 @@ class TripViewSet(viewsets.ModelViewSet):
             
         # list / retrieve
         return [IsAuthenticated(), OfficeScopePermission()]
+
+    def destroy(self, request, *args, **kwargs):
+        """Admin can hard-delete only scheduled or cancelled trips."""
+        trip = self.get_object()
+
+        if trip.status not in ('scheduled', 'cancelled'):
+            raise ValidationError({
+                'error_code': 'INVALID_STATUS',
+                'detail': f'Only scheduled or cancelled trips can be deleted. Current status: {trip.status}'
+            })
+
+        try:
+            trip.delete()
+        except ProtectedError as exc:
+            raise ValidationError({
+                'error_code': 'TRIP_HAS_RELATED_RECORDS',
+                'detail': 'Trip cannot be deleted because related tickets or audit records still exist.'
+            }) from exc
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def get_queryset(self):
         """
@@ -132,6 +160,65 @@ class TripViewSet(viewsets.ModelViewSet):
     # ------------------------------------------------------------------
     # Custom actions
     # ------------------------------------------------------------------
+
+    @action(detail=False, methods=['get'], url_path='reference-data')
+    def reference_data(self, request):
+        """
+        Read-only reference lists for trip creation UI.
+        Avoids exposing admin-only CRUD endpoints to office staff.
+        """
+        user = request.user
+
+        offices_qs = Office.objects.filter(is_active=True).order_by('name')
+        conductors_qs = User.objects.filter(
+            role='conductor',
+            is_active=True,
+        ).order_by('first_name', 'last_name')
+
+        current_office_id = request.query_params.get('current_office_id')
+        if user.role == 'office_staff':
+            bus_office_id = user.office_id
+            conductors_qs = conductors_qs.filter(office_id=user.office_id)
+        else:
+            try:
+                bus_office_id = int(current_office_id) if current_office_id else None
+            except (TypeError, ValueError):
+                bus_office_id = None
+
+        buses_qs = Bus.objects.filter(is_active=True)
+        if bus_office_id:
+            buses_qs = buses_qs.filter(office_id=bus_office_id)
+
+        offices = [
+            {'id': o.id, 'name': o.name, 'city': o.city}
+            for o in offices_qs
+        ]
+        buses = [
+            {
+                'id': b.id,
+                'plate_number': b.plate_number,
+                'model': getattr(b, 'model', ''),
+                'capacity': b.capacity,
+                'office': b.office_id,
+            }
+            for b in buses_qs.order_by('plate_number')
+        ]
+        conductors = [
+            {
+                'id': c.id,
+                'first_name': c.first_name,
+                'last_name': c.last_name,
+                'phone': c.phone,
+                'office': c.office_id,
+            }
+            for c in conductors_qs
+        ]
+
+        return Response({
+            'offices': offices,
+            'buses': buses,
+            'conductors': conductors,
+        })
 
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):

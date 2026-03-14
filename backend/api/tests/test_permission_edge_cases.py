@@ -77,6 +77,56 @@ class PermissionEdgeCaseTests(TestCase):
         # Admin -> True
         self.assertTrue(perm.has_object_permission(FakeRequest(self.admin), None, trip))
 
+    def test_office_scope_conductor_scoped_by_assignment_not_office(self):
+        """Conductor access must be based on assigned trip, even if office differs."""
+        trip = Trip.objects.create(
+            origin_office=self.office_b,
+            destination_office=self.office_c,
+            bus=self.bus,
+            conductor=self.conductor,
+            departure_datetime=timezone.now() + timedelta(hours=3),
+            passenger_base_price=100,
+            cargo_small_price=10,
+            cargo_medium_price=20,
+            cargo_large_price=30,
+        )
+
+        other_conductor = User.objects.create_user(
+            phone='0550000015', password='p', first_name='Other', last_name='Cond', role='conductor', office=self.office_b
+        )
+
+        perm = OfficeScopePermission()
+
+        self.assertTrue(perm.has_object_permission(FakeRequest(self.conductor), None, trip))
+        self.assertFalse(perm.has_object_permission(FakeRequest(other_conductor), None, trip))
+
+    def test_conductor_can_retrieve_assigned_trip_with_cross_office_route(self):
+        """API retrieve must allow assigned conductor even if offices don't match conductor.office."""
+        trip = Trip.objects.create(
+            origin_office=self.office_b,
+            destination_office=self.office_c,
+            bus=self.bus,
+            conductor=self.conductor,
+            departure_datetime=timezone.now() + timedelta(hours=4),
+            passenger_base_price=100,
+            cargo_small_price=10,
+            cargo_medium_price=20,
+            cargo_large_price=30,
+        )
+
+        other_conductor = User.objects.create_user(
+            phone='0550000016', password='p', first_name='Else', last_name='Cond', role='conductor', office=self.office_c
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.conductor)
+        allowed = client.get(f'/api/trips/{trip.id}/')
+        self.assertEqual(allowed.status_code, 200)
+
+        client.force_authenticate(user=other_conductor)
+        denied = client.get(f'/api/trips/{trip.id}/')
+        self.assertEqual(denied.status_code, 404)
+
     def test_grace_period_cache_none(self):
         """If cache returns None for grace user ID, it should not match unrelated user."""
         # Setup: User A has device-1. JWT has device-2.
@@ -101,3 +151,20 @@ class PermissionEdgeCaseTests(TestCase):
             perm.has_permission(request, None)
         
         self.assertEqual(str(cm.exception.detail), 'Device not bound to this account.')
+
+    def test_trip_reference_data_office_staff_allowed(self):
+        """Office staff can fetch trip creation reference data from non-admin endpoint."""
+        client = APIClient()
+        client.force_authenticate(user=self.user_a)
+        resp = client.get('/api/trips/reference-data/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('offices', resp.data)
+        self.assertIn('buses', resp.data)
+        self.assertIn('conductors', resp.data)
+
+    def test_trip_reference_data_conductor_forbidden(self):
+        """Conductor cannot fetch trip creation reference data (no create_trip permission)."""
+        client = APIClient()
+        client.force_authenticate(user=self.conductor)
+        resp = client.get('/api/trips/reference-data/')
+        self.assertEqual(resp.status_code, 403)

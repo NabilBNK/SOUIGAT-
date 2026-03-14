@@ -1,0 +1,113 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - generic [ref=e25]:
+      - img [ref=e27]
+      - generic [ref=e31]: SOUIGAT
+    - navigation [ref=e32]:
+      - link "Tableau de bord" [ref=e33] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e34]
+        - generic [ref=e39]: Tableau de bord
+      - link "Voyages" [ref=e40] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e41]
+        - generic [ref=e45]: Voyages
+      - link "Billets Passagers" [ref=e46] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e47]
+        - generic [ref=e49]: Billets Passagers
+      - link "Rapports" [ref=e50] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e51]
+        - generic [ref=e54]: Rapports
+      - link "Colis" [ref=e55] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e56]
+        - generic [ref=e60]: Colis
+      - link "Quarantaine" [ref=e61] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e62]
+        - generic [ref=e64]: Quarantaine
+    - paragraph [ref=e66]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e67]:
+    - banner [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]: Personnel Bureau
+          - generic [ref=e72]: Tous
+        - generic [ref=e73]:
+          - img [ref=e75]
+          - generic [ref=e78]:
+            - paragraph [ref=e79]: Karim Benali
+            - paragraph [ref=e80]: "0600000001"
+        - button "Déconnexion" [ref=e81]:
+          - img [ref=e82]
+    - main [ref=e85]:
+      - generic [ref=e433]:
+        - generic [ref=e434]:
+          - generic [ref=e435]:
+            - link [ref=e436] [cursor=pointer]:
+              - /url: /office/trips
+              - img [ref=e437]
+            - generic [ref=e439]:
+              - generic [ref=e440]:
+                - 'heading "Voyage #47" [level=1] [ref=e441]'
+                - generic [ref=e442]: Programmé
+              - paragraph [ref=e443]:
+                - img [ref=e444]
+                - text: →
+          - generic [ref=e447]:
+            - button "Annuler" [ref=e448]:
+              - img [ref=e449]
+              - text: Annuler
+            - button "Démarrer" [ref=e453]:
+              - img [ref=e454]
+              - text: Démarrer
+        - navigation [ref=e457]:
+          - button "Informations" [ref=e458]:
+            - img [ref=e459]
+            - text: Informations
+          - button "Passagers" [ref=e461]:
+            - img [ref=e462]
+            - text: Passagers
+          - button "Messagerie" [ref=e467]:
+            - img [ref=e468]
+            - text: Messagerie
+          - button "Dépenses" [ref=e472]:
+            - img [ref=e473]
+            - text: Dépenses
+        - generic [ref=e477]:
+          - generic [ref=e478]:
+            - heading "Résumé" [level=3] [ref=e479]
+            - generic [ref=e480]:
+              - generic [ref=e481]:
+                - img [ref=e482]
+                - generic [ref=e484]:
+                  - paragraph [ref=e485]: Date de départ
+                  - paragraph [ref=e486]: 13/03/2026 09:00
+              - generic [ref=e487]:
+                - img [ref=e488]
+                - generic [ref=e492]:
+                  - paragraph [ref=e493]: Bus attribué
+                  - paragraph [ref=e494]: 16-00001-16
+              - generic [ref=e495]:
+                - img [ref=e496]
+                - generic [ref=e499]:
+                  - paragraph [ref=e500]: Conducteur
+                  - paragraph [ref=e501]: Mohamed Larbi
+          - generic [ref=e502]:
+            - heading "Tarification appliquée" [level=3] [ref=e503]
+            - paragraph [ref=e504]: Ces prix ont été figés lors de la création du voyage et ne changeront pas.
+            - generic [ref=e505]:
+              - generic [ref=e506]:
+                - generic [ref=e507]: Billet Passager
+                - generic [ref=e508]: 2 800,00 DA
+              - generic [ref=e509]:
+                - generic [ref=e510]: Colis Petit
+                - generic [ref=e511]: 600,00 DA
+              - generic [ref=e512]:
+                - generic [ref=e513]: Colis Moyen
+                - generic [ref=e514]: 1 200,00 DA
+              - generic [ref=e515]:
+                - generic [ref=e516]: Colis Grand
+                - generic [ref=e517]: 2 200,00 DA

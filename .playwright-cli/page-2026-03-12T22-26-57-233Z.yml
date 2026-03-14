@@ -1,0 +1,210 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - generic [ref=e25]:
+      - img [ref=e27]
+      - generic [ref=e31]: SOUIGAT
+    - navigation [ref=e32]:
+      - link "Tableau de bord" [ref=e33] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e34]
+        - generic [ref=e39]: Tableau de bord
+      - link "Voyages" [active] [ref=e40] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e41]
+        - generic [ref=e45]: Voyages
+      - link "Billets Passagers" [ref=e46] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e47]
+        - generic [ref=e49]: Billets Passagers
+      - link "Rapports" [ref=e50] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e51]
+        - generic [ref=e54]: Rapports
+      - link "Colis" [ref=e55] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e56]
+        - generic [ref=e60]: Colis
+      - link "Quarantaine" [ref=e61] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e62]
+        - generic [ref=e64]: Quarantaine
+    - paragraph [ref=e66]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e67]:
+    - banner [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]: Personnel Bureau
+          - generic [ref=e72]: Tous
+        - generic [ref=e73]:
+          - img [ref=e75]
+          - generic [ref=e78]:
+            - paragraph [ref=e79]: Karim Benali
+            - paragraph [ref=e80]: "0600000001"
+        - button "Déconnexion" [ref=e81]:
+          - img [ref=e82]
+    - main [ref=e85]:
+      - generic [ref=e206]:
+        - generic [ref=e207]:
+          - generic [ref=e208]:
+            - heading "Voyages" [level=1] [ref=e209]
+            - paragraph [ref=e210]: Gérez tous les départs et arrivées.
+          - generic [ref=e211]:
+            - button "Filtres" [ref=e212]:
+              - img [ref=e213]
+              - text: Filtres
+            - link "Nouveau voyage" [ref=e215] [cursor=pointer]:
+              - /url: /office/trips/new
+              - img [ref=e216]
+              - text: Nouveau voyage
+        - table [ref=e219]:
+          - rowgroup [ref=e220]:
+            - row "N° Trajet Départ Bus Statut Passagers Colis" [ref=e221]:
+              - columnheader "N°" [ref=e222]
+              - columnheader "Trajet" [ref=e223]
+              - columnheader "Départ" [ref=e224]
+              - columnheader "Bus" [ref=e225]
+              - columnheader "Statut" [ref=e226]
+              - columnheader "Passagers" [ref=e227]
+              - columnheader "Colis" [ref=e228]
+              - columnheader [ref=e229]
+          - rowgroup [ref=e230]:
+            - row "#0046 → 12/03/2026 20:24 En cours 0 0 Gérer →" [ref=e231] [cursor=pointer]:
+              - cell "#0046" [ref=e232]:
+                - generic [ref=e233]: "#0046"
+              - cell "→" [ref=e234]:
+                - generic [ref=e236]: →
+              - cell "12/03/2026 20:24" [ref=e237]
+              - cell [ref=e238]
+              - cell "En cours" [ref=e240]:
+                - generic [ref=e241]: En cours
+              - cell "0" [ref=e242]
+              - cell "0" [ref=e243]
+              - cell "Gérer →" [ref=e244]:
+                - link "Gérer →" [ref=e245]:
+                  - /url: /office/trips/46
+            - row "#0045 → 12/03/2026 05:45 Terminé 0 0 Gérer →" [ref=e246] [cursor=pointer]:
+              - cell "#0045" [ref=e247]:
+                - generic [ref=e248]: "#0045"
+              - cell "→" [ref=e249]:
+                - generic [ref=e251]: →
+              - cell "12/03/2026 05:45" [ref=e252]
+              - cell [ref=e253]
+              - cell "Terminé" [ref=e255]:
+                - generic [ref=e256]: Terminé
+              - cell "0" [ref=e257]
+              - cell "0" [ref=e258]
+              - cell "Gérer →" [ref=e259]:
+                - link "Gérer →" [ref=e260]:
+                  - /url: /office/trips/45
+            - row "#0044 → 12/03/2026 03:32 Terminé 0 0 Gérer →" [ref=e261] [cursor=pointer]:
+              - cell "#0044" [ref=e262]:
+                - generic [ref=e263]: "#0044"
+              - cell "→" [ref=e264]:
+                - generic [ref=e266]: →
+              - cell "12/03/2026 03:32" [ref=e267]
+              - cell [ref=e268]
+              - cell "Terminé" [ref=e270]:
+                - generic [ref=e271]: Terminé
+              - cell "0" [ref=e272]
+              - cell "0" [ref=e273]
+              - cell "Gérer →" [ref=e274]:
+                - link "Gérer →" [ref=e275]:
+                  - /url: /office/trips/44
+            - row "#0043 → 11/03/2026 06:27 Terminé 0 0 Gérer →" [ref=e276] [cursor=pointer]:
+              - cell "#0043" [ref=e277]:
+                - generic [ref=e278]: "#0043"
+              - cell "→" [ref=e279]:
+                - generic [ref=e281]: →
+              - cell "11/03/2026 06:27" [ref=e282]
+              - cell [ref=e283]
+              - cell "Terminé" [ref=e285]:
+                - generic [ref=e286]: Terminé
+              - cell "0" [ref=e287]
+              - cell "0" [ref=e288]
+              - cell "Gérer →" [ref=e289]:
+                - link "Gérer →" [ref=e290]:
+                  - /url: /office/trips/43
+            - row "#0042 → 11/03/2026 02:30 Terminé 0 0 Gérer →" [ref=e291] [cursor=pointer]:
+              - cell "#0042" [ref=e292]:
+                - generic [ref=e293]: "#0042"
+              - cell "→" [ref=e294]:
+                - generic [ref=e296]: →
+              - cell "11/03/2026 02:30" [ref=e297]
+              - cell [ref=e298]
+              - cell "Terminé" [ref=e300]:
+                - generic [ref=e301]: Terminé
+              - cell "0" [ref=e302]
+              - cell "0" [ref=e303]
+              - cell "Gérer →" [ref=e304]:
+                - link "Gérer →" [ref=e305]:
+                  - /url: /office/trips/42
+            - row "#0041 → 10/03/2026 07:23 Annulé 0 0 Gérer →" [ref=e306] [cursor=pointer]:
+              - cell "#0041" [ref=e307]:
+                - generic [ref=e308]: "#0041"
+              - cell "→" [ref=e309]:
+                - generic [ref=e311]: →
+              - cell "10/03/2026 07:23" [ref=e312]
+              - cell [ref=e313]
+              - cell "Annulé" [ref=e315]:
+                - generic [ref=e316]: Annulé
+              - cell "0" [ref=e317]
+              - cell "0" [ref=e318]
+              - cell "Gérer →" [ref=e319]:
+                - link "Gérer →" [ref=e320]:
+                  - /url: /office/trips/41
+            - row "#0008 → 10/03/2026 02:36 Annulé 0 0 Gérer →" [ref=e321] [cursor=pointer]:
+              - cell "#0008" [ref=e322]:
+                - generic [ref=e323]: "#0008"
+              - cell "→" [ref=e324]:
+                - generic [ref=e326]: →
+              - cell "10/03/2026 02:36" [ref=e327]
+              - cell [ref=e328]
+              - cell "Annulé" [ref=e330]:
+                - generic [ref=e331]: Annulé
+              - cell "0" [ref=e332]
+              - cell "0" [ref=e333]
+              - cell "Gérer →" [ref=e334]:
+                - link "Gérer →" [ref=e335]:
+                  - /url: /office/trips/8
+            - row "#0007 → 10/03/2026 22:41 Annulé 0 0 Gérer →" [ref=e336] [cursor=pointer]:
+              - cell "#0007" [ref=e337]:
+                - generic [ref=e338]: "#0007"
+              - cell "→" [ref=e339]:
+                - generic [ref=e341]: →
+              - cell "10/03/2026 22:41" [ref=e342]
+              - cell [ref=e343]
+              - cell "Annulé" [ref=e345]:
+                - generic [ref=e346]: Annulé
+              - cell "0" [ref=e347]
+              - cell "0" [ref=e348]
+              - cell "Gérer →" [ref=e349]:
+                - link "Gérer →" [ref=e350]:
+                  - /url: /office/trips/7
+            - row "#0002 → 24/02/2026 18:44 Terminé 0 0 Gérer →" [ref=e351] [cursor=pointer]:
+              - cell "#0002" [ref=e352]:
+                - generic [ref=e353]: "#0002"
+              - cell "→" [ref=e354]:
+                - generic [ref=e356]: →
+              - cell "24/02/2026 18:44" [ref=e357]
+              - cell [ref=e358]
+              - cell "Terminé" [ref=e360]:
+                - generic [ref=e361]: Terminé
+              - cell "0" [ref=e362]
+              - cell "0" [ref=e363]
+              - cell "Gérer →" [ref=e364]:
+                - link "Gérer →" [ref=e365]:
+                  - /url: /office/trips/2
+            - row "#0001 → 01/06/2026 10:00 Programmé 0 0 Gérer →" [ref=e366] [cursor=pointer]:
+              - cell "#0001" [ref=e367]:
+                - generic [ref=e368]: "#0001"
+              - cell "→" [ref=e369]:
+                - generic [ref=e371]: →
+              - cell "01/06/2026 10:00" [ref=e372]
+              - cell [ref=e373]
+              - cell "Programmé" [ref=e375]:
+                - generic [ref=e376]: Programmé
+              - cell "0" [ref=e377]
+              - cell "0" [ref=e378]
+              - cell "Gérer →" [ref=e379]:
+                - link "Gérer →" [ref=e380]:
+                  - /url: /office/trips/1

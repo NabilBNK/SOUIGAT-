@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createTrip } from '../../api/trips'
-import { getOffices, getBuses, getUsers } from '../../api/admin'
+import { createTrip, getTripReferenceData } from '../../api/trips'
 import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { AlertCircle, ArrowLeft, Calendar, Bus as BusIcon, MapPin, User as UserIcon } from 'lucide-react'
@@ -12,8 +11,6 @@ import type { User } from '../../types/auth'
 import { Link } from 'react-router-dom'
 
 export function TripCreatePage() {
-    // ...
-    // Keeping the rest identical up to the map functions, I will use multi_replace for accuracy.
     const navigate = useNavigate()
     const { user } = useAuth()
     const queryClient = useQueryClient()
@@ -30,25 +27,13 @@ export function TripCreatePage() {
     const [departureTime, setDepartureTime] = useState<string>('')
 
     // Reference Data Queries
-    const { data: officesData } = useQuery({
-        queryKey: ['offices'],
-        queryFn: () => getOffices(),
+    const { data: referenceData } = useQuery({
+        queryKey: ['trip_reference_data', originId],
+        queryFn: () => getTripReferenceData(originId ? Number(originId) : undefined),
     })
-    const offices = officesData?.results || []
-
-    const { data: busesData } = useQuery({
-        queryKey: ['buses_for_office', originId],
-        queryFn: () => getBuses({ current_office_id: Number(originId) }),
-        enabled: !!originId,
-    })
-    const buses = busesData?.results || []
-
-    const { data: usersData } = useQuery({
-        queryKey: ['conductors'],
-        // Filter conductors. They don't have to be in the same office.
-        queryFn: () => getUsers({ role: 'conductor' }),
-    })
-    const conductors = usersData?.results || []
+    const offices = referenceData?.offices || []
+    const buses = referenceData?.buses || []
+    const conductors = referenceData?.conductors || []
 
     const { mutate, isPending } = useMutation({
         mutationFn: (data: TripCreate) => createTrip(data),

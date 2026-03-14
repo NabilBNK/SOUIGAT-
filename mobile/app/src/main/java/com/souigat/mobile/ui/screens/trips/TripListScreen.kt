@@ -1,16 +1,35 @@
 package com.souigat.mobile.ui.screens.trips
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,14 +39,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import com.souigat.mobile.data.remote.dto.TripListDto
-import com.souigat.mobile.domain.repository.TripException
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-
-private val TRIP_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.FRANCE)
+import com.souigat.mobile.ui.components.ConductorPanelSurface
+import com.souigat.mobile.ui.components.EmptyStatePanel
+import com.souigat.mobile.ui.components.StatusPill
+import com.souigat.mobile.ui.theme.ErrorRed
+import com.souigat.mobile.ui.theme.Success
+import com.souigat.mobile.ui.theme.Warning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,80 +54,123 @@ fun TripListScreen(
     viewModel: TripListViewModel = hiltViewModel(),
     onNavigateToDetail: (Int) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pullToRefreshState = rememberPullToRefreshState()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Refresh trips every time screen becomes visible
     LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
-            viewModel.loadTrips()
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.onScreenVisible()
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mes Trajets") },
+                title = {
+                    Column {
+                        Text("Mes trajets")
+                        Text(
+                            text = if (uiState.lastRefreshAt == null) {
+                                "Chargement local prioritaire"
+                            } else if (uiState.isStale) {
+                                "Donnees locales en attente de rafraichissement"
+                            } else {
+                                "Trajets recents disponibles hors ligne"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 actions = {
-                    IconButton(onClick = { viewModel.loadTrips() }) {
-                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Rafraîchir")
+                    IconButton(
+                        onClick = { viewModel.refreshTrips(force = true) },
+                        enabled = !uiState.isRefreshing
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Rafraichir")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            when (val state = uiState) {
-                is TripListUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                is TripListUiState.Error -> {
-                    val msg = when (val err = state.error) {
-                        is TripException.NetworkUnavailable ->
-                            "Hors ligne. Vérifiez votre connexion Wi-Fi ou données."
-                        is TripException.Unauthenticated ->
-                            "Session expirée. Veuillez vous reconnecter."
-                        is TripException.NotAssigned ->
-                            "Aucun trajet assigné à votre compte."
-                        is TripException.InvalidStatus ->
-                            err.message
-                        is TripException.DeserializationError ->
-                            "Erreur de données (mise à jour requise). Détail : ${err.detail.take(80)}"
-                        is TripException.ServerError ->
-                            "Erreur serveur ${err.code}. Réessayez dans un moment."
-                        else -> "Erreur lors du chargement des trajets."
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.refreshTrips(force = true) },
+            state = pullToRefreshState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            when {
+                uiState.isInitialLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
-                    Column(
-                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                }
+
+                uiState.trips.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = msg,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        EmptyStatePanel(
+                            icon = Icons.Default.CloudOff,
+                            title = "Aucun trajet assigne",
+                            message = uiState.errorMessage
+                                ?: "Les trajets synchronises apparaitront ici. Tirez vers le bas ou utilisez le bouton de rafraichissement.",
+                            primaryActionLabel = "Rafraichir",
+                            onPrimaryAction = { viewModel.refreshTrips(force = true) }
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        OutlinedButton(onClick = { viewModel.loadTrips() }) {
-                            Text("Réessayer")
-                        }
                     }
                 }
-                is TripListUiState.Success -> {
-                    if (state.trips.isEmpty()) {
-                        Text("Aucun trajet assigné.", modifier = Modifier.align(Alignment.Center))
-                    } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(state.trips) { trip ->
-                                TripItemCard(trip = trip, onClick = { onNavigateToDetail(trip.id) })
+
+                else -> {
+                    val errorMessage = uiState.errorMessage
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (errorMessage != null) {
+                            item(key = "error_banner", contentType = "banner") {
+                                BannerCard(
+                                    title = "Rafraichissement incomplet",
+                                    message = errorMessage,
+                                    tone = ErrorRed,
+                                    actionLabel = "Reessayer",
+                                    onAction = { viewModel.refreshTrips(force = true) },
+                                    secondaryLabel = "Ignorer",
+                                    onSecondaryAction = viewModel::clearError
+                                )
                             }
+                        } else if (uiState.isStale) {
+                            item(key = "stale_banner", contentType = "banner") {
+                                BannerCard(
+                                    title = "Donnees locales affichees",
+                                    message = "La liste reste disponible hors ligne. Tirez pour verifier les nouvelles assignations.",
+                                    tone = Warning,
+                                    actionLabel = "Actualiser",
+                                    onAction = { viewModel.refreshTrips(force = true) }
+                                )
+                            }
+                        }
+
+                        items(
+                            items = uiState.trips,
+                            key = { it.id },
+                            contentType = { "trip_card" }
+                        ) { trip ->
+                            TripListCard(
+                                trip = trip,
+                                onClick = { onNavigateToDetail(trip.id) }
+                            )
                         }
                     }
                 }
@@ -118,81 +180,126 @@ fun TripListScreen(
 }
 
 @Composable
-fun TripItemCard(trip: TripListDto, onClick: () -> Unit) {
-    Card(
+private fun BannerCard(
+    title: String,
+    message: String,
+    tone: Color,
+    actionLabel: String,
+    onAction: () -> Unit,
+    secondaryLabel: String? = null,
+    onSecondaryAction: (() -> Unit)? = null
+) {
+    ConductorPanelSurface(
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = tone.copy(alpha = 0.12f)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = tone
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onAction) {
+                    Text(actionLabel)
+                }
+                if (secondaryLabel != null && onSecondaryAction != null) {
+                    OutlinedButton(onClick = onSecondaryAction) {
+                        Text(secondaryLabel)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TripListCard(
+    trip: TripListItemUiModel,
+    onClick: () -> Unit
+) {
+    ConductorPanelSurface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.extraLarge
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(trip.origin, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Vers",
-                        modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                StatusPill(
+                    text = trip.statusLabel,
+                    containerColor = trip.statusTone.containerColor(),
+                    contentColor = trip.statusTone.contentColor()
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "${trip.origin} -> ${trip.destination}",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = trip.departureLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(trip.destination, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = trip.busPlate,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                TripStatusBadge(status = trip.status)
+                Text(
+                    text = trip.priceLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            val parsedDate = try {
-                OffsetDateTime.parse(trip.departureDatetime).format(TRIP_DATE_FORMATTER)
-            } catch (e: Exception) {
-                trip.departureDatetime
-            }
-            
-            Text(
-                text = "Départ : $parsedDate",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "Bus : ${trip.plate}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
 
 @Composable
-fun TripStatusBadge(status: String) {
-    val backgroundColor = when (status) {
-        "scheduled" -> Color(0xFF2196F3)     // Blue
-        "in_progress" -> Color(0xFFFFC107)   // Amber
-        "completed" -> Color(0xFF4CAF50)     // Green
-        "cancelled" -> Color(0xFF9E9E9E)     // Gray
-        else -> Color.Gray
-    }
-    val text = when (status) {
-        "scheduled" -> "Planifié"
-        "in_progress" -> "En cours"
-        "completed" -> "Terminé"
-        "cancelled" -> "Annulé"
-        else -> status
-    }
-    
-    Surface(
-        color = backgroundColor,
-        shape = MaterialTheme.shapes.small
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
-    }
+private fun TripCardStatusTone.containerColor(): Color = when (this) {
+    TripCardStatusTone.Scheduled -> Warning.copy(alpha = 0.18f)
+    TripCardStatusTone.InProgress -> Success.copy(alpha = 0.18f)
+    TripCardStatusTone.Completed -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+    TripCardStatusTone.Cancelled -> ErrorRed.copy(alpha = 0.16f)
+    TripCardStatusTone.Unknown -> MaterialTheme.colorScheme.surfaceVariant
+}
+
+@Composable
+private fun TripCardStatusTone.contentColor(): Color = when (this) {
+    TripCardStatusTone.Scheduled -> Color(0xFF8A5A00)
+    TripCardStatusTone.InProgress -> Success
+    TripCardStatusTone.Completed -> MaterialTheme.colorScheme.primary
+    TripCardStatusTone.Cancelled -> ErrorRed
+    TripCardStatusTone.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
 }

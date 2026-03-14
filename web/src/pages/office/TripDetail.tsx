@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getTrip, startTrip, completeTrip, cancelTrip, forceCompleteTrip } from '../../api/trips'
+import { getTrip, startTrip, completeTrip, cancelTrip, forceCompleteTrip, deleteTrip } from '../../api/trips'
 import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { StatusBadge } from '../../components/ui/StatusBadge'
@@ -19,7 +19,8 @@ import {
     Play,
     CheckCircle,
     XCircle,
-    Info
+    Info,
+    Trash2
 } from 'lucide-react'
 
 import { PassengerTickets } from './PassengerTickets'
@@ -29,6 +30,7 @@ type TabType = 'info' | 'passengers' | 'cargo' | 'expenses'
 
 export function TripDetailPage() {
     const { id } = useParams<{ id: string }>()
+    const navigate = useNavigate()
     const { user } = useAuth()
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState<TabType>('info')
@@ -86,6 +88,15 @@ export function TripDetailPage() {
         onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de la clôture forcée."))
     })
 
+    const deleteMutation = useMutation({
+        mutationFn: () => deleteTrip(Number(id)),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['trips'] })
+            navigate('/office/trips')
+        },
+        onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de la suppression du voyage."))
+    })
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -110,6 +121,7 @@ export function TripDetailPage() {
     const canCancel = trip.status === 'scheduled' && isOfficeStaff && isOriginOffice
     const canComplete = trip.status === 'in_progress' && isOfficeStaff && (user?.office === trip.destination_office || user?.role === 'admin')
     const canForceComplete = trip.status === 'in_progress' && user?.role === 'admin'
+    const canDelete = user?.role === 'admin' && (trip.status === 'scheduled' || trip.status === 'cancelled')
 
     const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
         { id: 'info', label: 'Informations', icon: <AlertCircle className="w-4 h-4" /> },
@@ -195,6 +207,21 @@ export function TripDetailPage() {
                             Forcer Clôture
                         </Button>
                     )}
+                    {canDelete && (
+                        <Button
+                            variant="danger"
+                            size="sm"
+                            icon={<Trash2 className="w-4 h-4" />}
+                            isLoading={deleteMutation.isPending}
+                            onClick={() => {
+                                if (window.confirm('Supprimer definitivement ce voyage ? Cette action retire le voyage de la base.')) {
+                                    deleteMutation.mutate()
+                                }
+                            }}
+                        >
+                            Supprimer
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -268,9 +295,28 @@ export function TripDetailPage() {
 
                             <div className="space-y-4">
                                 <div className="flex items-start gap-3">
+                                    <Info className="w-5 h-5 text-brand-400 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium text-text-primary">Reference voyage</p>
+                                        <p className="text-sm text-text-secondary">TRIP-{trip.id}</p>
+                                        <p className="text-xs text-text-muted">Cree le {formatDateTime(trip.created_at)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                    <MapPin className="w-5 h-5 text-brand-400 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium text-text-primary">Itineraire</p>
+                                        <p className="text-sm text-text-secondary">
+                                            {trip.origin_office_name} (#{trip.origin_office}) &rarr; {trip.destination_office_name} (#{trip.destination_office})
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
                                     <Calendar className="w-5 h-5 text-brand-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-text-primary">Date de départ</p>
+                                        <p className="text-sm font-medium text-text-primary">Date de depart</p>
                                         <p className="text-sm text-text-secondary">{formatDateTime(trip.departure_datetime)}</p>
                                     </div>
                                 </div>
@@ -279,7 +325,7 @@ export function TripDetailPage() {
                                     <div className="flex items-start gap-3">
                                         <CheckCircle className="w-5 h-5 text-status-success mt-0.5" />
                                         <div>
-                                            <p className="text-sm font-medium text-text-primary">Date d'arrivée</p>
+                                            <p className="text-sm font-medium text-text-primary">Date d'arrivee</p>
                                             <p className="text-sm text-text-secondary">{formatDateTime(trip.arrival_datetime)}</p>
                                         </div>
                                     </div>
@@ -288,8 +334,8 @@ export function TripDetailPage() {
                                 <div className="flex items-start gap-3">
                                     <Bus className="w-5 h-5 text-brand-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-text-primary">Bus attribué</p>
-                                        <p className="text-sm text-text-secondary">{trip.bus_plate}</p>
+                                        <p className="text-sm font-medium text-text-primary">Bus attribue</p>
+                                        <p className="text-sm text-text-secondary">{trip.bus_plate} (ID bus #{trip.bus})</p>
                                     </div>
                                 </div>
 
@@ -297,7 +343,8 @@ export function TripDetailPage() {
                                     <User className="w-5 h-5 text-brand-400 mt-0.5" />
                                     <div>
                                         <p className="text-sm font-medium text-text-primary">Conducteur</p>
-                                        <p className="text-sm text-text-secondary">{trip.conductor_name}</p>
+                                        <p className="text-sm text-text-secondary">{trip.conductor_name} (ID #{trip.conductor})</p>
+                                        <p className="text-xs text-text-muted">Derniere mise a jour: {formatDateTime(trip.updated_at)}</p>
                                     </div>
                                 </div>
                             </div>

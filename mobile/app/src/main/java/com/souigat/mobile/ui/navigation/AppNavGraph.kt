@@ -1,6 +1,7 @@
 package com.souigat.mobile.ui.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,7 +15,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.souigat.mobile.data.local.TokenManager
+import com.souigat.mobile.ui.components.ConnectionStatusStrip
 import com.souigat.mobile.ui.screens.boot.BootScreen
 import com.souigat.mobile.ui.screens.dashboard.DashboardScreen
 import com.souigat.mobile.ui.screens.trips.TripListScreen
@@ -33,37 +37,48 @@ fun AppNavGraph(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val connectionViewModel: ConnectionStatusViewModel = hiltViewModel()
+    val connectionState by connectionViewModel.connectionState.collectAsStateWithLifecycle()
 
-    // Reactively observe Session Death overriding Background OS bounds safely when the operator next draws UI.
     LaunchedEffect(Unit) {
         tokenManager?.onSessionCleared?.collect {
-            navController.navigate(NavRoute.Login.route) {
-                popUpTo(0) { inclusive = true }
-                launchSingleTop = true
+            if (navController.currentDestination?.route != NavRoute.Login.route) {
+                navController.navigate(NavRoute.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }
 
-    val showBottomBar = currentRoute != NavRoute.Login.route && 
-                       currentRoute != "boot" && 
-                       currentRoute != NavRoute.Trips.route &&
-                       currentRoute?.startsWith("trip_detail/") == false
+    val showBottomBar = bottomNavItems.any { it.route == currentRoute }
+    val showConnectionStrip = currentRoute != NavRoute.Login.route &&
+        currentRoute != "boot" &&
+        currentRoute != "office_dashboard" &&
+        currentRoute != "admin_dashboard"
 
     Scaffold(
         bottomBar = {
-            if (showBottomBar) {
-                BottomNavBar(
-                    currentRoute = currentRoute,
-                    onNavigate = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+            if (showConnectionStrip || showBottomBar) {
+                Column {
+                    if (showConnectionStrip) {
+                        ConnectionStatusStrip(state = connectionState)
                     }
-                )
+                    if (showBottomBar) {
+                        BottomNavBar(
+                            currentRoute = currentRoute,
+                            onNavigate = { route ->
+                                navController.navigate(route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        )
+                    }
+                }
             }
         }
     ) { innerPadding ->
@@ -113,7 +128,10 @@ fun AppNavGraph(
                             launchSingleTop = true
                             restoreState = true
                         }
-                    }
+                    },
+                    onNavigateToTripDetail = { tripId ->
+                        navController.navigate("trip_detail/$tripId")
+                    },
                 )
             }
             
@@ -131,35 +149,25 @@ fun AppNavGraph(
             ) {
                 TripDetailScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToCreateTicket = { tripId, passPrice, smallPrice, medPrice, largePrice, currency ->
-                        navController.navigate("create_ticket/$tripId/$passPrice/$smallPrice/$medPrice/$largePrice/$currency")
+                    onNavigateToCreateTicket = { tripId ->
+                        navController.navigate("create_ticket/$tripId")
                     },
-                    onNavigateToCreateExpense = { tripId, currency ->
-                        navController.navigate("create_expense/$tripId/$currency")
+                    onNavigateToCreateExpense = { tripId ->
+                        navController.navigate("create_expense/$tripId")
                     }
                 )
             }
             
             composable(
-                route = "create_ticket/{tripId}/{passPrice}/{smallPrice}/{medPrice}/{largePrice}/{currency}",
-                arguments = listOf(
-                    navArgument("tripId") { type = NavType.IntType },
-                    navArgument("passPrice") { type = NavType.StringType },
-                    navArgument("smallPrice") { type = NavType.StringType },
-                    navArgument("medPrice") { type = NavType.StringType },
-                    navArgument("largePrice") { type = NavType.StringType },
-                    navArgument("currency") { type = NavType.StringType }
-                )
+                route = "create_ticket/{tripId}",
+                arguments = listOf(navArgument("tripId") { type = NavType.IntType })
             ) {
                 CreateTicketScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable(
-                route = "create_expense/{tripId}/{currency}",
-                arguments = listOf(
-                    navArgument("tripId") { type = NavType.IntType },
-                    navArgument("currency") { type = NavType.StringType }
-                )
+                route = "create_expense/{tripId}",
+                arguments = listOf(navArgument("tripId") { type = NavType.IntType })
             ) {
                 CreateExpenseScreen(onNavigateBack = { navController.popBackStack() })
             }
@@ -191,14 +199,14 @@ fun AppNavGraph(
             composable(NavRoute.History.route) {
                 HistoryScreen(
                     onNavigateToDetail = { tripId ->
-                        navController.navigate("trip_detail/$tripId")
+                        navController.navigate("trip_detail/${tripId.toInt()}")
                     }
                 )
             }
             composable(NavRoute.Expenses.route) {
                 ExpensesScreen(
-                    onNavigateToCreate = { tripId, currency ->
-                        navController.navigate("create_expense/$tripId/$currency")
+                    onNavigateToCreate = { tripId ->
+                        navController.navigate("create_expense/${tripId.toInt()}")
                     }
                 )
             }

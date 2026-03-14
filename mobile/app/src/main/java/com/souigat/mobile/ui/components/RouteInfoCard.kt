@@ -1,10 +1,11 @@
 package com.souigat.mobile.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -31,19 +32,23 @@ fun RouteInfoCard(
     destination: String,
     busPlate: String,
     statusLabel: String = "En cours",
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val gradient = Brush.horizontalGradient(
         colors = listOf(Color(0xFF1D4ED8), Color(0xFF3B82F6)) // Blue 700 → Blue 500
     )
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(gradient)
-            .padding(20.dp)
-    ) {
+    val cardModifier = modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(16.dp))
+        .let { base ->
+            if (onClick != null) base.clickable(onClick = onClick) else base
+        }
+        .background(gradient)
+        .padding(20.dp)
+
+    Box(modifier = cardModifier) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // Status badge
             Surface(
@@ -71,7 +76,7 @@ fun RouteInfoCard(
                     color = Color.White
                 )
                 Icon(
-                    imageVector = Icons.Default.ArrowForward,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "vers",
                     tint = Color.White.copy(alpha = 0.8f),
                     modifier = Modifier.size(22.dp)

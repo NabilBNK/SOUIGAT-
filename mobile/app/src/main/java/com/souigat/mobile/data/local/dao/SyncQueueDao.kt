@@ -24,6 +24,9 @@ interface SyncQueueDao {
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'SYNCED'")
     fun observeSyncedCount(): Flow<Int>
 
+    @Query("SELECT MAX(syncedAt) FROM sync_queue WHERE status = 'SYNCED'")
+    fun observeLastSyncedAt(): Flow<Long?>
+
     /** Fetch a batch of pending items for the SyncWorker to process. */
     @Query("SELECT * FROM sync_queue WHERE status = 'PENDING' ORDER BY createdAt ASC LIMIT :limit")
     suspend fun getPendingBatch(limit: Int = 50): List<SyncQueueEntity>
@@ -34,6 +37,9 @@ interface SyncQueueDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun enqueue(item: SyncQueueEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun enqueueAll(items: List<SyncQueueEntity>): List<Long>
 
     /**
      * Mark accepted items as SYNCED by their local Room ID.
