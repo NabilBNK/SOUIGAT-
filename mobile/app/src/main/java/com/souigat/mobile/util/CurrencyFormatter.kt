@@ -3,40 +3,36 @@ package com.souigat.mobile.util
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
-import java.util.*
+import java.util.Locale
 
 /**
- * Formats price amounts stored as centimes into a human-readable currency string.
+ * Formats price amounts stored as whole currency units into a human-readable string.
  *
- * Example: formatCurrency(250000, "DZD") → "2 500,00 DZD"
- *
- * Note: amounts are stored as centimes (Long) to avoid floating-point precision issues.
- * Divide by 100.0 to get the base unit.
+ * Example: formatCurrency(2500, "DZD") -> "2 500 DZD"
  */
-fun formatCurrency(centimes: Long, currency: String = "DZD"): String {
-    val units = centimes / 100.0
+fun formatCurrency(amount: Long, currency: String = "DZD"): String {
     val formatter = NumberFormat.getNumberInstance(Locale.FRANCE).apply {
         minimumFractionDigits = 0
         maximumFractionDigits = 2
     }
-    return "${formatter.format(units)} $currency"
+    return "${formatter.format(amount)} $currency"
 }
 
 /**
- * Formats centimes as a compact string (no currency symbol). Useful for labels.
- * Example: 250000 → "2 500"
+ * Formats an amount as a compact string (no currency symbol). Useful for labels.
+ * Example: 2500 -> "2 500"
  */
-fun formatCompact(centimes: Long): String {
+fun formatCompact(amount: Long): String {
     val formatter = NumberFormat.getNumberInstance(Locale.FRANCE).apply {
         minimumFractionDigits = 0
         maximumFractionDigits = 0
     }
-    return formatter.format(centimes / 100.0)
+    return formatter.format(amount)
 }
 
 /**
  * Parses a user-entered currency amount expressed in base units (for example "1 200" DZD)
- * and converts it to centimes once, at the view-model boundary.
+ * and stores it as a whole-unit integer.
  */
 fun parseCurrencyInput(raw: String): Long? {
     val normalized = raw
@@ -51,7 +47,6 @@ fun parseCurrencyInput(raw: String): Long? {
 
     return try {
         BigDecimal(normalized)
-            .movePointRight(2)
             .setScale(0, RoundingMode.HALF_UP)
             .longValueExact()
     } catch (_: Exception) {

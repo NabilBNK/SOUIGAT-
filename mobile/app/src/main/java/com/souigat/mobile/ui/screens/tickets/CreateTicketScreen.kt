@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
@@ -22,6 +23,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -95,7 +98,6 @@ fun CreateTicketScreen(
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is CreateTicketUiState.Success -> {
-                snackbarHostState.showSnackbar(state.message)
                 viewModel.resetState()
                 onNavigateBack()
             }
@@ -347,34 +349,20 @@ private fun PassengerTicketForm(
             enabled = !isLoading,
             keyboardType = KeyboardType.Number
         )
-        FormTextField(
-            value = boardingPoint,
+        StopDropdownField(
+            label = "Point de montee",
+            selectedValue = boardingPoint,
+            routeOrigin = routeOrigin,
+            routeDestination = routeDestination,
             onValueChange = onBoardingPointChange,
-            label = "Point de montee optionnel",
-            placeholder = "Optionnel",
             enabled = !isLoading
         )
-        OptionalStopSelection(
-            title = "Selection rapide du point de montee",
-            currentValue = boardingPoint,
+        StopDropdownField(
+            label = "Point de descente",
+            selectedValue = alightingPoint,
             routeOrigin = routeOrigin,
             routeDestination = routeDestination,
-            onSelect = onBoardingPointChange,
-            enabled = !isLoading
-        )
-        FormTextField(
-            value = alightingPoint,
             onValueChange = onAlightingPointChange,
-            label = "Point de descente optionnel",
-            placeholder = "Optionnel",
-            enabled = !isLoading
-        )
-        OptionalStopSelection(
-            title = "Selection rapide du point de descente",
-            currentValue = alightingPoint,
-            routeOrigin = routeOrigin,
-            routeDestination = routeDestination,
-            onSelect = onAlightingPointChange,
             enabled = !isLoading
         )
 
@@ -618,36 +606,67 @@ private fun StepperButton(
 }
 
 @Composable
-private fun OptionalStopSelection(
-    title: String,
-    currentValue: String,
+private fun StopDropdownField(
+    label: String,
+    selectedValue: String,
     routeOrigin: String,
     routeDestination: String,
-    onSelect: (String) -> Unit,
+    onValueChange: (String) -> Unit,
     enabled: Boolean
 ) {
-    SelectionSection(title = title) {
-        ChoiceCard(
-            title = "Non precise",
-            subtitle = "Laisser le conducteur saisir ou laisser vide",
-            selected = currentValue.isBlank(),
-            enabled = enabled,
-            onClick = { onSelect("") }
+    val options = remember(routeOrigin, routeDestination) {
+        buildList {
+            add("" to "Non precise")
+            if (routeOrigin.isNotBlank()) {
+                add(routeOrigin to routeOrigin)
+            }
+            if (routeDestination.isNotBlank() && !routeDestination.equals(routeOrigin, ignoreCase = true)) {
+                add(routeDestination to routeDestination)
+            }
+        }
+    }
+    var expanded by rememberSaveable(label) { mutableStateOf(false) }
+    val selectedLabel = options.firstOrNull { (value, _) ->
+        value.equals(selectedValue, ignoreCase = true)
+    }?.second ?: "Non precise"
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
         )
-        ChoiceCard(
-            title = routeOrigin,
-            subtitle = "Utiliser l'origine du trajet",
-            selected = currentValue.equals(routeOrigin, ignoreCase = true),
-            enabled = enabled,
-            onClick = { onSelect(routeOrigin) }
-        )
-        ChoiceCard(
-            title = routeDestination,
-            subtitle = "Utiliser la destination du trajet",
-            selected = currentValue.equals(routeDestination, ignoreCase = true),
-            enabled = enabled,
-            onClick = { onSelect(routeDestination) }
-        )
+        Box {
+            OutlinedTextField(
+                value = selectedLabel,
+                onValueChange = {},
+                modifier = Modifier.fillMaxWidth(),
+                enabled = enabled,
+                readOnly = true,
+                trailingIcon = {
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                }
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(enabled = enabled) { expanded = true }
+            )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { (value, displayLabel) ->
+                    DropdownMenuItem(
+                        text = { Text(displayLabel) },
+                        onClick = {
+                            onValueChange(value)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 

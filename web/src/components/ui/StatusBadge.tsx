@@ -1,16 +1,31 @@
+import type { SettlementStatus } from '../../types/settlement'
 import type { TripStatus } from '../../types/trip'
 import type { CargoStatus } from '../../types/ticket'
-import { TRIP_STATUS_LABELS, TRIP_STATUS_COLORS, CARGO_STATUS_COLORS } from '../../utils/constants'
+import {
+    CARGO_STATUS_COLORS,
+    SETTLEMENT_STATUS_COLORS,
+    SETTLEMENT_STATUS_LABELS,
+    TRIP_STATUS_COLORS,
+    TRIP_STATUS_LABELS,
+} from '../../utils/constants'
 import { CARGO_STATUS_LABELS } from '../../types/ticket'
 
 interface StatusBadgeProps {
-    status: TripStatus | CargoStatus
-    type?: 'trip' | 'cargo'
+    status: TripStatus | CargoStatus | SettlementStatus
+    type?: 'trip' | 'cargo' | 'settlement'
 }
 
 export function StatusBadge({ status, type = 'trip' }: StatusBadgeProps) {
-    const labels = type === 'trip' ? TRIP_STATUS_LABELS : CARGO_STATUS_LABELS
-    const colors = type === 'trip' ? TRIP_STATUS_COLORS : CARGO_STATUS_COLORS
+    const labels = type === 'trip'
+        ? TRIP_STATUS_LABELS
+        : type === 'cargo'
+            ? CARGO_STATUS_LABELS
+            : SETTLEMENT_STATUS_LABELS
+    const colors = type === 'trip'
+        ? TRIP_STATUS_COLORS
+        : type === 'cargo'
+            ? CARGO_STATUS_COLORS
+            : SETTLEMENT_STATUS_COLORS
     const label = labels[status as keyof typeof labels] || status
     const color = colors[status as keyof typeof colors] || 'bg-surface-500/30 text-text-muted'
 

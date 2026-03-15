@@ -2,7 +2,9 @@
 import hashlib
 import json
 from datetime import date, timedelta
+from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework import status
@@ -293,6 +295,60 @@ class BatchSyncTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data['quarantined'], 1)
 
+    def test_sync_normalizes_legacy_mobile_passenger_price(self):
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            key='legacy-passenger-price',
+            payload={
+                'passenger_name': 'Legacy Mobile',
+                'payment_source': 'cash',
+                'price': 100000,
+            },
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        ticket = PassengerTicket.objects.get(passenger_name='Legacy Mobile')
+        self.assertEqual(ticket.price, 1000)
+        self.assertIsNotNone(ticket.synced_at)
+
+    def test_sync_normalizes_legacy_mobile_expense_amount(self):
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            item_type='expense',
+            key='legacy-expense',
+            payload={'description': '', 'amount': 380500},
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        expense = TripExpense.objects.get(trip=self.trip)
+        self.assertEqual(expense.amount, 3805)
+        self.assertIsNotNone(expense.synced_at)
+
+    def test_sync_respects_explicit_base_unit_money_scale(self):
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            item_type='expense',
+            key='base-unit-expense',
+            payload={
+                'description': '',
+                'amount': 100900,
+                'money_scale': 'base_unit',
+            },
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        expense = TripExpense.objects.get(trip=self.trip)
+        self.assertEqual(expense.amount, 100900)
+
     def test_resume_from_exceeds_batch_size_rejected_by_serializer(self):
         """Serializer validation — not view-level clamp."""
         self.client.force_authenticate(self.conductor)
@@ -362,3 +418,32 @@ class BatchSyncTests(TestCase):
         quarantined_item = resp.data['items'][0]
         self.assertEqual(quarantined_item['status'], 'quarantined')
         self.assertEqual(quarantined_item['local_id'], 99)
+
+    def test_database_error_on_one_item_does_not_break_remaining_batch(self):
+        """A DB error rolls back only the failed item and preserves the rest of the batch."""
+        self.client.force_authenticate(self.conductor)
+
+        def broken_expense(*args, **kwargs):
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT * FROM definitely_missing_table')
+
+        items = [
+            self._make_item(
+                item_type='expense',
+                key='db-error-expense',
+                payload={'description': 'Fuel', 'amount': 500},
+            ),
+            self._make_item(key='after-db-error'),
+        ]
+
+        with patch('api.views.sync_views._create_expense', side_effect=broken_expense):
+            resp = self.client.post('/api/sync/batch/', {
+                'trip_id': self.trip.id,
+                'items': items,
+            }, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['quarantined'], 1)
+        self.assertEqual(resp.data['accepted'], 1)
+        self.assertEqual(QuarantinedSync.objects.count(), 1)
+        self.assertEqual(PassengerTicket.objects.count(), 1)

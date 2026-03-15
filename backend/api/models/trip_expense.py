@@ -10,6 +10,7 @@ class TripExpense(TimestampMixin, models.Model):
     description = models.CharField(max_length=200)
     amount = models.PositiveIntegerField()
     currency = models.CharField(max_length=3, default='DZD')
+    synced_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         'api.User', on_delete=models.PROTECT, related_name='created_expenses',
     )

@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from django.db import models, transaction
 from django.db.models.deletion import ProtectedError
@@ -8,8 +9,25 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from api.models import Trip, Bus, User, Office
+from api.serializers.settlement import SettlementPreviewSerializer
 from api.serializers.trip import TripSerializer, TripListSerializer
 from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission, IsAdminUser
+from api.services import initiate_settlement_for_trip
+
+logger = logging.getLogger(__name__)
+
+
+def _completion_arrival_datetime(trip):
+    """
+    Ensure completion timestamps never violate the DB arrival>departure check.
+
+    Trips may be started up to 30 minutes early, so a conductor can legitimately
+    complete a trip before wall-clock time has passed the scheduled departure.
+    In that case we clamp the recorded arrival just after departure.
+    """
+    now = timezone.now()
+    minimum_arrival = trip.departure_datetime + timedelta(seconds=1)
+    return max(now, minimum_arrival)
 
 
 class TripViewSet(viewsets.ModelViewSet):
@@ -293,12 +311,26 @@ class TripViewSet(viewsets.ModelViewSet):
             # Skip model validation — arrival_datetime is set programmatically
             # and departure_datetime is trusted from original creation.
             trip.status = 'completed'
-            trip.arrival_datetime = timezone.now()
+            trip.arrival_datetime = _completion_arrival_datetime(trip)
             trip.save(skip_validation=True)
+            settlement_preview = None
+            settlement_preview_error = None
+            try:
+                settlement, _created = initiate_settlement_for_trip(trip)
+                settlement_preview = SettlementPreviewSerializer.from_settlement(settlement)
+            except Exception:
+                logger.error(
+                    'Settlement initiation failed during trip completion for trip %s',
+                    trip.id,
+                    exc_info=True,
+                )
+                settlement_preview_error = 'settlement_init_failed'
 
         return Response({
             'status': 'completed',
             'arrival_datetime': trip.arrival_datetime,
+            'settlement_preview': settlement_preview,
+            'settlement_preview_error': settlement_preview_error,
         })
 
     @action(detail=True, methods=['post'])
@@ -321,16 +353,14 @@ class TripViewSet(viewsets.ModelViewSet):
                     'detail': f'Only in_progress trips can be force completed. Current status: {trip.status}'
                 })
 
-            from api.models import PassengerTicket
-            from django.core.exceptions import FieldError
-            
-            has_unsynced_tickets = PassengerTicket.objects.filter(trip_id=trip.id, synced_at__isnull=True).exists()
-            
-            try:
-                from api.models import TripExpense
-                has_unsynced_expenses = TripExpense.objects.filter(trip_id=trip.id, synced_at__isnull=True).exists()
-            except (ImportError, FieldError):
-                has_unsynced_expenses = False
+            from api.models import CargoTicket, PassengerTicket, TripExpense
+
+            has_unsynced_tickets = PassengerTicket.objects.filter(
+                trip_id=trip.id, synced_at__isnull=True,
+            ).exists() or CargoTicket.objects.filter(
+                trip_id=trip.id, synced_at__isnull=True,
+            ).exists()
+            has_unsynced_expenses = TripExpense.objects.filter(trip_id=trip.id, synced_at__isnull=True).exists()
 
             if has_unsynced_tickets or has_unsynced_expenses:
                 raise ValidationError({
@@ -339,8 +369,21 @@ class TripViewSet(viewsets.ModelViewSet):
                 })
 
             trip.status = 'completed'
-            trip.arrival_datetime = timezone.now()
+            trip.arrival_datetime = _completion_arrival_datetime(trip)
             trip.save(skip_validation=True)
+            try:
+                settlement, _created = initiate_settlement_for_trip(trip)
+                settlement_preview = SettlementPreviewSerializer.from_settlement(settlement)
+            except Exception as exc:
+                logger.error(
+                    'Settlement initiation failed during force-complete for trip %s',
+                    trip.id,
+                    exc_info=True,
+                )
+                raise ValidationError({
+                    'error_code': 'SETTLEMENT_INIT_FAILED',
+                    'detail': 'Trip force-complete aborted because settlement initiation failed.',
+                }) from exc
 
             from api.models import AuditLog
             AuditLog.objects.create(
@@ -355,6 +398,8 @@ class TripViewSet(viewsets.ModelViewSet):
         return Response({
             'status': 'completed',
             'arrival_datetime': trip.arrival_datetime,
+            'settlement_preview': settlement_preview,
+            'settlement_preview_error': None,
         })
 
     @action(detail=True, methods=['post'])

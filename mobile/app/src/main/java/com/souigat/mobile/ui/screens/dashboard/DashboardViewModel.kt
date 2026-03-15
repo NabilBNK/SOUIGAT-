@@ -3,10 +3,12 @@ package com.souigat.mobile.ui.screens.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.souigat.mobile.data.local.TokenManager
+import com.souigat.mobile.data.local.dao.CargoTicketDao
 import com.souigat.mobile.data.local.dao.ExpenseDao
 import com.souigat.mobile.data.local.dao.PassengerTicketDao
 import com.souigat.mobile.data.local.dao.SyncQueueDao
 import com.souigat.mobile.data.local.dao.TripDao
+import com.souigat.mobile.data.local.entity.CargoTicketEntity
 import com.souigat.mobile.data.local.entity.ExpenseEntity
 import com.souigat.mobile.data.local.entity.PassengerTicketEntity
 import com.souigat.mobile.data.local.entity.TripEntity
@@ -33,6 +35,7 @@ enum class DashboardMetricTone {
 
 enum class DashboardActivityKind {
     PassengerTicket,
+    CargoTicket,
     Expense
 }
 
@@ -84,9 +87,7 @@ private data class DashboardTripStats(
     val activeTrip: TripEntity? = null,
     val passengerCount: Int = 0,
     val totalRevenueCentimes: Long = 0L,
-    val totalExpensesCentimes: Long = 0L,
-    val recentTickets: List<PassengerTicketEntity> = emptyList(),
-    val recentExpenses: List<ExpenseEntity> = emptyList()
+    val totalExpensesCentimes: Long = 0L
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -94,6 +95,7 @@ private data class DashboardTripStats(
 class DashboardViewModel @Inject constructor(
     tripDao: TripDao,
     private val ticketDao: PassengerTicketDao,
+    private val cargoTicketDao: CargoTicketDao,
     private val expenseDao: ExpenseDao,
     private val syncQueueDao: SyncQueueDao,
     private val tokenManager: TokenManager
@@ -106,28 +108,41 @@ class DashboardViewModel @Inject constructor(
             combine(
                 ticketDao.observeActiveCount(trip.id),
                 ticketDao.observeTotalRevenue(trip.id),
-                expenseDao.observeTotalAmount(trip.id),
-                ticketDao.observeRecentByTrip(trip.id),
-                expenseDao.observeRecentByTrip(trip.id)
-            ) { passengerCount, revenue, expenses, tickets, expenseItems ->
+                expenseDao.observeTotalAmount(trip.id)
+            ) { passengerCount, revenue, expenses ->
                 DashboardTripStats(
                     activeTrip = trip,
                     passengerCount = passengerCount,
                     totalRevenueCentimes = revenue,
-                    totalExpensesCentimes = expenses,
-                    recentTickets = tickets,
-                    recentExpenses = expenseItems
+                    totalExpensesCentimes = expenses
                 )
             }
         }
     }
 
+    private val activityFeedFlow: Flow<List<DashboardActivityUiModel>> = combine(
+        ticketDao.observeRecentGlobal(),
+        cargoTicketDao.observeRecentGlobal(),
+        expenseDao.observeRecentGlobal(),
+        tripDao.observeAll()
+    ) { passengerTickets, cargoTickets, expenses, trips ->
+        buildActivityFeed(
+            tickets = passengerTickets,
+            cargoTickets = cargoTickets,
+            expenses = expenses,
+            routeLabels = trips.associate { trip ->
+                trip.id to "${trip.originOffice} -> ${trip.destinationOffice}"
+            }
+        )
+    }
+
     val uiState = combine(
         tripStatsFlow,
+        activityFeedFlow,
         syncQueueDao.observePendingCount(),
         syncQueueDao.observeQuarantinedCount(),
         syncQueueDao.observeLastSyncedAt()
-    ) { tripStats, pendingCount, quarantinedCount, lastSyncedAt ->
+    ) { tripStats, activity, pendingCount, quarantinedCount, lastSyncedAt ->
         val firstName = tokenManager.getFirstName()?.ifBlank { null } ?: "Conducteur"
         val fullName = tokenManager.getFullName()?.ifBlank { null } ?: firstName
         val currency = tripStats.activeTrip?.currency ?: "DZD"
@@ -177,10 +192,7 @@ class DashboardViewModel @Inject constructor(
                     tone = DashboardMetricTone.Neutral
                 )
             ),
-            activity = buildActivityFeed(
-                tickets = tripStats.recentTickets,
-                expenses = tripStats.recentExpenses
-            ),
+            activity = activity,
             pendingCount = pendingCount,
             quarantinedCount = quarantinedCount,
             lastSyncLabel = lastSyncedAt?.toDisplayDateTime() ?: "Pas encore synchronise"
@@ -208,13 +220,18 @@ class DashboardViewModel @Inject constructor(
 
     private fun buildActivityFeed(
         tickets: List<PassengerTicketEntity>,
-        expenses: List<ExpenseEntity>
+        cargoTickets: List<CargoTicketEntity>,
+        expenses: List<ExpenseEntity>,
+        routeLabels: Map<Long, String>
     ): List<DashboardActivityUiModel> {
         val ticketItems = tickets.take(4).map { ticket ->
             DashboardActivityUiModel(
                 id = "ticket_${ticket.id}",
                 title = "Billet ${ticket.ticketNumber}",
-                subtitle = ticket.passengerName.ifBlank { "Passager" },
+                subtitle = buildActivitySubtitle(
+                    primary = ticket.passengerName.ifBlank { "Passager" },
+                    routeLabel = routeLabels[ticket.tripId]
+                ),
                 timestampLabel = ticket.createdAt.toDisplayTime(),
                 amountLabel = formatCurrency(ticket.price, ticket.currency),
                 kind = DashboardActivityKind.PassengerTicket,
@@ -222,11 +239,29 @@ class DashboardViewModel @Inject constructor(
             )
         }
 
+        val cargoItems = cargoTickets.take(4).map { cargoTicket ->
+            DashboardActivityUiModel(
+                id = "cargo_${cargoTicket.id}",
+                title = "Colis ${cargoTicket.ticketNumber}",
+                subtitle = buildActivitySubtitle(
+                    primary = cargoTicket.receiverName.ifBlank { cargoTicket.senderName.ifBlank { "Colis" } },
+                    routeLabel = routeLabels[cargoTicket.tripId]
+                ),
+                timestampLabel = cargoTicket.createdAt.toDisplayTime(),
+                amountLabel = formatCurrency(cargoTicket.price, cargoTicket.currency),
+                kind = DashboardActivityKind.CargoTicket,
+                createdAt = cargoTicket.createdAt
+            )
+        }
+
         val expenseItems = expenses.take(4).map { expense ->
             DashboardActivityUiModel(
                 id = "expense_${expense.id}",
                 title = expense.category.toExpenseTitle(),
-                subtitle = expense.description.ifBlank { "Depense du trajet" },
+                subtitle = buildActivitySubtitle(
+                    primary = expense.description.ifBlank { "Depense du trajet" },
+                    routeLabel = routeLabels[expense.tripId]
+                ),
                 timestampLabel = expense.createdAt.toDisplayTime(),
                 amountLabel = formatCurrency(expense.amount, expense.currency),
                 kind = DashboardActivityKind.Expense,
@@ -234,9 +269,17 @@ class DashboardViewModel @Inject constructor(
             )
         }
 
-        return (ticketItems + expenseItems)
+        return (ticketItems + cargoItems + expenseItems)
             .sortedByDescending { it.createdAt }
             .take(6)
+    }
+
+    private fun buildActivitySubtitle(primary: String, routeLabel: String?): String {
+        return if (routeLabel.isNullOrBlank()) {
+            primary
+        } else {
+            "$primary - $routeLabel"
+        }
     }
 
     private fun String.toExpenseTitle(): String = when (this) {

@@ -203,6 +203,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
 
 # ---------------------
+# Settlements
+# ---------------------
+SETTLEMENT_TOLERANCE_DZD = config(
+    'SETTLEMENT_TOLERANCE_DZD', default=100, cast=int,
+)
+
+# ---------------------
 # Cache (Redis)
 # ---------------------
 if _db_host == 'sqlite':

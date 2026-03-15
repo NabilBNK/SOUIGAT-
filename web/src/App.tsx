@@ -22,6 +22,7 @@ import { OfficeManagement } from './pages/admin/OfficeManagement'
 import { PricingManagement } from './pages/admin/PricingManagement'
 import { AuditLog } from './pages/admin/AuditLog'
 import { QuarantineReview } from './pages/admin/QuarantineReview'
+import { SettlementsPage } from './pages/admin/Settlements'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -92,6 +93,7 @@ export default function App() {
                   <Route path="/admin/buses" element={<BusManagement />} />
                   <Route path="/admin/offices" element={<OfficeManagement />} />
                   <Route path="/admin/pricing" element={<PricingManagement />} />
+                  <Route path="/admin/settlements" element={<SettlementsPage />} />
                   <Route path="/admin/audit" element={<AuditLog />} />
                 </Route>
 

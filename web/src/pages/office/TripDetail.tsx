@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+    disputeSettlement,
+    getSettlement,
+    initiateSettlement,
+    recordSettlement,
+} from '../../api/settlements'
 import { getTrip, startTrip, completeTrip, cancelTrip, forceCompleteTrip, deleteTrip } from '../../api/trips'
 import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
+import { Modal } from '../../components/ui/Modal'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { formatDateTime, formatCurrency } from '../../utils/formatters'
+import type { Settlement } from '../../types/settlement'
 import {
     AlertCircle,
     ArrowLeft,
@@ -35,16 +43,47 @@ export function TripDetailPage() {
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState<TabType>('info')
     const [actionError, setActionError] = useState<string | null>(null)
+    const [isRecordModalOpen, setIsRecordModalOpen] = useState(false)
+    const [recordForm, setRecordForm] = useState({
+        actual_cash_received: '',
+        actual_expenses_reimbursed: '0',
+        notes: '',
+    })
+    const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false)
+    const [disputeForm, setDisputeForm] = useState({
+        dispute_reason: '',
+        notes: '',
+    })
 
     const { data: trip, isLoading, error } = useQuery({
         queryKey: ['trip', id],
         queryFn: () => getTrip(Number(id)),
         enabled: !!id,
     })
+    const canAccessSettlementSection = !!trip && (
+        user?.role === 'admin' || (
+            user?.role === 'office_staff'
+            && user.department !== 'cargo'
+            && user.office === trip.destination_office
+        )
+    )
+    const {
+        data: settlement,
+        error: settlementError,
+        isLoading: isSettlementLoading,
+    } = useQuery({
+        queryKey: ['settlement', id],
+        queryFn: () => getSettlement(Number(id)),
+        enabled: !!id && !!trip && trip.status === 'completed' && canAccessSettlementSection,
+        retry: false,
+    })
 
     const invalidateTrip = () => {
         queryClient.invalidateQueries({ queryKey: ['trip', id] })
         queryClient.invalidateQueries({ queryKey: ['trips'] })
+        queryClient.invalidateQueries({ queryKey: ['settlement', id] })
+        queryClient.invalidateQueries({ queryKey: ['pending-settlements'] })
+        queryClient.invalidateQueries({ queryKey: ['settlements'] })
     }
 
     const extractErrorMsg = (err: unknown, defaultMsg: string) => {
@@ -62,6 +101,28 @@ export function TripDetailPage() {
             if (response?.data?.detail) return response.data.detail
         }
         return defaultMsg
+    }
+
+    const settlementMissing = settlementError && typeof settlementError === 'object'
+        && 'response' in settlementError
+        && (settlementError as any).response?.status === 404
+    const canRecordSettlement = settlement && ['pending', 'partial'].includes(settlement.status)
+
+    const openRecordModal = (currentSettlement: Settlement) => {
+        setRecordForm({
+            actual_cash_received: String(currentSettlement.actual_cash_received ?? currentSettlement.expected_total_cash),
+            actual_expenses_reimbursed: String(currentSettlement.actual_expenses_reimbursed ?? currentSettlement.expenses_to_reimburse),
+            notes: currentSettlement.notes ?? '',
+        })
+        setIsRecordModalOpen(true)
+    }
+
+    const openDisputeModal = (currentSettlement: Settlement) => {
+        setDisputeForm({
+            dispute_reason: currentSettlement.dispute_reason ?? '',
+            notes: currentSettlement.notes ?? '',
+        })
+        setIsDisputeModalOpen(true)
     }
 
     const startMutation = useMutation({
@@ -96,6 +157,28 @@ export function TripDetailPage() {
         },
         onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de la suppression du voyage."))
     })
+    const initiateSettlementMutation = useMutation({
+        mutationFn: () => initiateSettlement(Number(id)),
+        onSuccess: invalidateTrip,
+        onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de l'initiation du reglement."))
+    })
+    const recordSettlementMutation = useMutation({
+        mutationFn: (payload: { actual_cash_received: number; actual_expenses_reimbursed: number; notes: string }) =>
+            recordSettlement(Number(id), payload),
+        onSuccess: () => {
+            setIsRecordModalOpen(false)
+            invalidateTrip()
+        },
+        onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de l'enregistrement du reglement."))
+    })
+    const disputeSettlementMutation = useMutation({
+        mutationFn: (payload: { dispute_reason: string; notes: string }) => disputeSettlement(Number(id), payload),
+        onSuccess: () => {
+            setIsDisputeModalOpen(false)
+            invalidateTrip()
+        },
+        onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors du signalement du litige."))
+    })
 
     if (isLoading) {
         return (
@@ -122,6 +205,24 @@ export function TripDetailPage() {
     const canComplete = trip.status === 'in_progress' && isOfficeStaff && (user?.office === trip.destination_office || user?.role === 'admin')
     const canForceComplete = trip.status === 'in_progress' && user?.role === 'admin'
     const canDelete = user?.role === 'admin' && (trip.status === 'scheduled' || trip.status === 'cancelled')
+    const showSettlementSection = canAccessSettlementSection
+
+    const handleRecordSettlement = (event: React.FormEvent) => {
+        event.preventDefault()
+        recordSettlementMutation.mutate({
+            actual_cash_received: Number(recordForm.actual_cash_received || 0),
+            actual_expenses_reimbursed: Number(recordForm.actual_expenses_reimbursed || 0),
+            notes: recordForm.notes,
+        })
+    }
+
+    const handleDisputeSettlement = (event: React.FormEvent) => {
+        event.preventDefault()
+        disputeSettlementMutation.mutate({
+            dispute_reason: disputeForm.dispute_reason,
+            notes: disputeForm.notes,
+        })
+    }
 
     const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
         { id: 'info', label: 'Informations', icon: <AlertCircle className="w-4 h-4" /> },
@@ -131,7 +232,101 @@ export function TripDetailPage() {
     ]
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <>
+            <Modal
+                isOpen={isRecordModalOpen}
+                onClose={() => !recordSettlementMutation.isPending && setIsRecordModalOpen(false)}
+                title="Enregistrer le reglement"
+            >
+                <form onSubmit={handleRecordSettlement} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                            Especes recues (DA)
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            value={recordForm.actual_cash_received}
+                            onChange={(event) => setRecordForm((current) => ({ ...current, actual_cash_received: event.target.value }))}
+                            className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                            Depenses remboursees (DA)
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            value={recordForm.actual_expenses_reimbursed}
+                            onChange={(event) => setRecordForm((current) => ({ ...current, actual_expenses_reimbursed: event.target.value }))}
+                            className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                            Notes
+                        </label>
+                        <textarea
+                            value={recordForm.notes}
+                            onChange={(event) => setRecordForm((current) => ({ ...current, notes: event.target.value }))}
+                            rows={4}
+                            className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <Button type="button" variant="secondary" onClick={() => setIsRecordModalOpen(false)}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" isLoading={recordSettlementMutation.isPending}>
+                            Enregistrer
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+
+            <Modal
+                isOpen={isDisputeModalOpen}
+                onClose={() => !disputeSettlementMutation.isPending && setIsDisputeModalOpen(false)}
+                title="Signaler un litige"
+            >
+                <form onSubmit={handleDisputeSettlement} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                            Motif du litige
+                        </label>
+                        <textarea
+                            value={disputeForm.dispute_reason}
+                            onChange={(event) => setDisputeForm((current) => ({ ...current, dispute_reason: event.target.value }))}
+                            rows={4}
+                            className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
+                            Notes internes
+                        </label>
+                        <textarea
+                            value={disputeForm.notes}
+                            onChange={(event) => setDisputeForm((current) => ({ ...current, notes: event.target.value }))}
+                            rows={3}
+                            className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <Button type="button" variant="secondary" onClick={() => setIsDisputeModalOpen(false)}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" variant="danger" isLoading={disputeSettlementMutation.isPending}>
+                            Escalader
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+
+            <div className="space-y-6 animate-fade-in">
             {/* Header section */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -286,7 +481,8 @@ export function TripDetailPage() {
             {/* Tab content wrapper */}
             <div className="py-4">
                 {activeTab === 'info' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Info details card */}
                         <div className="bg-surface-800 border border-surface-600/50 rounded-xl p-6 space-y-6">
                             <h3 className="text-lg font-semibold text-text-primary border-b border-surface-600/30 pb-2">
@@ -379,6 +575,98 @@ export function TripDetailPage() {
                                 </div>
                             </div>
                         </div>
+
+                        </div>
+
+                        {showSettlementSection && (
+                            <div className="bg-surface-800 border border-surface-600/50 rounded-xl p-6 space-y-5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-text-primary">Reglement</h3>
+                                        <p className="text-sm text-text-muted mt-1">
+                                            Remise de caisse au bureau de destination.
+                                        </p>
+                                    </div>
+                                    {settlement && <StatusBadge status={settlement.status} type="settlement" />}
+                                </div>
+
+                                {trip.status !== 'completed' && (
+                                    <div className="rounded-lg border border-brand-500/20 bg-brand-500/10 p-4 text-sm text-brand-300">
+                                        Le reglement sera disponible une fois le voyage cloture.
+                                    </div>
+                                )}
+
+                                {trip.status === 'completed' && isSettlementLoading && (
+                                    <div className="rounded-lg border border-surface-600/50 bg-surface-700/40 p-4 text-sm text-text-muted">
+                                        Chargement du reglement...
+                                    </div>
+                                )}
+
+                                {trip.status === 'completed' && !isSettlementLoading && settlement && (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                            <SettlementValue label="Especes attendues" value={formatCurrency(settlement.expected_total_cash)} />
+                                            <SettlementValue label="Depenses a rembourser" value={formatCurrency(settlement.expenses_to_reimburse)} />
+                                            <SettlementValue label="Net attendu" value={formatCurrency(settlement.net_cash_expected)} />
+                                            <SettlementValue label="Especes recues" value={settlement.actual_cash_received !== null ? formatCurrency(settlement.actual_cash_received) : 'Non saisi'} />
+                                            <SettlementValue label="Remboursement saisi" value={formatCurrency(settlement.actual_expenses_reimbursed)} />
+                                            <SettlementValue
+                                                label="Ecart net"
+                                                value={settlement.discrepancy_amount !== null ? formatCurrency(settlement.discrepancy_amount) : 'En attente'}
+                                                tone={settlement.discrepancy_amount === 0 ? 'success' : settlement.discrepancy_amount === null ? 'default' : 'warning'}
+                                            />
+                                            <SettlementValue label="Prevente agence" value={formatCurrency(settlement.agency_presale_total)} />
+                                            <SettlementValue label="POD restant" value={formatCurrency(settlement.outstanding_cargo_delivery)} />
+                                            <SettlementValue label="Receveur" value={settlement.settled_by_name || 'Non attribue'} />
+                                        </div>
+
+                                        {(settlement.notes || settlement.dispute_reason) && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="rounded-lg border border-surface-600/50 bg-surface-700/30 p-4">
+                                                    <p className="text-xs uppercase tracking-wide text-text-muted mb-2">Notes</p>
+                                                    <p className="text-sm text-text-secondary">{settlement.notes || 'Aucune note'}</p>
+                                                </div>
+                                                <div className="rounded-lg border border-status-error/20 bg-status-error/10 p-4">
+                                                    <p className="text-xs uppercase tracking-wide text-status-error mb-2">Motif du litige</p>
+                                                    <p className="text-sm text-status-error">{settlement.dispute_reason || 'Aucun litige enregistre'}</p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {canRecordSettlement && (
+                                            <div className="flex flex-wrap gap-3">
+                                                <Button onClick={() => openRecordModal(settlement)}>
+                                                    Enregistrer la remise
+                                                </Button>
+                                                <Button variant="secondary" onClick={() => openDisputeModal(settlement)}>
+                                                    Signaler un litige
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {trip.status === 'completed' && !isSettlementLoading && settlementMissing && (
+                                    <div className="rounded-lg border border-status-warning/20 bg-status-warning/10 p-4 space-y-3">
+                                        <p className="text-sm text-status-warning">
+                                            Aucun reglement n'a encore ete cree pour ce voyage.
+                                        </p>
+                                        <Button
+                                            onClick={() => initiateSettlementMutation.mutate()}
+                                            isLoading={initiateSettlementMutation.isPending}
+                                        >
+                                            Initier le reglement
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {trip.status === 'completed' && !isSettlementLoading && !settlement && !settlementMissing && settlementError && (
+                                    <div className="rounded-lg border border-status-error/20 bg-status-error/10 p-4 text-sm text-status-error">
+                                        Impossible de charger le reglement.
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -396,6 +684,30 @@ export function TripDetailPage() {
                     </div>
                 )}
             </div>
+            </div>
+        </>
+    )
+}
+
+function SettlementValue({
+    label,
+    value,
+    tone = 'default',
+}: {
+    label: string
+    value: string
+    tone?: 'default' | 'success' | 'warning'
+}) {
+    const toneClass = tone === 'success'
+        ? 'text-status-success'
+        : tone === 'warning'
+            ? 'text-status-warning'
+            : 'text-text-primary'
+
+    return (
+        <div className="rounded-lg border border-surface-600/40 bg-surface-700/30 p-4">
+            <p className="text-xs uppercase tracking-wide text-text-muted mb-2">{label}</p>
+            <p className={`text-base font-semibold ${toneClass}`}>{value}</p>
         </div>
     )
 }

@@ -8,12 +8,12 @@ class CurrencyFormatterTest {
 
     @Test
     fun parseCurrencyInput_parsesWholeUnits() {
-        assertEquals(120_000L, parseCurrencyInput("1200"))
+        assertEquals(1_200L, parseCurrencyInput("1200"))
     }
 
     @Test
     fun parseCurrencyInput_parsesDecimalInput() {
-        assertEquals(123_456L, parseCurrencyInput("1 234,56"))
+        assertEquals(1_235L, parseCurrencyInput("1 234,56"))
     }
 
     @Test

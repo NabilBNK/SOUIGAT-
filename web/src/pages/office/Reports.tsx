@@ -62,6 +62,7 @@ export function ReportsPage() {
 
     // Export state
     const [exportTaskId, setExportTaskId] = useState<string | null>(null)
+    const [exportDownloadToken, setExportDownloadToken] = useState<string | null>(null)
     const [exportError, setExportError] = useState<string | null>(null)
     const [exportStartTime, setExportStartTime] = useState<number | null>(null)
 
@@ -101,8 +102,8 @@ export function ReportsPage() {
         enabled: !!exportTaskId,
         refetchInterval: (query) => {
             const status = query.state.data?.status
-            if (status === 'SUCCESS' || status === 'FAILURE') return false // Stop polling
-            return 2000 // Poll every 2s
+            if (status === 'success' || status === 'failure') return false
+            return 2000
         }
     })
 
@@ -113,6 +114,7 @@ export function ReportsPage() {
         }),
         onSuccess: (data) => {
             setExportTaskId(data.task_id)
+            setExportDownloadToken(data.download_token)
             setExportError(null)
             setExportStartTime(Date.now())
         },
@@ -121,27 +123,29 @@ export function ReportsPage() {
         }
     })
 
-    const isExporting = !!exportTaskId && exportStatus?.status !== 'SUCCESS' && exportStatus?.status !== 'FAILURE'
+    const isExporting = !!exportTaskId && exportStatus?.status !== 'success' && exportStatus?.status !== 'failure'
 
     // Handle export completion
     useEffect(() => {
-        if (exportStatus?.status === 'SUCCESS' && exportStatus.task_id) {
+        if (exportStatus?.status === 'success' && exportStatus.task_id && exportDownloadToken) {
             // Give user a brief moment to see 100% then redirect to download
             const timer = setTimeout(() => {
-                window.location.href = getExportDownloadUrl(exportStatus.task_id)
+                window.location.href = getExportDownloadUrl(exportStatus.task_id, exportDownloadToken)
                 // Reset state after download starts
                 setTimeout(() => {
                     setExportTaskId(null)
+                    setExportDownloadToken(null)
                     setExportStartTime(null)
                 }, 2000)
             }, 1000)
             return () => clearTimeout(timer)
-        } else if (exportStatus?.status === 'FAILURE') {
+        } else if (exportStatus?.status === 'failure') {
             setExportError("L'export a échoué. Veuillez réessayer.")
             setExportTaskId(null)
+            setExportDownloadToken(null)
             setExportStartTime(null)
         }
-    }, [exportStatus])
+    }, [exportDownloadToken, exportStatus])
 
     // Handle export polling timeout
     useEffect(() => {
@@ -150,6 +154,7 @@ export function ReportsPage() {
                 if (Date.now() - exportStartTime > 60000) {
                     setExportError("Délai d'exportation dépassé.")
                     setExportTaskId(null)
+                    setExportDownloadToken(null)
                     setExportStartTime(null)
                 }
             }, 5000)

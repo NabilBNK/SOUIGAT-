@@ -26,8 +26,8 @@ export async function getRouteAnalysis(params?: {
 export async function triggerExport(payload: {
     report_type: string
     filters: Record<string, string>
-}): Promise<{ task_id: string }> {
-    const response = await client.post<{ task_id: string }>('/exports/', payload)
+}): Promise<{ task_id: string; download_token: string; status: 'pending' }> {
+    const response = await client.post<{ task_id: string; download_token: string; status: 'pending' }>('/exports/', payload)
     return response.data
 }
 
@@ -36,6 +36,6 @@ export async function getExportStatus(taskId: string): Promise<ExportStatus> {
     return response.data
 }
 
-export function getExportDownloadUrl(taskId: string): string {
-    return `/api/exports/${taskId}/download/`
+export function getExportDownloadUrl(taskId: string, downloadToken: string): string {
+    return `/api/exports/${taskId}/download/?token=${encodeURIComponent(downloadToken)}`
 }

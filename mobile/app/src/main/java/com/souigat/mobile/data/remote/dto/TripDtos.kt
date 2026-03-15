@@ -55,5 +55,28 @@ data class TripDetailDto(
 data class TripStatusDto(
     val status: String,
     @SerialName("arrival_datetime")
-    val arrivalDatetime: String? = null
+    val arrivalDatetime: String? = null,
+    @SerialName("settlement_preview")
+    val settlementPreview: SettlementPreviewDto? = null,
+    @SerialName("settlement_preview_error")
+    val settlementPreviewError: String? = null
+)
+
+@Serializable
+data class SettlementPreviewDto(
+    @SerialName("settlement_id")
+    val settlementId: Int,
+    val status: String,
+    @SerialName("office_name")
+    val officeName: String,
+    @SerialName("expected_total_cash")
+    val expectedTotalCash: Long,
+    @SerialName("expenses_to_reimburse")
+    val expensesToReimburse: Long,
+    @SerialName("net_cash_expected")
+    val netCashExpected: Long,
+    @SerialName("agency_presale_total")
+    val agencyPresaleTotal: Long,
+    @SerialName("outstanding_cargo_delivery")
+    val outstandingCargoDelivery: Long
 )

@@ -7,7 +7,7 @@ from rest_framework.routers import DefaultRouter
 from api.views import (
     admin_views, admin_management_views, auth, trip_views, ticket_views,
     cargo_views, expense_views, quarantine_views,
-    sync_views, report_views, export_views,
+    sync_views, report_views, export_views, settlement_views,
 )
 
 
@@ -53,6 +53,15 @@ urlpatterns = [
     path('reports/trip/<int:trip_id>/', report_views.trip_report, name='report-trip'),
     path('reports/route/', report_views.route_report, name='report-route'),
     path('reports/conductors/', report_views.conductor_report, name='report-conductors'),
+
+    # Settlements
+    path('settlements/', settlement_views.list_settlements, name='settlement-list'),
+    path('settlements/pending/', settlement_views.pending_settlements, name='settlement-pending'),
+    path('settlements/initiate/<int:trip_id>/', settlement_views.initiate_settlement, name='settlement-initiate'),
+    path('settlements/<int:trip_id>/', settlement_views.settlement_detail, name='settlement-detail'),
+    path('settlements/<int:trip_id>/record/', settlement_views.record_settlement, name='settlement-record'),
+    path('settlements/<int:trip_id>/dispute/', settlement_views.dispute_settlement, name='settlement-dispute'),
+    path('settlements/<int:trip_id>/resolve/', settlement_views.resolve_settlement, name='settlement-resolve'),
 
     # Excel export
     path('exports/', export_views.trigger_export, name='export-trigger'),

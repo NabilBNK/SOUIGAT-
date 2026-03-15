@@ -22,6 +22,16 @@ services:
       interval: 5s
       retries: 5
 
+  migrate:
+    build: ./backend
+    command: python manage.py migrate --noinput
+    volumes:
+      - ./backend:/app
+      - exports_data:/app/exports
+    env_file: .env
+    depends_on:
+      db: { condition: service_healthy }
+
   backend:
     build: ./backend
     command: >
@@ -33,7 +43,7 @@ services:
       - exports_data:/app/exports
     env_file: .env
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
   celery:
@@ -45,7 +55,7 @@ services:
       - exports_data:/app/exports
     env_file: .env
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
     deploy:
       resources:
@@ -59,7 +69,7 @@ services:
     volumes: [ ./backend:/app ]
     env_file: .env
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
   web:

@@ -21,6 +21,9 @@ interface CargoTicketDao {
     @Query("SELECT COUNT(*) FROM cargo_tickets WHERE tripId = :tripId")
     suspend fun getCount(tripId: Long): Int
 
+    @Query("SELECT * FROM cargo_tickets ORDER BY createdAt DESC LIMIT 12")
+    fun observeRecentGlobal(): Flow<List<CargoTicketEntity>>
+
     @Query("SELECT COUNT(*) FROM cargo_tickets WHERE ticketNumber LIKE :datePrefix || '%'")
     suspend fun getCountByDate(datePrefix: String): Int
 

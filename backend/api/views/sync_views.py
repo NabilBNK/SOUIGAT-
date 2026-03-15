@@ -1,7 +1,7 @@
 import logging
-from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -13,10 +13,30 @@ from api.models import (
 from api.serializers.sync import SyncBatchSerializer, SyncLogResultSerializer
 from api.signals import suppress_report_signals, _invalidate_report_cache
 from api.permissions import get_cached_user_permissions
+from api.services.money_scale import (
+    looks_like_legacy_mobile_expense_amount,
+    looks_like_legacy_mobile_passenger_price,
+    normalize_money_amount,
+    parse_integer_money,
+)
 
 logger = logging.getLogger(__name__)
 
 VALID_CARGO_TIERS = {'small', 'medium', 'large'}
+
+
+def _quarantine_item(*, idx, item, key, trip, user, reason):
+    with transaction.atomic():
+        QuarantinedSync.objects.create(
+            conductor=user,
+            trip=trip,
+            original_data={
+                'type': item['type'],
+                'payload': item['payload'],
+                'idempotency_key': key,
+            },
+            reason=reason,
+        )
 
 
 @api_view(['POST'])
@@ -103,21 +123,16 @@ def batch_sync(request):
 
                 # If trip is closed, quarantine instead of processing
                 if trip_closed:
-                    quarantine_sid = transaction.savepoint()
                     try:
-                        QuarantinedSync.objects.create(
-                            conductor=request.user,
+                        _quarantine_item(
+                            idx=idx,
+                            item=item,
+                            key=key,
                             trip=trip,
-                            original_data={
-                                'type': item['type'],
-                                'payload': item['payload'],
-                                'idempotency_key': key,
-                            },
+                            user=request.user,
                             reason=f'Trip status is {trip.status} (not open for sync)',
                         )
-                        transaction.savepoint_commit(quarantine_sid)
                     except Exception:
-                        transaction.savepoint_rollback(quarantine_sid)
                         logger.error(
                             'Failed to quarantine item %d for closed trip %d',
                             idx, trip.id, exc_info=True,
@@ -130,6 +145,7 @@ def batch_sync(request):
                             'accepted': 0, 'quarantined': 1,
                         },
                     )
+                    existing_keys.add(key)
                     results.append({
                         'index': idx, 'status': 'quarantined',
                         'reason': f'Trip {trip.status}',
@@ -138,45 +154,28 @@ def batch_sync(request):
                     last_processed_index = idx
                     continue
 
-                # Per-item savepoint for open trips
-                sid = transaction.savepoint()
                 try:
-                    record_id = _process_item(
-                        item_type=item['type'],
-                        payload=item['payload'],
-                        trip=trip,
-                        user=request.user,
-                        trip_state=trip_state,
-                    )
-                    transaction.savepoint_commit(sid)
-
-                    local_id = item.get('local_id')
-                    results.append({
-                        'index': idx, 'status': 'accepted', 'id': record_id,
-                        **(({'local_id': local_id}) if local_id is not None else {}),
-                    })
-                    accepted += 1
-                    last_processed_index = idx
-
+                    with transaction.atomic():
+                        record_id = _process_item(
+                            item_type=item['type'],
+                            payload=item['payload'],
+                            trip=trip,
+                            user=request.user,
+                            trip_state=trip_state,
+                        )
                 except Exception as e:
-                    transaction.savepoint_rollback(sid)
                     reason = str(e)
 
-                    quarantine_sid = transaction.savepoint()
                     try:
-                        QuarantinedSync.objects.create(
-                            conductor=request.user,
+                        _quarantine_item(
+                            idx=idx,
+                            item=item,
+                            key=key,
                             trip=trip,
-                            original_data={
-                                'type': item['type'],
-                                'payload': item['payload'],
-                                'idempotency_key': key,
-                            },
+                            user=request.user,
                             reason=reason,
                         )
-                        transaction.savepoint_commit(quarantine_sid)
                     except Exception:
-                        transaction.savepoint_rollback(quarantine_sid)
                         logger.error(
                             'Failed to quarantine item %d for trip %d: %s',
                             idx, trip.id, reason, exc_info=True,
@@ -188,6 +187,14 @@ def batch_sync(request):
                         **(({'local_id': local_id}) if local_id is not None else {}),
                     })
                     quarantined += 1
+                else:
+                    local_id = item.get('local_id')
+                    results.append({
+                        'index': idx, 'status': 'accepted', 'id': record_id,
+                        **(({'local_id': local_id}) if local_id is not None else {}),
+                    })
+                    accepted += 1
+                    last_processed_index = idx
 
                 # Record idempotency key regardless of outcome
                 SyncLog.objects.get_or_create(
@@ -199,6 +206,7 @@ def batch_sync(request):
                         'quarantined': 1 if results[-1]['status'] == 'quarantined' else 0,
                     },
                 )
+                existing_keys.add(key)
                 last_processed_index = idx
 
     # Invalidate report cache once for the entire batch (outside both context managers)
@@ -305,10 +313,22 @@ def _create_passenger_ticket(payload, trip, user, trip_state):
     if raw_price in (None, ''):
         price = trip.passenger_base_price
     else:
+        money_scale = payload.get('money_scale')
         try:
-            price = int(Decimal(str(raw_price)))
-        except (TypeError, ValueError, InvalidOperation):
-            raise ValidationError(f'Invalid price: {raw_price!r}')
+            price = parse_integer_money(raw_price, field_name='price')
+            price = normalize_money_amount(price, money_scale=money_scale)
+        except ValueError as exc:
+            raise ValidationError(str(exc))
+
+        if money_scale is None and looks_like_legacy_mobile_passenger_price(price, trip.passenger_base_price):
+            logger.warning(
+                'Normalizing legacy mobile passenger price for trip %d: raw=%s normalized=%s',
+                trip.id,
+                raw_price,
+                price // 100,
+            )
+            price = price // 100
+
         if price < 100:
             raise ValidationError('Ticket price must be at least 100 DA.')
 
@@ -325,6 +345,7 @@ def _create_passenger_ticket(payload, trip, user, trip_state):
         boarding_point=boarding_point,
         alighting_point=alighting_point,
         seat_number=str(payload.get('seat_number', ''))[:10],
+        synced_at=timezone.now(),
         created_by=user,
     )
 
@@ -378,9 +399,19 @@ def _create_expense(payload, trip, user):
     # Bug #4 fix: use Decimal for safe numeric handling
     raw = payload.get('amount')
     try:
-        amount = Decimal(str(raw))
-    except (TypeError, ValueError, InvalidOperation):
-        raise ValidationError(f'Invalid expense amount: {raw!r}')
+        amount = parse_integer_money(raw, field_name='expense amount')
+        amount = normalize_money_amount(amount, money_scale=payload.get('money_scale'))
+    except ValueError as exc:
+        raise ValidationError(str(exc))
+
+    if payload.get('money_scale') is None and looks_like_legacy_mobile_expense_amount(amount, description):
+        logger.warning(
+            'Normalizing legacy mobile expense amount for trip %d: raw=%s normalized=%s',
+            trip.id,
+            raw,
+            amount // 100,
+        )
+        amount = amount // 100
 
     if amount <= 0:
         raise ValidationError('Expense amount must be positive.')
@@ -390,6 +421,7 @@ def _create_expense(payload, trip, user):
         description=description,
         amount=amount,
         currency=trip.currency,
+        synced_at=timezone.now(),
         created_by=user,
     )
     return expense.id

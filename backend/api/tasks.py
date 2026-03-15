@@ -36,7 +36,7 @@ def generate_excel_report(self, report_type, filters, user_id):
     from django.db.models.functions import Coalesce
 
     from api.models import (
-        CargoTicket, PassengerTicket, Trip, TripExpense, User,
+        CargoTicket, PassengerTicket, Settlement, Trip, TripExpense, User,
     )
 
     try:
@@ -81,9 +81,14 @@ def generate_excel_report(self, report_type, filters, user_id):
     ws_trips.title = 'Trips'
     ws_trips.append([
         'ID', 'Origin', 'Destination', 'Departure', 'Status',
-        'Conductor', 'Base Price',
+        'Conductor', 'Base Price', 'Settlement Status', 'Settlement Discrepancy',
     ])
+    settlements_by_trip = {
+        settlement.trip_id: settlement
+        for settlement in Settlement.objects.filter(trip_id__in=trip_ids)
+    }
     for t in trips.select_related('origin_office', 'destination_office', 'conductor'):
+        settlement = settlements_by_trip.get(t.id)
         ws_trips.append([
             t.id,
             str(t.origin_office),
@@ -92,6 +97,8 @@ def generate_excel_report(self, report_type, filters, user_id):
             t.status,
             str(t.conductor) if t.conductor else '',
             t.passenger_base_price,
+            settlement.status if settlement else '',
+            settlement.discrepancy_amount if settlement and settlement.discrepancy_amount is not None else '',
         ])
 
     # --- Tickets sheet ---
@@ -126,6 +133,40 @@ def generate_excel_report(self, report_type, filters, user_id):
     for e in TripExpense.objects.filter(trip_id__in=trip_ids):
         ws_exp.append([
             e.id, e.trip_id, e.description, e.amount, e.currency,
+        ])
+
+    # --- Settlements sheet ---
+    ws_settle = wb.create_sheet('Settlements')
+    ws_settle.append([
+        'ID', 'Trip', 'Office', 'Conductor', 'Status',
+        'Expected Passenger Cash', 'Expected Cargo Cash', 'Expected Total Cash',
+        'Agency Presale', 'Outstanding POD', 'Expenses Reimbursed Expected',
+        'Net Cash Expected', 'Actual Cash Received', 'Actual Expenses Reimbursed',
+        'Discrepancy', 'Created At', 'Settled At', 'Disputed At', 'Resolved At',
+    ])
+    for settlement in Settlement.objects.filter(trip_id__in=trip_ids).select_related(
+        'office', 'conductor',
+    ).order_by('trip_id'):
+        ws_settle.append([
+            settlement.id,
+            settlement.trip_id,
+            str(settlement.office),
+            str(settlement.conductor),
+            settlement.status,
+            settlement.expected_passenger_cash,
+            settlement.expected_cargo_cash,
+            settlement.expected_total_cash,
+            settlement.agency_presale_total,
+            settlement.outstanding_cargo_delivery,
+            settlement.expenses_to_reimburse,
+            settlement.net_cash_expected,
+            settlement.actual_cash_received if settlement.actual_cash_received is not None else '',
+            settlement.actual_expenses_reimbursed,
+            settlement.discrepancy_amount if settlement.discrepancy_amount is not None else '',
+            settlement.created_at.strftime('%Y-%m-%d %H:%M') if settlement.created_at else '',
+            settlement.settled_at.strftime('%Y-%m-%d %H:%M') if settlement.settled_at else '',
+            settlement.disputed_at.strftime('%Y-%m-%d %H:%M') if settlement.disputed_at else '',
+            settlement.resolved_at.strftime('%Y-%m-%d %H:%M') if settlement.resolved_at else '',
         ])
 
     # Save file

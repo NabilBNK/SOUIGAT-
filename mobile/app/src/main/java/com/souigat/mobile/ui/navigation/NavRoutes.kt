@@ -12,6 +12,7 @@ sealed class NavRoute(val route: String) {
     object Login : NavRoute("login")
     object Dashboard : NavRoute("dashboard")
     object Trips : NavRoute("trips")
+    object SettlementSummary : NavRoute("settlement_summary")
     object History : NavRoute("history")
     object Expenses : NavRoute("expenses")
     object Profile : NavRoute("profile")

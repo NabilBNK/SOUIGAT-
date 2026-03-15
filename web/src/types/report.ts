@@ -52,7 +52,7 @@ export interface TripReport {
 
 export interface ExportStatus {
     task_id: string
-    status: 'PENDING' | 'STARTED' | 'SUCCESS' | 'FAILURE'
+    status: 'pending' | 'started' | 'success' | 'failure'
     progress?: number
     download_url?: string
     error?: string

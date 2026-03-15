@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
@@ -143,7 +144,7 @@ fun DashboardScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Billets et depenses du trajet en cours.",
+                        text = "Billets, colis et depenses recents de vos trajets.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -155,11 +156,7 @@ fun DashboardScreen(
                     EmptyStatePanel(
                         icon = Icons.Default.History,
                         title = "Aucune activite",
-                        message = if (state.route == null) {
-                            "Commencez un trajet pour voir les ventes et depenses apparaitre ici."
-                        } else {
-                            "Les prochaines creations hors ligne s'afficheront dans ce flux."
-                        }
+                        message = "Les prochaines creations hors ligne resteront visibles ici."
                     )
                 }
             } else {
@@ -171,10 +168,12 @@ fun DashboardScreen(
                     ActivityItem(
                         icon = when (item.kind) {
                             DashboardActivityKind.PassengerTicket -> Icons.Default.ConfirmationNumber
+                            DashboardActivityKind.CargoTicket -> Icons.Default.Inventory2
                             DashboardActivityKind.Expense -> Icons.Default.Receipt
                         },
                         iconTint = when (item.kind) {
                             DashboardActivityKind.PassengerTicket -> MaterialTheme.colorScheme.primary
+                            DashboardActivityKind.CargoTicket -> Warning
                             DashboardActivityKind.Expense -> ErrorRed
                         },
                         title = item.title,

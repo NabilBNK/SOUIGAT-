@@ -1,5 +1,5 @@
 import client from './client'
-import type { Trip, TripCreate, TripFilters } from '../types/trip'
+import type { Trip, TripActionResponse, TripCreate, TripFilters } from '../types/trip'
 import type { Office, Bus } from '../types/admin'
 import type { User } from '../types/auth'
 
@@ -38,23 +38,23 @@ export async function getTripReferenceData(currentOfficeId?: number): Promise<Tr
     return response.data
 }
 
-export async function startTrip(id: number): Promise<Trip> {
-    const response = await client.post<Trip>(`/trips/${id}/start/`)
+export async function startTrip(id: number): Promise<TripActionResponse> {
+    const response = await client.post<TripActionResponse>(`/trips/${id}/start/`)
     return response.data
 }
 
-export async function completeTrip(id: number): Promise<Trip> {
-    const response = await client.post<Trip>(`/trips/${id}/complete/`)
+export async function completeTrip(id: number): Promise<TripActionResponse> {
+    const response = await client.post<TripActionResponse>(`/trips/${id}/complete/`)
     return response.data
 }
 
-export async function cancelTrip(id: number): Promise<Trip> {
-    const response = await client.post<Trip>(`/trips/${id}/cancel/`)
+export async function cancelTrip(id: number): Promise<TripActionResponse> {
+    const response = await client.post<TripActionResponse>(`/trips/${id}/cancel/`)
     return response.data
 }
 
-export async function forceCompleteTrip(id: number, force_reason: string): Promise<Trip> {
-    const response = await client.post<Trip>(`/trips/${id}/force_complete/`, { force_reason })
+export async function forceCompleteTrip(id: number, force_reason: string): Promise<TripActionResponse> {
+    const response = await client.post<TripActionResponse>(`/trips/${id}/force_complete/`, { force_reason })
     return response.data
 }
 

@@ -1,3 +1,5 @@
+import type { SettlementPreview } from './settlement'
+
 export type TripStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
 
 export interface Trip {
@@ -40,4 +42,11 @@ export interface TripFilters {
     date_from?: string
     date_to?: string
     page?: number
+}
+
+export interface TripActionResponse {
+    status: TripStatus
+    arrival_datetime?: string | null
+    settlement_preview?: SettlementPreview | null
+    settlement_preview_error?: string | null
 }

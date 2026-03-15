@@ -21,6 +21,7 @@ class AuditMiddleware:
     SKIP_PREFIXES = (
         '/api/auth/token/',
         '/api/sync/',  # Sync tracked via SyncLog; per-item audit here would cause ~157K rows/year
+        '/api/settlements/',  # Settlement actions log explicit semantic rows with correct settlement IDs
     )
     SKIP_EXACT = ('/api/',)  # health check
     MAX_JSON_BYTES = 10_240  # 10KB

@@ -147,6 +147,20 @@ class TripLifecycleTests(TestCase):
         self.assertEqual(trip.status, 'completed')
         self.assertIsNotNone(trip.arrival_datetime)
 
+    def test_complete_trip_before_scheduled_departure_clamps_arrival(self):
+        trip = self._make_trip(
+            status='in_progress',
+            departure_datetime=timezone.now() + timedelta(minutes=10),
+        )
+        self.client.force_authenticate(self.conductor)
+
+        resp = self.client.post(f'/api/trips/{trip.id}/complete/')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        trip.refresh_from_db()
+        self.assertEqual(trip.status, 'completed')
+        self.assertGreater(trip.arrival_datetime, trip.departure_datetime)
+
     def test_cancel_trip(self):
         trip = self._make_trip()
         self.client.force_authenticate(self.staff)

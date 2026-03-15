@@ -59,7 +59,8 @@ fun TripDetailScreen(
     viewModel: TripDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToCreateTicket: (Int) -> Unit = {},
-    onNavigateToCreateExpense: (Int) -> Unit = {}
+    onNavigateToCreateExpense: (Int) -> Unit = {},
+    onNavigateToSettlementSummary: (SettlementPreviewUiModel) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val actionState by viewModel.actionState.collectAsStateWithLifecycle()
@@ -78,9 +79,25 @@ fun TripDetailScreen(
                 viewModel.resetActionState()
             }
 
-            TripDetailViewModel.ActionState.Success -> {
+            is TripDetailViewModel.ActionState.Success -> {
                 showCompleteDialog = false
-                snackbarHostState.showSnackbar("Mise a jour effectuee.")
+                val preview = current.response.settlementPreview
+                when {
+                    preview != null -> {
+                        snackbarHostState.showSnackbar("Trajet termine. Ouverture du recapitulatif de remise.")
+                        onNavigateToSettlementSummary(viewModel.toSettlementPreviewUiModel(preview))
+                    }
+
+                    current.response.settlementPreviewError != null -> {
+                        snackbarHostState.showSnackbar(
+                            "Trajet termine. Le recapitulatif de remise est indisponible pour le moment."
+                        )
+                    }
+
+                    else -> {
+                        snackbarHostState.showSnackbar("Mise a jour effectuee.")
+                    }
+                }
                 viewModel.resetActionState()
             }
 

@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.souigat.mobile.data.local.entity.CargoTicketEntity
 import com.souigat.mobile.data.local.entity.ExpenseEntity
 import com.souigat.mobile.data.local.entity.PassengerTicketEntity
+import com.souigat.mobile.data.remote.dto.SettlementPreviewDto
 import com.souigat.mobile.data.remote.dto.TripDetailDto
+import com.souigat.mobile.data.remote.dto.TripStatusDto
 import com.souigat.mobile.domain.repository.ExpenseRepository
 import com.souigat.mobile.domain.repository.TicketRepository
 import com.souigat.mobile.domain.repository.TripException
@@ -65,6 +67,17 @@ data class TripDetailUiModel(
     val canCreateOfflineItems: Boolean
 )
 
+data class SettlementPreviewUiModel(
+    val settlementId: Int,
+    val status: String,
+    val officeName: String,
+    val expectedTotalCashLabel: String,
+    val expensesToReimburseLabel: String,
+    val netCashExpectedLabel: String,
+    val agencyPresaleLabel: String,
+    val outstandingCargoDeliveryLabel: String
+)
+
 sealed class TripDetailUiState {
     object Loading : TripDetailUiState()
     data class Success(val trip: TripDetailUiModel) : TripDetailUiState()
@@ -103,7 +116,7 @@ class TripDetailViewModel @Inject constructor(
         object Idle : ActionState()
         object Loading : ActionState()
         data class Error(val message: String) : ActionState()
-        object Success : ActionState()
+        data class Success(val response: TripStatusDto) : ActionState()
     }
 
     init {
@@ -132,12 +145,12 @@ class TripDetailViewModel @Inject constructor(
         executeAction { tripRepository.completeTrip(tripId) }
     }
 
-    private fun executeAction(action: suspend () -> Result<Any>) {
+    private fun executeAction(action: suspend () -> Result<TripStatusDto>) {
         viewModelScope.launch {
             _actionState.value = ActionState.Loading
             action()
-                .onSuccess {
-                    _actionState.value = ActionState.Success
+                .onSuccess { response ->
+                    _actionState.value = ActionState.Success(response)
                     loadTripDetail()
                 }
                 .onFailure { error ->
@@ -156,6 +169,19 @@ class TripDetailViewModel @Inject constructor(
 
     fun resetActionState() {
         _actionState.value = ActionState.Idle
+    }
+
+    fun toSettlementPreviewUiModel(dto: SettlementPreviewDto): SettlementPreviewUiModel {
+        return SettlementPreviewUiModel(
+            settlementId = dto.settlementId,
+            status = dto.status,
+            officeName = dto.officeName,
+            expectedTotalCashLabel = formatCurrency(dto.expectedTotalCash),
+            expensesToReimburseLabel = formatCurrency(dto.expensesToReimburse),
+            netCashExpectedLabel = formatCurrency(dto.netCashExpected),
+            agencyPresaleLabel = formatCurrency(dto.agencyPresaleTotal),
+            outstandingCargoDeliveryLabel = formatCurrency(dto.outstandingCargoDelivery),
+        )
     }
 
     private fun TripDetailDto.toTripDetailUiModel(): TripDetailUiModel {

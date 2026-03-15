@@ -23,6 +23,8 @@ import com.souigat.mobile.ui.screens.boot.BootScreen
 import com.souigat.mobile.ui.screens.dashboard.DashboardScreen
 import com.souigat.mobile.ui.screens.trips.TripListScreen
 import com.souigat.mobile.ui.screens.trips.TripDetailScreen
+import com.souigat.mobile.ui.screens.trips.SettlementSummaryScreen
+import com.souigat.mobile.ui.screens.trips.SettlementPreviewUiModel
 import com.souigat.mobile.ui.screens.expense.ExpensesScreen
 import com.souigat.mobile.ui.screens.history.HistoryScreen
 import com.souigat.mobile.ui.screens.login.LoginScreen
@@ -154,8 +156,51 @@ fun AppNavGraph(
                     },
                     onNavigateToCreateExpense = { tripId ->
                         navController.navigate("create_expense/$tripId")
+                    },
+                    onNavigateToSettlementSummary = { preview ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set("settlement_preview_id", preview.settlementId)
+                            set("settlement_preview_status", preview.status)
+                            set("settlement_preview_office_name", preview.officeName)
+                            set("settlement_preview_expected_total", preview.expectedTotalCashLabel)
+                            set("settlement_preview_expenses", preview.expensesToReimburseLabel)
+                            set("settlement_preview_net", preview.netCashExpectedLabel)
+                            set("settlement_preview_agency", preview.agencyPresaleLabel)
+                            set("settlement_preview_outstanding", preview.outstandingCargoDeliveryLabel)
+                        }
+                        navController.navigate(NavRoute.SettlementSummary.route)
                     }
                 )
+            }
+
+            composable(NavRoute.SettlementSummary.route) {
+                val savedStateHandle = navController.previousBackStackEntry?.savedStateHandle
+                val settlementId = savedStateHandle?.get<Int>("settlement_preview_id")
+                val preview = if (settlementId == null) {
+                    null
+                } else {
+                    SettlementPreviewUiModel(
+                        settlementId = settlementId,
+                        status = savedStateHandle.get<String>("settlement_preview_status").orEmpty(),
+                        officeName = savedStateHandle.get<String>("settlement_preview_office_name").orEmpty(),
+                        expectedTotalCashLabel = savedStateHandle.get<String>("settlement_preview_expected_total").orEmpty(),
+                        expensesToReimburseLabel = savedStateHandle.get<String>("settlement_preview_expenses").orEmpty(),
+                        netCashExpectedLabel = savedStateHandle.get<String>("settlement_preview_net").orEmpty(),
+                        agencyPresaleLabel = savedStateHandle.get<String>("settlement_preview_agency").orEmpty(),
+                        outstandingCargoDeliveryLabel = savedStateHandle.get<String>("settlement_preview_outstanding").orEmpty(),
+                    )
+                }
+
+                if (preview == null) {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                } else {
+                    SettlementSummaryScreen(
+                        preview = preview,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
             }
             
             composable(

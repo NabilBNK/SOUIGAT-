@@ -42,14 +42,31 @@ interface TripDao {
     @Query("SELECT * FROM trips WHERE serverId IN (:serverIds)")
     suspend fun getByServerIds(serverIds: List<Long>): List<TripEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(trip: TripEntity): Long
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAll(trips: List<TripEntity>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertOrIgnore(trip: TripEntity): Long
 
     @Update
     suspend fun update(trip: TripEntity)
+
+    @Transaction
+    suspend fun upsert(trip: TripEntity): Long {
+        val insertedId = insertOrIgnore(trip)
+        if (insertedId != -1L) {
+            return insertedId
+        }
+
+        // Avoid SQLite REPLACE here: deleting the parent trip row cascades into
+        // locally created tickets and expenses, making them vanish from conductor history.
+        update(trip)
+        return trip.id
+    }
+
+    @Transaction
+    suspend fun upsertAll(trips: List<TripEntity>) {
+        for (trip in trips) {
+            upsert(trip)
+        }
+    }
 
     @Query("DELETE FROM trips WHERE id = :id")
     suspend fun deleteById(id: Long)

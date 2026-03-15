@@ -22,6 +22,9 @@ interface PassengerTicketDao {
     @Query("SELECT * FROM passenger_tickets WHERE tripId = :tripId ORDER BY createdAt DESC LIMIT 10")
     fun observeRecentByTrip(tripId: Long): Flow<List<PassengerTicketEntity>>
 
+    @Query("SELECT * FROM passenger_tickets ORDER BY createdAt DESC LIMIT 12")
+    fun observeRecentGlobal(): Flow<List<PassengerTicketEntity>>
+
     /** Reactive total revenue (sum of prices in centimes) for a trip. */
     @Query("SELECT COALESCE(SUM(price), 0) FROM passenger_tickets WHERE tripId = :tripId AND status = 'active'")
     fun observeTotalRevenue(tripId: Long): Flow<Long>

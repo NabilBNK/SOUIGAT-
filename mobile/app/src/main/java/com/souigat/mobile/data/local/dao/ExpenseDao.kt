@@ -23,6 +23,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE tripId = :tripId ORDER BY createdAt DESC LIMIT 5")
     fun observeRecentByTrip(tripId: Long): Flow<List<ExpenseEntity>>
 
+    @Query("SELECT * FROM expenses ORDER BY createdAt DESC LIMIT 12")
+    fun observeRecentGlobal(): Flow<List<ExpenseEntity>>
+
     /** Reactive total expenses for the Dashboard stats grid. */
     @Query("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE tripId = :tripId AND status = 'active'")
     fun observeTotalAmount(tripId: Long): Flow<Long>

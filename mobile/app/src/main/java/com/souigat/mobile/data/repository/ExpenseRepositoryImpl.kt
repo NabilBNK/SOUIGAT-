@@ -61,6 +61,7 @@ class ExpenseRepositoryImpl @Inject constructor(
                     put("idempotencyKey", idempotencyKey)
                     put("trip", tripId)
                     put("amount", amount)
+                    put("money_scale", "base_unit")
                     put("currency", currency)
                     put("category", category)
                     put("description", description)
