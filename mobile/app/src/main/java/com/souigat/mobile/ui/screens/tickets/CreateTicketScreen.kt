@@ -1,59 +1,40 @@
 package com.souigat.mobile.ui.screens.tickets
-import androidx.compose.foundation.BorderStroke
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.souigat.mobile.ui.components.EmptyStatePanel
-import com.souigat.mobile.ui.components.TripSummaryCard
 import com.souigat.mobile.ui.model.CargoTierPriceUiModel
 import com.souigat.mobile.util.formatCompact
 import com.souigat.mobile.util.formatCurrency
@@ -101,12 +82,10 @@ fun CreateTicketScreen(
                 viewModel.resetState()
                 onNavigateBack()
             }
-
             is CreateTicketUiState.Error -> {
                 snackbarHostState.showSnackbar(state.message)
                 viewModel.resetState()
             }
-
             else -> Unit
         }
     }
@@ -122,15 +101,21 @@ fun CreateTicketScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nouveau billet") },
+                title = { Text("Nouveau billet", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                 },
+                actions = {
+                    IconButton(onClick = viewModel::retryLookup) {
+                        Icon(Icons.Default.Sync, contentDescription = "Sync", tint = MaterialTheme.colorScheme.primary)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                    containerColor = Color.White
+                ),
+                modifier = Modifier.border(1.dp, Color(0xFFE2E5EA))
             )
         },
         bottomBar = {
@@ -138,9 +123,9 @@ fun CreateTicketScreen(
                 TicketFooterBar(
                     totalLabel = formatCurrency(footerAmount, footerCurrency),
                     buttonLabel = if (selectedTab == 0) {
-                        if (passengerCount > 1) "Creer $passengerCount billets" else "Creer le billet"
+                        if (passengerCount > 1) "Créer $passengerCount billets" else "Créer billet"
                     } else {
-                        "Enregistrer le colis"
+                        "Enregistrer colis"
                     },
                     isLoading = isLoading,
                     enabled = if (selectedTab == 0) {
@@ -178,69 +163,75 @@ fun CreateTicketScreen(
     ) { paddingValues ->
         when (val state = formState) {
             TicketFormHeaderState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
-
             is TicketFormHeaderState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp), contentAlignment = Alignment.Center) {
                     EmptyStatePanel(
                         icon = Icons.Default.Inventory2,
                         title = "Trajet introuvable",
                         message = state.message,
-                        primaryActionLabel = "Reessayer",
+                        primaryActionLabel = "Réessayer",
                         onPrimaryAction = viewModel::retryLookup,
                         secondaryActionLabel = "Retour",
                         onSecondaryAction = onNavigateBack
                     )
                 }
             }
-
             is TicketFormHeaderState.Ready -> {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 128.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    contentPadding = PaddingValues(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 128.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     item(key = "header") {
-                        TripSummaryCard(
+                        TripSummaryHeader(
                             origin = state.header.origin,
                             destination = state.header.destination,
                             busPlate = state.header.busPlate,
-                            departureLabel = state.header.departureLabel,
-                            statusLabel = state.header.statusLabel,
-                            supportingLabel = state.header.currency
+                            statusLabel = state.header.statusLabel
                         )
                     }
 
                     item(key = "tabs") {
-                        TabRow(selectedTabIndex = selectedTab) {
-                            Tab(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                text = { Text("Passager") },
-                                icon = { Icon(Icons.Default.Person, contentDescription = null) }
-                            )
-                            Tab(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                text = { Text("Colis") },
-                                icon = { Icon(Icons.Default.Inventory2, contentDescription = null) }
-                            )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(12.dp))
+                                .padding(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selectedTab == 0) Color.White else Color.Transparent)
+                                    .clickable { selectedTab = 0 }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Passager",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (selectedTab == 1) Color.White else Color.Transparent)
+                                    .clickable { selectedTab = 1 }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Colis",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
                         }
                     }
 
@@ -251,9 +242,7 @@ fun CreateTicketScreen(
                                 routeDestination = state.header.destination,
                                 passengerPriceInput = passengerPriceInput,
                                 onPassengerPriceChange = {
-                                    passengerPriceInput = it.filter { ch ->
-                                        ch.isDigit() || ch == ',' || ch == '.' || ch == ' '
-                                    }
+                                    passengerPriceInput = it.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' || ch == ' ' }
                                 },
                                 suggestedPriceLabel = formatCurrency(state.passengerBasePriceCentimes, state.header.currency),
                                 passengerCount = passengerCount,
@@ -297,6 +286,55 @@ fun CreateTicketScreen(
 }
 
 @Composable
+private fun TripSummaryHeader(origin: String, destination: String, busPlate: String, statusLabel: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(12.dp))
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.2f), RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "LIGNE ACTUELLE",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, letterSpacing = 1.sp),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        text = statusLabel.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.1f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Text(text = origin, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text(text = destination, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "BUS NO",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = busPlate,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun PassengerTicketForm(
     routeOrigin: String,
     routeDestination: String,
@@ -316,71 +354,131 @@ private fun PassengerTicketForm(
     onPaymentSourceChange: (String) -> Unit,
     isLoading: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        QuantityCard(
-            title = "Nombre de passagers",
-            value = passengerCount,
-            onIncrease = onIncreaseCount,
-            onDecrease = onDecreaseCount,
-            enabled = !isLoading
-        )
-
-        OutlinedTextField(
-            value = passengerPriceInput,
-            onValueChange = onPassengerPriceChange,
-            label = { Text("Prix manuel (DZD)") },
-            placeholder = { Text("Ex: 1 200") },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true
-        )
-        Text(
-            text = "Tarif trajet complet conseille: $suggestedPriceLabel",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        FormTextField(
-            value = seatNumber,
-            onValueChange = onSeatNumberChange,
-            label = "Numero de siege",
-            placeholder = "Optionnel",
-            enabled = !isLoading,
-            keyboardType = KeyboardType.Number
-        )
-        StopDropdownField(
-            label = "Point de montee",
-            selectedValue = boardingPoint,
-            routeOrigin = routeOrigin,
-            routeDestination = routeDestination,
-            onValueChange = onBoardingPointChange,
-            enabled = !isLoading
-        )
-        StopDropdownField(
-            label = "Point de descente",
-            selectedValue = alightingPoint,
-            routeOrigin = routeOrigin,
-            routeDestination = routeDestination,
-            onValueChange = onAlightingPointChange,
-            enabled = !isLoading
-        )
-
-        SelectionSection(title = "Paiement") {
-            ChoiceCard(
-                title = "Especes",
-                subtitle = "Encaissement immediat",
-                selected = paymentSource == "cash",
-                enabled = !isLoading,
-                onClick = { onPaymentSourceChange("cash") }
+    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        // Places
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "NOMBRE DE PLACES",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(start = 4.dp)
             )
-            ChoiceCard(
-                title = "Prepaye",
-                subtitle = "Billet deja regle",
-                selected = paymentSource == "prepaid",
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onDecreaseCount,
+                    enabled = !isLoading && passengerCount > 1,
+                    modifier = Modifier.size(56.dp).background(Color.White, RoundedCornerShape(8.dp)).shadow(1.dp, RoundedCornerShape(8.dp))
+                ) {
+                    Icon(Icons.Default.Remove, contentDescription = "Descendre", tint = MaterialTheme.colorScheme.primary)
+                }
+                Text(
+                    text = String.format("%02d", passengerCount),
+                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black, letterSpacing = (-1.5).sp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                IconButton(
+                    onClick = onIncreaseCount,
+                    enabled = !isLoading && passengerCount < 50,
+                    modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)).shadow(2.dp, RoundedCornerShape(8.dp))
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Augmenter", tint = Color.White)
+                }
+            }
+        }
+
+        // Prix Unitaire
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = "PRIX UNITAIRE",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = "Tarif conseille: $suggestedPriceLabel",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+            OutlinedTextField(
+                value = passengerPriceInput,
+                onValueChange = onPassengerPriceChange,
+                modifier = Modifier.fillMaxWidth().height(64.dp),
                 enabled = !isLoading,
-                onClick = { onPaymentSourceChange("prepaid") }
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, textAlign = TextAlign.End),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                ),
+                trailingIcon = {
+                    Text("DZD", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(end = 16.dp))
+                }
             )
+        }
+
+        // Stops (Boarding / Alighting placeholder for Compose native)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(text = "ARRÊT DE DESTINATION", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+            
+            // Simulating the horizontal pills from Stitch
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val stops = listOf("Oran (Terminus)", "Chlef", "Relizane", "Mostaganem")
+                stops.forEachIndexed { index, stop ->
+                    Box(
+                        modifier = Modifier
+                            .background(if (index == 0) MaterialTheme.colorScheme.primaryContainer else Color.White, RoundedCornerShape(50))
+                            .border(1.dp, if (index == 0) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.3f), RoundedCornerShape(50))
+                            .clickable { onAlightingPointChange(stop) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = stop,
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (index==0) FontWeight.Bold else FontWeight.Medium),
+                            color = if (index == 0) Color.White else MaterialTheme.colorScheme.onSurface 
+                        )
+                    }
+                }
+            }
+        }
+
+        FormTextField("Numéro de siège", seatNumber, onSeatNumberChange, "Optionnel", !isLoading, KeyboardType.Number)
+
+        // Payment Method
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(text = "MODE DE PAIEMENT", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ChoiceCard(
+                    title = "Espèces",
+                    icon = Icons.Default.Payments,
+                    selected = paymentSource == "cash",
+                    enabled = !isLoading,
+                    onClick = { onPaymentSourceChange("cash") },
+                    modifier = Modifier.weight(1f)
+                )
+                ChoiceCard(
+                    title = "Prépayé",
+                    icon = Icons.Default.CreditCard,
+                    selected = paymentSource == "prepaid",
+                    enabled = !isLoading,
+                    onClick = { onPaymentSourceChange("prepaid") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
@@ -404,81 +502,128 @@ private fun CargoTicketForm(
     onPaymentSourceChange: (String) -> Unit,
     isLoading: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SelectionSection(title = "Taille du colis") {
+    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(text = "TAILLE DU COLIS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSecondaryContainer)
             cargoTierPrices.forEach { option ->
-                ChoiceCard(
-                    title = option.label.substringBefore(" - "),
-                    subtitle = option.label.substringAfter(" - ", option.label),
-                    selected = option.tier == selectedTier,
-                    enabled = !isLoading,
-                    onClick = { onTierSelected(option.tier) }
-                )
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onTierSelected(option.tier) }
+                    .background(if (option.tier == selectedTier) MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.05f) else Color.White, RoundedCornerShape(12.dp))
+                    .border(if (option.tier == selectedTier) 2.dp else 1.dp, if (option.tier == selectedTier) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.3f), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+                ) {
+                    Column {
+                        Text(text = option.label.substringBefore(" - "), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                        Text(text = option.label.substringAfter(" - ", option.label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                }
             }
         }
 
-        FormTextField(
-            value = senderName,
-            onValueChange = onSenderNameChange,
-            label = "Nom expediteur",
-            placeholder = "Obligatoire",
-            enabled = !isLoading
-        )
-        FormTextField(
-            value = senderPhone,
-            onValueChange = onSenderPhoneChange,
-            label = "Telephone expediteur",
-            placeholder = "Optionnel",
-            enabled = !isLoading,
-            keyboardType = KeyboardType.Phone
-        )
-        FormTextField(
-            value = receiverName,
-            onValueChange = onReceiverNameChange,
-            label = "Nom destinataire",
-            placeholder = "Obligatoire",
-            enabled = !isLoading
-        )
-        FormTextField(
-            value = receiverPhone,
-            onValueChange = onReceiverPhoneChange,
-            label = "Telephone destinataire",
-            placeholder = "Optionnel",
-            enabled = !isLoading,
-            keyboardType = KeyboardType.Phone
+        FormTextField("Nom expéditeur", senderName, onSenderNameChange, "Obligatoire", !isLoading)
+        FormTextField("Téléphone expéditeur", senderPhone, onSenderPhoneChange, "Optionnel", !isLoading, KeyboardType.Phone)
+        FormTextField("Nom destinataire", receiverName, onReceiverNameChange, "Obligatoire", !isLoading)
+        FormTextField("Téléphone destinataire", receiverPhone, onReceiverPhoneChange, "Optionnel", !isLoading, KeyboardType.Phone)
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(text = "DESCRIPTION", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+            OutlinedTextField(
+                value = description,
+                onValueChange = onDescriptionChange,
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                enabled = !isLoading,
+                maxLines = 4,
+                placeholder = { Text("Notes de colis, contenu, consignes") },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
+            )
+            Text(text = "${description.length}/300", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+        }
+        
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(text = "MODE DE PAIEMENT", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ChoiceCard(
+                    title = "Prépayé",
+                    icon = Icons.Default.CreditCard,
+                    selected = paymentSource == "prepaid",
+                    enabled = !isLoading,
+                    onClick = { onPaymentSourceChange("prepaid") },
+                    modifier = Modifier.weight(1f)
+                )
+                ChoiceCard(
+                    title = "A la livraison",
+                    icon = Icons.Default.Payments,
+                    selected = paymentSource == "pay_on_delivery",
+                    enabled = !isLoading,
+                    onClick = { onPaymentSourceChange("pay_on_delivery") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FormTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    enabled: Boolean,
+    keyboardType: KeyboardType = KeyboardType.Text
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+            color = MaterialTheme.colorScheme.onSecondaryContainer
         )
         OutlinedTextField(
-            value = description,
-            onValueChange = onDescriptionChange,
-            label = { Text("Description") },
-            placeholder = { Text("Notes de colis, contenu, consignes") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(132.dp),
-            enabled = !isLoading,
-            maxLines = 5
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            )
         )
-        Text(
-            text = "${description.length}/300",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    }
+}
 
-        SelectionSection(title = "Paiement") {
-            ChoiceCard(
-                title = "Prepaye",
-                subtitle = "Regle avant chargement",
-                selected = paymentSource == "prepaid",
-                enabled = !isLoading,
-                onClick = { onPaymentSourceChange("prepaid") }
-            )
-            ChoiceCard(
-                title = "Paiement livraison",
-                subtitle = "Encaisse a la reception",
-                selected = paymentSource == "pay_on_delivery",
-                enabled = !isLoading,
-                onClick = { onPaymentSourceChange("pay_on_delivery") }
-            )
+@Composable
+private fun ChoiceCard(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha=0.05f) else Color.White)
+            .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.2f), RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().align(Alignment.Center)) {
+            Icon(icon, contentDescription = null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
+            Text(text = title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer)
         }
     }
 }
@@ -491,260 +636,47 @@ private fun TicketFooterBar(
     enabled: Boolean,
     onSubmit: () -> Unit
 ) {
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .background(Color.White)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.3f))
+            .padding(16.dp)
+            .padding(bottom = 8.dp)
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column {
                 Text(
-                    text = "Total",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "TOTAL À PAYER",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
                     text = totalLabel,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
             Button(
                 onClick = onSubmit,
-                enabled = enabled && !isLoading
+                enabled = enabled && !isLoading,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier.height(56.dp).weight(1f).padding(start = 16.dp).shadow(4.dp, RoundedCornerShape(12.dp))
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
                 } else {
-                    Text(buttonLabel)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.ConfirmationNumber, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Text(buttonLabel, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun QuantityCard(
-    title: String,
-    value: Int,
-    onIncrease: () -> Unit,
-    onDecrease: () -> Unit,
-    enabled: Boolean
-) {
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Ajustez rapidement le lot hors ligne",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                StepperButton(label = "-", enabled = enabled && value > 1, onClick = onDecrease)
-                Text(
-                    text = value.toString(),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                StepperButton(label = "+", enabled = enabled && value < 50, onClick = onIncrease)
-            }
-        }
-    }
-}
-
-@Composable
-private fun StepperButton(
-    label: String,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = if (enabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun StopDropdownField(
-    label: String,
-    selectedValue: String,
-    routeOrigin: String,
-    routeDestination: String,
-    onValueChange: (String) -> Unit,
-    enabled: Boolean
-) {
-    val options = remember(routeOrigin, routeDestination) {
-        buildList {
-            add("" to "Non precise")
-            if (routeOrigin.isNotBlank()) {
-                add(routeOrigin to routeOrigin)
-            }
-            if (routeDestination.isNotBlank() && !routeDestination.equals(routeOrigin, ignoreCase = true)) {
-                add(routeDestination to routeDestination)
-            }
-        }
-    }
-    var expanded by rememberSaveable(label) { mutableStateOf(false) }
-    val selectedLabel = options.firstOrNull { (value, _) ->
-        value.equals(selectedValue, ignoreCase = true)
-    }?.second ?: "Non precise"
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Box {
-            OutlinedTextField(
-                value = selectedLabel,
-                onValueChange = {},
-                modifier = Modifier.fillMaxWidth(),
-                enabled = enabled,
-                readOnly = true,
-                trailingIcon = {
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(enabled = enabled) { expanded = true }
-            )
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEach { (value, displayLabel) ->
-                    DropdownMenuItem(
-                        text = { Text(displayLabel) },
-                        onClick = {
-                            onValueChange(value)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SelectionSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        content()
-    }
-}
-
-@Composable
-private fun ChoiceCard(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick),
-        shape = MaterialTheme.shapes.extraLarge,
-        border = BorderStroke(
-            width = if (selected) 2.dp else 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun FormTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    placeholder: String,
-    enabled: Boolean,
-    keyboardType: KeyboardType = KeyboardType.Text
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = enabled,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        singleLine = true
-    )
 }

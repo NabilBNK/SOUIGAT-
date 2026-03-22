@@ -27,7 +27,7 @@ export function StatusBadge({ status, type = 'trip' }: StatusBadgeProps) {
             ? CARGO_STATUS_COLORS
             : SETTLEMENT_STATUS_COLORS
     const label = labels[status as keyof typeof labels] || status
-    const color = colors[status as keyof typeof colors] || 'bg-surface-500/30 text-text-muted'
+    const color = colors[status as keyof typeof colors] || 'bg-slate-200/80 dark:bg-slate-700/30 text-slate-400 dark:text-slate-500'
 
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[11px] font-semibold tracking-wide uppercase ${color}`}>

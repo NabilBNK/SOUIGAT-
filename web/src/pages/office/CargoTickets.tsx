@@ -81,12 +81,12 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
     }
 
     if (isLoading) {
-        return <div className="animate-pulse h-32 bg-surface-800 rounded-xl" />
+        return <div className="animate-pulse h-32 bg-white dark:bg-[#1a2634] rounded-xl" />
     }
 
     if (error) {
         return (
-            <div className="bg-status-error/10 border border-status-error/30 text-status-error p-4 rounded-lg">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-status-error/30 text-red-600 dark:text-red-400 p-4 rounded-lg">
                 Erreur de chargement des colis.
             </div>
         )
@@ -104,17 +104,17 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
     return (
         <div className="space-y-6 animate-fade-in">
             {actionError && (
-                <div className="bg-status-error/10 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-status-error shrink-0 mt-0.5" />
-                    <p className="text-sm text-status-error">{actionError}</p>
+                <div className="bg-red-50 dark:bg-red-900/20 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>
                 </div>
             )}
 
             <div className="flex justify-between items-center">
                 <div>
-                    <h3 className="text-lg font-semibold text-text-primary">Colis et Messagerie</h3>
-                    <p className="text-sm text-text-muted">
-                        Total expédié: <span className="font-semibold text-text-primary">{tickets.length}</span> / Revenue: {formatCurrency(calculateTotalCargoRevenue())}
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Colis et Messagerie</h3>
+                    <p className="text-sm text-slate-400 dark:text-slate-500">
+                        Total expédié: <span className="font-semibold text-slate-900 dark:text-slate-100">{tickets.length}</span> / Revenue: {formatCurrency(calculateTotalCargoRevenue())}
                     </p>
                 </div>
                 {canManageCargo && !isCreating && (
@@ -129,64 +129,64 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
             </div>
 
             {isCreating && (
-                <form onSubmit={handleCreateSubmit} className="bg-surface-800/50 border border-brand-500/30 rounded-xl p-5 space-y-4">
+                <form onSubmit={handleCreateSubmit} className="bg-white dark:bg-[#1a2634]/50 border border-brand-500/30 rounded-xl p-5 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Sender info */}
                         <div className="space-y-4">
-                            <h4 className="text-sm font-medium text-text-primary border-b border-surface-600/50 pb-1">Expéditeur</h4>
+                            <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-1">Expéditeur</h4>
                             <div>
-                                <label className="block text-xs font-medium text-text-secondary mb-1">Nom *</label>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nom *</label>
                                 <input
                                     type="text"
                                     value={senderName}
                                     onChange={(e) => setSenderName(e.target.value)}
-                                    className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                                    className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-text-secondary mb-1">Téléphone</label>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Téléphone</label>
                                 <input
                                     type="text"
                                     value={senderPhone}
                                     onChange={(e) => setSenderPhone(e.target.value)}
-                                    className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                                    className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                                 />
                             </div>
                         </div>
 
                         {/* Receiver Info */}
                         <div className="space-y-4">
-                            <h4 className="text-sm font-medium text-text-primary border-b border-surface-600/50 pb-1">Destinataire</h4>
+                            <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-1">Destinataire</h4>
                             <div>
-                                <label className="block text-xs font-medium text-text-secondary mb-1">Nom *</label>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nom *</label>
                                 <input
                                     type="text"
                                     value={receiverName}
                                     onChange={(e) => setReceiverName(e.target.value)}
-                                    className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                                    className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-text-secondary mb-1">Téléphone</label>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Téléphone</label>
                                 <input
                                     type="text"
                                     value={receiverPhone}
                                     onChange={(e) => setReceiverPhone(e.target.value)}
-                                    className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                                    className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-surface-600/30">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-200 dark:border-slate-700/30">
                         <div>
-                            <label className="block text-xs font-medium text-text-secondary mb-1">Taille (Tier)</label>
+                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Taille (Tier)</label>
                             <select
                                 value={cargoTier}
                                 onChange={(e) => setCargoTier(e.target.value)}
-                                className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                             >
                                 <option value="small">Petit ({trip.cargo_small_price ? formatCurrency(trip.cargo_small_price) : '-'})</option>
                                 <option value="medium">Moyen ({trip.cargo_medium_price ? formatCurrency(trip.cargo_medium_price) : '-'})</option>
@@ -194,29 +194,29 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-text-secondary mb-1">Paiement</label>
+                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Paiement</label>
                             <select
                                 value={paymentSource}
                                 onChange={(e) => setPaymentSource(e.target.value)}
-                                className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                             >
                                 <option value="prepaid">Prépayé (Expéditeur)</option>
                                 <option value="pay_on_delivery">Paiement à la livraison</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-text-secondary mb-1">Description</label>
+                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
                             <input
                                 type="text"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                                 placeholder="..."
                             />
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-2 pt-2 border-t border-surface-600/30">
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700/30">
                         <Button
                             type="button"
                             variant="ghost"
@@ -238,15 +238,15 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
             )}
 
             {tickets.length === 0 ? (
-                <div className="bg-surface-800 border border-surface-600/50 rounded-xl py-12 text-center">
+                <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl py-12 text-center">
                     <Package className="w-12 h-12 text-surface-600 mx-auto mb-3" />
-                    <p className="text-text-muted">Aucun colis enregistré pour ce voyage.</p>
+                    <p className="text-slate-400 dark:text-slate-500">Aucun colis enregistré pour ce voyage.</p>
                 </div>
             ) : (
-                <div className="bg-surface-800 border border-surface-600/50 rounded-xl overflow-hidden">
+                <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-text-secondary">
-                            <thead className="bg-surface-700/50 text-xs uppercase text-text-muted font-medium border-b border-surface-600/50">
+                        <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+                            <thead className="bg-slate-100 dark:bg-[#1e293b]/50 text-xs uppercase text-slate-400 dark:text-slate-500 font-medium border-b border-slate-200 dark:border-slate-800">
                                 <tr>
                                     <th className="px-6 py-3">Réf</th>
                                     <th className="px-6 py-3">Expéditeur</th>
@@ -258,23 +258,23 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
                             </thead>
                             <tbody className="divide-y divide-surface-600/30">
                                 {tickets.map((ticket) => (
-                                    <tr key={ticket.id} className="hover:bg-surface-700/30 transition-colors">
-                                        <td className="px-6 py-4 font-mono text-xs text-text-primary">{ticket.ticket_number}</td>
-                                        <td className="px-6 py-4 text-text-primary">{ticket.sender_name} <span className="text-xs text-text-muted block">{ticket.sender_phone}</span></td>
-                                        <td className="px-6 py-4 text-text-primary">{ticket.receiver_name} <span className="text-xs text-text-muted block">{ticket.receiver_phone}</span></td>
+                                    <tr key={ticket.id} className="hover:bg-slate-100 dark:bg-[#1e293b]/30 transition-colors">
+                                        <td className="px-6 py-4 font-mono text-xs text-slate-900 dark:text-slate-100">{ticket.ticket_number}</td>
+                                        <td className="px-6 py-4 text-slate-900 dark:text-slate-100">{ticket.sender_name} <span className="text-xs text-slate-400 dark:text-slate-500 block">{ticket.sender_phone}</span></td>
+                                        <td className="px-6 py-4 text-slate-900 dark:text-slate-100">{ticket.receiver_name} <span className="text-xs text-slate-400 dark:text-slate-500 block">{ticket.receiver_phone}</span></td>
                                         <td className="px-6 py-4">
                                             <span className="capitalize">{ticket.cargo_tier}</span>
                                         </td>
                                         <td className="px-6 py-4">
                                             {formatCurrency(ticket.price)}
-                                            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ml-2 ${ticket.payment_source === 'prepaid' ? 'bg-status-success/10 text-status-success' : 'bg-status-warning/10 text-status-warning'}`}>
+                                            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ml-2 ${ticket.payment_source === 'prepaid' ? 'bg-status-success/10 text-emerald-600 dark:text-emerald-400' : 'bg-status-warning/10 text-yellow-600 dark:text-yellow-400'}`}>
                                                 {ticket.payment_source === 'prepaid' ? 'Payé' : 'À payer'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${['delivered', 'paid'].includes(ticket.status) ? 'bg-status-success/10 text-status-success border-status-success/20' :
-                                                ['created', 'in_transit', 'arrived'].includes(ticket.status) ? 'bg-brand-500/10 text-brand-400 border-brand-500/20' :
-                                                    'bg-status-error/10 text-status-error border-status-error/20'
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${['delivered', 'paid'].includes(ticket.status) ? 'bg-status-success/10 text-emerald-600 dark:text-emerald-400 border-status-success/20' :
+                                                ['created', 'in_transit', 'arrived'].includes(ticket.status) ? 'bg-[#137fec]/10 text-[#137fec] dark:text-[#60a5fa] border-brand-500/20' :
+                                                    'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-status-error/20'
                                                 }`}>
                                                 {CARGO_STATUS_LABELS[ticket.status] || ticket.status}
                                             </span>

@@ -36,6 +36,36 @@ export async function getExportStatus(taskId: string): Promise<ExportStatus> {
     return response.data
 }
 
-export function getExportDownloadUrl(taskId: string, downloadToken: string): string {
-    return `/api/exports/${taskId}/download/?token=${encodeURIComponent(downloadToken)}`
+function getDownloadFilename(contentDisposition?: string, fallback = 'souigat-report.xlsx'): string {
+    if (!contentDisposition) {
+        return fallback
+    }
+
+    const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+    if (utf8Match?.[1]) {
+        return decodeURIComponent(utf8Match[1])
+    }
+
+    const plainMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i)
+    return plainMatch?.[1] ?? fallback
+}
+
+export async function downloadExportFile(taskId: string, downloadToken: string): Promise<void> {
+    const response = await client.get<Blob>(`/exports/${taskId}/download/`, {
+        params: { token: downloadToken },
+        responseType: 'blob',
+    })
+
+    const filename = getDownloadFilename(
+        response.headers['content-disposition'],
+        `souigat-export-${taskId}.xlsx`,
+    )
+    const downloadUrl = window.URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000)
 }

@@ -1,0 +1,125 @@
+- generic [ref=e6]:
+  - complementary [ref=e7]:
+    - generic [ref=e9]:
+      - img [ref=e11]
+      - generic [ref=e15]: SOUIGAT
+    - navigation [ref=e16]:
+      - link "Tableau de bord" [ref=e17] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e18]
+        - generic [ref=e23]: Tableau de bord
+      - link "Voyages" [ref=e24] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e25]
+        - generic [ref=e29]: Voyages
+      - link "Billets Passagers" [ref=e30] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e31]
+        - generic [ref=e33]: Billets Passagers
+      - link "Rapports" [ref=e34] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e35]
+        - generic [ref=e38]: Rapports
+      - link "Colis" [ref=e39] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e40]
+        - generic [ref=e44]: Colis
+      - link "Quarantaine" [ref=e45] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e46]
+        - generic [ref=e48]: Quarantaine
+    - paragraph [ref=e50]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e51]:
+    - banner [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]: Personnel Bureau
+          - generic [ref=e56]: Tous
+        - generic [ref=e57]:
+          - img [ref=e59]
+          - generic [ref=e62]:
+            - paragraph [ref=e63]: Karim Benali
+            - paragraph [ref=e64]: "0600000001"
+        - button "Déconnexion" [ref=e65]:
+          - img [ref=e66]
+    - main [ref=e69]:
+      - generic [ref=e122]:
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - link [ref=e125] [cursor=pointer]:
+              - /url: /office/trips
+              - img [ref=e126]
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - 'heading "Voyage #51" [level=1] [ref=e130]'
+                - generic [ref=e131]: Programmé
+              - paragraph [ref=e132]:
+                - img [ref=e133]
+                - text: →
+          - generic [ref=e136]:
+            - button "Annuler" [ref=e137]:
+              - img [ref=e138]
+              - text: Annuler
+            - button "Démarrer" [ref=e142]:
+              - img [ref=e143]
+              - text: Démarrer
+        - navigation [ref=e146]:
+          - button "Informations" [ref=e147]:
+            - img [ref=e148]
+            - text: Informations
+          - button "Passagers" [ref=e150]:
+            - img [ref=e151]
+            - text: Passagers
+          - button "Messagerie" [ref=e156]:
+            - img [ref=e157]
+            - text: Messagerie
+          - button "Dépenses" [ref=e161]:
+            - img [ref=e162]
+            - text: Dépenses
+        - generic [ref=e167]:
+          - generic [ref=e168]:
+            - heading "Résumé" [level=3] [ref=e169]
+            - generic [ref=e170]:
+              - generic [ref=e171]:
+                - img [ref=e172]
+                - generic [ref=e174]:
+                  - paragraph [ref=e175]: Reference voyage
+                  - paragraph [ref=e176]: TRIP-51
+                  - paragraph [ref=e177]: Cree le 14/03/2026 23:57
+              - generic [ref=e178]:
+                - img [ref=e179]
+                - generic [ref=e182]:
+                  - paragraph [ref=e183]: Itineraire
+                  - paragraph [ref=e184]: (#1) → (#2)
+              - generic [ref=e185]:
+                - img [ref=e186]
+                - generic [ref=e188]:
+                  - paragraph [ref=e189]: Date de depart
+                  - paragraph [ref=e190]: 15/03/2026 00:20
+              - generic [ref=e191]:
+                - img [ref=e192]
+                - generic [ref=e196]:
+                  - paragraph [ref=e197]: Bus attribue
+                  - paragraph [ref=e198]: "16-00001-16 (ID bus #1)"
+              - generic [ref=e199]:
+                - img [ref=e200]
+                - generic [ref=e203]:
+                  - paragraph [ref=e204]: Conducteur
+                  - paragraph [ref=e205]: "Mohamed Larbi (ID #5)"
+                  - paragraph [ref=e206]: "Derniere mise a jour: 14/03/2026 23:57"
+          - generic [ref=e207]:
+            - heading "Tarification appliquée" [level=3] [ref=e208]
+            - paragraph [ref=e209]: Ces prix ont été figés lors de la création du voyage et ne changeront pas.
+            - generic [ref=e210]:
+              - generic [ref=e211]:
+                - generic [ref=e212]: Billet Passager
+                - generic [ref=e213]: 2 500,00 DA
+              - generic [ref=e214]:
+                - generic [ref=e215]: Colis Petit
+                - generic [ref=e216]: 500,00 DA
+              - generic [ref=e217]:
+                - generic [ref=e218]: Colis Moyen
+                - generic [ref=e219]: 1 000,00 DA
+              - generic [ref=e220]:
+                - generic [ref=e221]: Colis Grand
+                - generic [ref=e222]: 2 000,00 DA

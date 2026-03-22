@@ -1,0 +1,120 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - generic [ref=e25]:
+      - img [ref=e27]
+      - generic [ref=e31]: SOUIGAT
+    - navigation [ref=e32]:
+      - link "Tableau de bord" [ref=e33] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e34]
+        - generic [ref=e39]: Tableau de bord
+      - link "Voyages" [ref=e40] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e41]
+        - generic [ref=e45]: Voyages
+      - link "Billets Passagers" [ref=e46] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e47]
+        - generic [ref=e49]: Billets Passagers
+      - link "Rapports" [ref=e50] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e51]
+        - generic [ref=e54]: Rapports
+      - link "Colis" [ref=e55] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e56]
+        - generic [ref=e60]: Colis
+      - link "Administration" [ref=e61] [cursor=pointer]:
+        - /url: /admin
+        - img [ref=e62]
+        - generic [ref=e64]: Administration
+      - link "Utilisateurs" [ref=e65] [cursor=pointer]:
+        - /url: /admin/users
+        - img [ref=e66]
+        - generic [ref=e71]: Utilisateurs
+      - link "Autobus" [ref=e72] [cursor=pointer]:
+        - /url: /admin/buses
+        - img [ref=e73]
+        - generic [ref=e77]: Autobus
+      - link "Tarification" [ref=e78] [cursor=pointer]:
+        - /url: /admin/pricing
+        - img [ref=e79]
+        - generic [ref=e82]: Tarification
+      - link "Reglements" [ref=e83] [cursor=pointer]:
+        - /url: /admin/settlements
+        - img [ref=e84]
+        - generic [ref=e86]: Reglements
+      - link "Journal d'audit" [ref=e87] [cursor=pointer]:
+        - /url: /admin/audit
+        - img [ref=e88]
+        - generic [ref=e90]: Journal d'audit
+      - link "Quarantaine" [ref=e91] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e92]
+        - generic [ref=e94]: Quarantaine
+    - paragraph [ref=e96]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - generic [ref=e99]:
+        - generic [ref=e101]: Administrateur
+        - generic [ref=e102]:
+          - img [ref=e104]
+          - generic [ref=e107]:
+            - paragraph [ref=e108]: Admin SOUIGAT
+            - paragraph [ref=e109]: "0500000001"
+        - button "Déconnexion" [ref=e110]:
+          - img [ref=e111]
+    - main [ref=e114]:
+      - generic [ref=e115]:
+        - generic [ref=e116]:
+          - heading "Panneau d'Administration" [level=1] [ref=e117]
+          - paragraph [ref=e118]: Supervision globale de l'entreprise SOUIGAT.
+        - generic [ref=e119]:
+          - link "14 Employés & Utilisateurs Gérer les accès, révoquer les appareils." [ref=e120] [cursor=pointer]:
+            - /url: /admin/users
+            - generic [ref=e121]:
+              - img [ref=e124]
+              - generic [ref=e129]:
+                - heading "14" [level=3] [ref=e130]
+                - paragraph [ref=e131]: Employés & Utilisateurs
+                - paragraph [ref=e132]: Gérer les accès, révoquer les appareils.
+          - link "4 Flotte de Bus Ajouter, modifier ou assigner les bus." [ref=e133] [cursor=pointer]:
+            - /url: /admin/buses
+            - generic [ref=e134]:
+              - img [ref=e137]
+              - generic [ref=e141]:
+                - heading "4" [level=3] [ref=e142]
+                - paragraph [ref=e143]: Flotte de Bus
+                - paragraph [ref=e144]: Ajouter, modifier ou assigner les bus.
+          - link "13 Agences Paramétrage des bureaux." [ref=e145] [cursor=pointer]:
+            - /url: /admin/offices
+            - generic [ref=e146]:
+              - img [ref=e149]
+              - generic [ref=e153]:
+                - heading "13" [level=3] [ref=e154]
+                - paragraph [ref=e155]: Agences
+                - paragraph [ref=e156]: Paramétrage des bureaux.
+          - link "18 Tarifications Prix par type de trajet et colis." [ref=e157] [cursor=pointer]:
+            - /url: /admin/pricing
+            - generic [ref=e158]:
+              - img [ref=e161]
+              - generic [ref=e164]:
+                - heading "18" [level=3] [ref=e165]
+                - paragraph [ref=e166]: Tarifications
+                - paragraph [ref=e167]: Prix par type de trajet et colis.
+          - link "Sécurité Journal d'Audit Traces des modifications critiques." [ref=e168] [cursor=pointer]:
+            - /url: /admin/audit
+            - generic [ref=e169]:
+              - img [ref=e172]
+              - generic [ref=e174]:
+                - heading "Sécurité" [level=3] [ref=e175]
+                - paragraph [ref=e176]: Journal d'Audit
+                - paragraph [ref=e177]: Traces des modifications critiques.
+          - link "Sync Quarantaine Vérifier les données bloquées (T28)." [ref=e178] [cursor=pointer]:
+            - /url: /admin/quarantine
+            - generic [ref=e179]:
+              - img [ref=e182]
+              - generic [ref=e184]:
+                - heading "Sync" [level=3] [ref=e185]
+                - paragraph [ref=e186]: Quarantaine
+                - paragraph [ref=e187]: Vérifier les données bloquées (T28).

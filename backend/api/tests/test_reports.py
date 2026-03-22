@@ -151,3 +151,15 @@ class ReportTests(TestCase):
         self.client.force_authenticate(self.staff)
         resp = self.client.get('/api/reports/conductors/')
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_invalid_date_format_returns_400(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.get('/api/reports/daily/?date_from=2026-99-99')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['error_code'], 'INVALID_DATE_RANGE')
+
+    def test_excessive_date_range_rejected(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.get('/api/reports/daily/?date_from=2026-01-01&date_to=2026-02-15')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['error_code'], 'DATE_RANGE_TOO_LARGE')

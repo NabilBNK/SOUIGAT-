@@ -395,6 +395,12 @@ def _create_cargo_ticket(payload, trip, user, trip_state):
 def _create_expense(payload, trip, user):
     """Create trip expense from sync payload."""
     description = payload.get('description', '')
+    category = (payload.get('category') or 'other').strip().lower()
+    valid_categories = {choice for choice, _label in TripExpense.CATEGORY_CHOICES}
+    if category not in valid_categories:
+        raise ValidationError(
+            f"Invalid expense category '{category}'. Must be one of: {', '.join(sorted(valid_categories))}."
+        )
 
     # Bug #4 fix: use Decimal for safe numeric handling
     raw = payload.get('amount')
@@ -421,6 +427,7 @@ def _create_expense(payload, trip, user):
         description=description,
         amount=amount,
         currency=trip.currency,
+        category=category,
         synced_at=timezone.now(),
         created_by=user,
     )

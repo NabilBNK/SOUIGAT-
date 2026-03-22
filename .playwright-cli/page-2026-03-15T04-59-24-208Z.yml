@@ -1,0 +1,102 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - generic [ref=e25]:
+      - img [ref=e27]
+      - generic [ref=e31]: SOUIGAT
+    - navigation [ref=e32]:
+      - link "Tableau de bord" [ref=e33] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e34]
+        - generic [ref=e39]: Tableau de bord
+      - link "Voyages" [ref=e40] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e41]
+        - generic [ref=e45]: Voyages
+      - link "Billets Passagers" [ref=e46] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e47]
+        - generic [ref=e49]: Billets Passagers
+      - link "Rapports" [ref=e50] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e51]
+        - generic [ref=e54]: Rapports
+      - link "Colis" [ref=e55] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e56]
+        - generic [ref=e60]: Colis
+      - link "Quarantaine" [ref=e61] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e62]
+        - generic [ref=e64]: Quarantaine
+    - paragraph [ref=e66]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e67]:
+    - banner [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]: Personnel Bureau
+          - generic [ref=e72]: Tous
+        - generic [ref=e73]:
+          - img [ref=e75]
+          - generic [ref=e78]:
+            - paragraph [ref=e79]: Karim Benali
+            - paragraph [ref=e80]: "0600000001"
+        - button "Déconnexion" [ref=e81]:
+          - img [ref=e82]
+    - main [ref=e85]:
+      - generic [ref=e329]:
+        - generic [ref=e330]:
+          - generic [ref=e331]:
+            - link [ref=e332] [cursor=pointer]:
+              - /url: /office/trips
+              - img [ref=e333]
+            - generic [ref=e335]:
+              - generic [ref=e336]:
+                - 'heading "Voyage #50" [level=1] [ref=e337]'
+                - generic [ref=e338]: Programmé
+              - paragraph [ref=e339]:
+                - img [ref=e340]
+                - text: Algiers Central → Oran Office
+          - button "Annuler" [ref=e344]:
+            - img [ref=e345]
+            - text: Annuler
+        - navigation [ref=e350]:
+          - button "Informations" [ref=e351]:
+            - img [ref=e352]
+            - text: Informations
+          - button "Passagers" [ref=e354]:
+            - img [ref=e355]
+            - text: Passagers
+          - button "Messagerie" [ref=e360]:
+            - img [ref=e361]
+            - text: Messagerie
+          - button "Dépenses" [ref=e365]:
+            - img [ref=e366]
+            - text: Dépenses
+        - generic [ref=e427]:
+          - generic [ref=e428]:
+            - generic [ref=e429]:
+              - heading "Billets Passagers" [level=3] [ref=e430]
+              - paragraph [ref=e431]: "Total vendu: 1 / 0,00 DA"
+            - button "Nouveau Billet" [ref=e450]:
+              - img [ref=e451]
+              - text: Nouveau Billet
+          - table [ref=e453]:
+            - rowgroup [ref=e454]:
+              - row "Réf Passager Siège Prix Statut Vendu le Actions" [ref=e455]:
+                - columnheader "Réf" [ref=e456]
+                - columnheader "Passager" [ref=e457]
+                - columnheader "Siège" [ref=e458]
+                - columnheader "Prix" [ref=e459]
+                - columnheader "Statut" [ref=e460]
+                - columnheader "Vendu le" [ref=e461]
+                - columnheader "Actions" [ref=e462]
+            - rowgroup [ref=e463]:
+              - row "PT-50-001 E2E Passenger 01 12A 2 500,00 DA Remboursé 15/03/2026 04:58" [ref=e477]:
+                - cell "PT-50-001" [ref=e465]
+                - cell "E2E Passenger 01" [ref=e466]
+                - cell "12A" [ref=e467]
+                - cell "2 500,00 DA" [ref=e468]
+                - cell "Remboursé" [ref=e478]:
+                  - generic [ref=e470]: Remboursé
+                - cell "15/03/2026 04:58" [ref=e471]
+                - cell [ref=e479]

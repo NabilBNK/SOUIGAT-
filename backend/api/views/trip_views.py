@@ -1,6 +1,8 @@
 import logging
 from datetime import timedelta
 from django.db import models, transaction
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -8,7 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 
-from api.models import Trip, Bus, User, Office
+from api.models import Trip, Bus, Office, TripExpense, User
 from api.serializers.settlement import SettlementPreviewSerializer
 from api.serializers.trip import TripSerializer, TripListSerializer
 from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission, IsAdminUser
@@ -110,6 +112,32 @@ class TripViewSet(viewsets.ModelViewSet):
         user = self.request.user
         qs = Trip.objects.select_related(
             'origin_office', 'destination_office', 'conductor', 'bus',
+        ).annotate(
+            passenger_count=Count(
+                'passenger_tickets',
+                filter=Q(
+                    passenger_tickets__status='active',
+                    passenger_tickets__is_deleted=False,
+                ),
+                distinct=True,
+            ),
+            cargo_count=Count(
+                'cargo_tickets',
+                filter=Q(
+                    cargo_tickets__is_deleted=False,
+                ) & ~Q(cargo_tickets__status='cancelled'),
+                distinct=True,
+            ),
+            expense_total=Coalesce(
+                Subquery(
+                    TripExpense.objects.filter(trip_id=OuterRef('pk'))
+                    .values('trip_id')
+                    .annotate(total=Sum('amount'))
+                    .values('total')[:1],
+                    output_field=IntegerField(),
+                ),
+                Value(0),
+            ),
         ).order_by('-id')
 
         if user.role == 'admin':

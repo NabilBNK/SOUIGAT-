@@ -1,0 +1,147 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - generic [ref=e25]:
+      - img [ref=e27]
+      - generic [ref=e31]: SOUIGAT
+    - navigation [ref=e32]:
+      - link "Tableau de bord" [ref=e33] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e34]
+        - generic [ref=e39]: Tableau de bord
+      - link "Voyages" [ref=e40] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e41]
+        - generic [ref=e45]: Voyages
+      - link "Billets Passagers" [ref=e46] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e47]
+        - generic [ref=e49]: Billets Passagers
+      - link "Rapports" [ref=e50] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e51]
+        - generic [ref=e54]: Rapports
+      - link "Colis" [ref=e55] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e56]
+        - generic [ref=e60]: Colis
+      - link "Administration" [ref=e61] [cursor=pointer]:
+        - /url: /admin
+        - img [ref=e62]
+        - generic [ref=e64]: Administration
+      - link "Utilisateurs" [ref=e65] [cursor=pointer]:
+        - /url: /admin/users
+        - img [ref=e66]
+        - generic [ref=e71]: Utilisateurs
+      - link "Autobus" [ref=e72] [cursor=pointer]:
+        - /url: /admin/buses
+        - img [ref=e73]
+        - generic [ref=e77]: Autobus
+      - link "Tarification" [ref=e78] [cursor=pointer]:
+        - /url: /admin/pricing
+        - img [ref=e79]
+        - generic [ref=e82]: Tarification
+      - link "Reglements" [active] [ref=e83] [cursor=pointer]:
+        - /url: /admin/settlements
+        - img [ref=e84]
+        - generic [ref=e86]: Reglements
+      - link "Journal d'audit" [ref=e87] [cursor=pointer]:
+        - /url: /admin/audit
+        - img [ref=e88]
+        - generic [ref=e90]: Journal d'audit
+      - link "Quarantaine" [ref=e91] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e92]
+        - generic [ref=e94]: Quarantaine
+    - paragraph [ref=e96]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - generic [ref=e99]:
+        - generic [ref=e101]: Administrateur
+        - generic [ref=e102]:
+          - img [ref=e104]
+          - generic [ref=e107]:
+            - paragraph [ref=e108]: Admin SOUIGAT
+            - paragraph [ref=e109]: "0500000001"
+        - button "Déconnexion" [ref=e110]:
+          - img [ref=e111]
+    - main [ref=e114]:
+      - generic [ref=e188]:
+        - generic [ref=e189]:
+          - heading "Reglements" [level=1] [ref=e190]
+          - paragraph [ref=e191]: Vue d'ensemble des remises de caisse et des litiges.
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - generic [ref=e194]: Agence
+            - combobox [ref=e195]:
+              - option "Toutes" [selected]
+              - option "AL souigat"
+              - option "Algiers Central"
+              - option "Annaba Office"
+              - option "Constantine Office"
+              - option "Oran Office"
+              - option "Ouargla"
+              - option "Setif Office"
+              - option "Sétif Office"
+              - option "Test Agency"
+              - option "TestA"
+          - generic [ref=e196]:
+            - generic [ref=e197]: Conducteur
+            - combobox [ref=e198]:
+              - option "Tous" [selected]
+              - option "C C"
+              - option "A A"
+              - option "zaki m"
+              - option "qwdjnqwd djnqwjd"
+              - option "moh alg"
+              - option "Rachid Saidi"
+              - option "Mohamed Larbi"
+          - generic [ref=e199]:
+            - generic [ref=e200]: Statut
+            - combobox [ref=e201]:
+              - option "Tous" [selected]
+              - option "En attente"
+              - option "Partiel"
+              - option "Regle"
+              - option "Litige"
+          - generic [ref=e202]:
+            - generic [ref=e203]: Du
+            - textbox [ref=e204]: 2026-03-15
+          - generic [ref=e205]:
+            - generic [ref=e206]: Au
+            - textbox [ref=e207]: 2026-03-15
+        - generic [ref=e208]:
+          - generic [ref=e209]:
+            - heading "Liste des reglements" [level=2] [ref=e210]
+            - generic [ref=e211]: 2 resultats
+          - table [ref=e213]:
+            - rowgroup [ref=e214]:
+              - row "Voyage Agence Conducteur Statut Net attendu Ecart Cree le Action" [ref=e215]:
+                - columnheader "Voyage" [ref=e216]
+                - columnheader "Agence" [ref=e217]
+                - columnheader "Conducteur" [ref=e218]
+                - columnheader "Statut" [ref=e219]
+                - columnheader "Net attendu" [ref=e220]
+                - columnheader "Ecart" [ref=e221]
+                - columnheader "Cree le" [ref=e222]
+                - columnheader "Action" [ref=e223]
+            - rowgroup [ref=e224]:
+              - row "#51 Algiers Central → Oran Office Oran Office Mohamed Larbi En attente -95 900,00 DA En attente 15/03/2026 00:22 Aucune action" [ref=e225]:
+                - cell "#51 Algiers Central → Oran Office" [ref=e226]
+                - cell "Oran Office" [ref=e227]
+                - cell "Mohamed Larbi" [ref=e228]
+                - cell "En attente" [ref=e229]:
+                  - generic [ref=e230]: En attente
+                - cell "-95 900,00 DA" [ref=e231]
+                - cell "En attente" [ref=e232]
+                - cell "15/03/2026 00:22" [ref=e233]
+                - cell "Aucune action" [ref=e234]
+              - row "#49 Algiers Central → Annaba Office Annaba Office Mohamed Larbi En attente -68 425 700,00 DA En attente 14/03/2026 23:23 Aucune action" [ref=e235]:
+                - cell "#49 Algiers Central → Annaba Office" [ref=e236]
+                - cell "Annaba Office" [ref=e237]
+                - cell "Mohamed Larbi" [ref=e238]
+                - cell "En attente" [ref=e239]:
+                  - generic [ref=e240]: En attente
+                - cell "-68 425 700,00 DA" [ref=e241]
+                - cell "En attente" [ref=e242]
+                - cell "14/03/2026 23:23" [ref=e243]
+                - cell "Aucune action" [ref=e244]

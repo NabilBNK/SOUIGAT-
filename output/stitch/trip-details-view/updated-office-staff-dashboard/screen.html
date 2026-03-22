@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SOUIGAT - Office Staff Dashboard</title>
+<!-- Fonts and Icons -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "primary-dark": "#0b5ed7",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                        "sidebar-light": "#ffffff",
+                        "sidebar-dark": "#1a2634",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e293b",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "sans": ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.375rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 h-screen overflow-hidden flex font-display">
+<!-- Sidebar -->
+<aside class="w-[280px] h-full bg-white dark:bg-sidebar-dark flex flex-col border-r border-slate-200 dark:border-slate-800 shrink-0 z-20">
+<!-- Logo Area -->
+<div class="p-6 pb-2">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined text-2xl">directions_bus</span>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">SOUIGAT</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">Transport Mgmt.</p>
+</div>
+</div>
+<!-- Location Badge -->
+<div class="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-slate-500 text-[18px]">location_on</span>
+<span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Algiers Central Office</span>
+</div>
+</div>
+<!-- Navigation -->
+<nav class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary dark:text-primary-400 font-medium transition-colors" href="#">
+<span class="material-symbols-outlined fill-1">dashboard</span>
+            Dashboard
+        </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white font-medium transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">confirmation_number</span>
+            Trips &amp; Tickets
+        </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white font-medium transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">payments</span>
+            Financial Reports
+        </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white font-medium transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">content_paste_go</span>
+            Settlements
+        </a>
+<!-- Bottom Navigation Items -->
+<div class="mt-auto pt-4 flex flex-col gap-1">
+<div class="mb-4 border-t border-slate-100 dark:border-slate-800"></div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white font-medium transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">account_circle</span>
+                My Account
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white font-medium transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">settings</span>
+                Settings
+            </a>
+</div>
+</nav>
+<!-- Logout Footer -->
+<div class="p-4 border-t border-slate-200 dark:border-slate-800">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium transition-colors w-full" href="#">
+<span class="material-symbols-outlined">logout</span>
+            Logout
+        </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-hidden relative">
+<!-- Header -->
+<header class="h-[72px] bg-white dark:bg-sidebar-dark border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 shrink-0 z-10">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-2 text-sm">
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Home</a>
+<span class="text-slate-400 dark:text-slate-600">/</span>
+<span class="text-slate-900 dark:text-white font-medium">Dashboard</span>
+</div>
+<!-- Search and Profile -->
+<div class="flex items-center gap-6">
+<!-- Search Bar -->
+<div class="relative w-[400px]">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg leading-5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm transition-all" placeholder="Search trips, conductors, or IDs..." type="text"/>
+</div>
+<!-- Notifications -->
+<button class="relative p-2 text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-sidebar-dark"></span>
+</button>
+<!-- Profile -->
+<div class="flex items-center gap-3 pl-6 border-l border-slate-200 dark:border-slate-700">
+<div class="text-right hidden md:block">
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Fatima Z.</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Staff Manager</p>
+</div>
+<div class="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center border-2 border-white dark:border-slate-600 shadow-sm" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDUaESY3a63JFB4We9mXT3iDeIT5oBlW6l3-_WfuMGwq9dJlQ-x63StdoXYUKXi0bt4FEBSn7o6BJRKcA1ij0NRAYC_4U9LKUjI0nNf7QiqaH9SJ0uW3HVxXxF77s2SbGFgRIvLualLmLozzDg_WfifD44MHe9KOUdfCSP7twjJwqRFyL2g7uWSLhXXGve3TKEYxN2MT8P9Mag51xiWDGj05z6fit9fb0OcX3ZVtDbz4mCTsPIpLbkV_PT4FQlo3V0F2u_vbS0UUrs');">
+</div>
+</div>
+</div>
+</header>
+<!-- Dashboard Content Scrollable Area -->
+<div class="flex-1 overflow-y-auto p-8 bg-background-light dark:bg-background-dark">
+<div class="max-w-[1600px] mx-auto space-y-8">
+<!-- Welcome Section + Quick Actions -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div>
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white">Welcome back, Fatima!</h2>
+<p class="text-slate-500 dark:text-slate-400 mt-1">Here is an overview of today's operations at Algiers Central.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-sidebar-dark border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm text-sm font-medium">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                            Daily Report
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm shadow-primary/30 text-sm font-medium">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                            Create New Trip
+                        </button>
+</div>
+</div>
+<!-- Metrics Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+<!-- Revenue Card -->
+<div class="bg-white dark:bg-sidebar-dark rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 hover:border-primary/20 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined">attach_money</span>
+</div>
+<span class="flex items-center text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px] mr-1">trending_up</span>
+                                +12%
+                            </span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Total Revenue</p>
+<h3 class="text-2xl font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">245,000 DZD</h3>
+</div>
+</div>
+<!-- Active Trips Card -->
+<div class="bg-white dark:bg-sidebar-dark rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 hover:border-primary/20 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
+<span class="material-symbols-outlined">directions_bus</span>
+</div>
+<span class="flex items-center text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px] mr-1">add</span>
+                                +2 Today
+                            </span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Active Trips</p>
+<h3 class="text-2xl font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">8</h3>
+</div>
+</div>
+<!-- Settlements Card -->
+<div class="bg-white dark:bg-sidebar-dark rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 hover:border-primary/20 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-600 dark:text-orange-400">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<span class="flex items-center text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded-full">
+                                Action Needed
+                            </span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Pending Settlements</p>
+<h3 class="text-2xl font-bold text-slate-900 dark:text-white group-hover:text-orange-500 transition-colors">3</h3>
+</div>
+</div>
+<!-- Expenses Card -->
+<div class="bg-white dark:bg-sidebar-dark rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 hover:border-primary/20 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400">
+<span class="material-symbols-outlined">receipt_long</span>
+</div>
+<span class="flex items-center text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px] mr-1">trending_down</span>
+                                -5%
+                            </span>
+</div>
+<div>
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Total Expenses</p>
+<h3 class="text-2xl font-bold text-slate-900 dark:text-white group-hover:text-red-500 transition-colors">18,500 DZD</h3>
+</div>
+</div>
+</div>
+<!-- Recent Activity Table Redesign -->
+<div class="bg-white dark:bg-sidebar-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-sidebar-dark">
+<h3 class="text-lg font-semibold text-slate-900 dark:text-white">Recent Activity</h3>
+<a class="text-sm font-medium text-primary hover:text-primary-dark transition-colors flex items-center gap-1" href="#">
+                            View All Trips
+                            <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</a>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-white dark:bg-sidebar-dark border-b border-slate-200 dark:border-slate-800">
+<th class="px-6 py-4 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Trip ID</th>
+<th class="px-6 py-4 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Route</th>
+<th class="px-6 py-4 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Conductor</th>
+<th class="px-6 py-4 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Revenue</th>
+<th class="px-6 py-4 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Status</th>
+<th class="px-6 py-4 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">#TR-2024-001</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+<div class="flex items-center gap-2">
+<span>Algiers</span>
+<span class="material-symbols-outlined text-[16px] text-slate-400">arrow_right_alt</span>
+<span>Oran</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center border border-white dark:border-slate-800" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDo75DLv3E-YXX1LZ2jj4M5BxDkFR79R7Q1ecW4sMeo4pQEeQLJqHt9-12jp_XHdpTs8IfIeDokp_7-ghBtmFssiujHGNOj8iPoHmQTMjkuhuFmsNRC6ETS9N5HVw1XWj8MARFcWWLMlSjYqhSZKTdcUkdrXEdLIICHCSqj68Mr0IiQrmvVvulrrBpXgK0z7Bzv1-BAbvxXyhJSXehzptz9s-XaqMi-aeX29KUlDnxGiyKCbk2jSjwAVh4pO_65zVfn5Pv8NK0R9Fk');"></div>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Ahmed B.</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-900 dark:text-white font-bold">45,000 DZD</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
+                                            Completed
+                                        </span>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-right text-sm">
+<div class="flex items-center justify-end gap-2">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">#TR-2024-002</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+<div class="flex items-center gap-2">
+<span>Algiers</span>
+<span class="material-symbols-outlined text-[16px] text-slate-400">arrow_right_alt</span>
+<span>Constantine</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center border border-white dark:border-slate-800" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCA3WN7wqLd990kau55gkCJizjKiza1q0ss9X2sEXrdx2uYCir7o6b9m16Vz5T8Dbx0Q4ACuoXEmoe4heBBpzv0JJKcCDghxHrpj_V85g6JRufrTk01kJQdhUsT9DXJdzpHjM0eF92LDKhbZGSnYa4234hFsTXfFSPIvjRthdzqNhvrxPeDHkDcA4-puCtXo2gGIEo2m0zaz5NIQCyBQd1hZqoSv0c9OmjdUUe5PeuyPUC2HJd3GuRLSuoB_aA5TGG9wiw1jXUjVsk');"></div>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Karim S.</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-400 dark:text-slate-500 font-medium">--</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
+                                            In Progress
+                                        </span>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-right text-sm">
+<div class="flex items-center justify-end gap-2">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">#TR-2024-003</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+<div class="flex items-center gap-2">
+<span>Algiers</span>
+<span class="material-symbols-outlined text-[16px] text-slate-400">arrow_right_alt</span>
+<span>Annaba</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center border border-white dark:border-slate-800" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDNAHxlzois1-cC0hig5RiiSx4kSNM0LAkpJUYcaaOXBcCybh9qYwwt70GJHHNpmJIyNG4Jpil-CnFdxOI8qMh0Db2TUvhUPBpAJ1sL8rRh8-VSsECMjf0HtWjWMV72Mv7ceQO3wp_3ewiTLCBSiJpLFTIJmrvZMS2h036vfCcQu3qDll5zvyisFIZ3qH3PNL0aSWLUKiKOkYPcEsCGGCqbBkl6y6UpVLYaFWDV4jBKOLo_vlsjGAcH3WYHmSFeCdVRHD4dtGVktFA');"></div>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Mourad K.</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-900 dark:text-white font-bold">32,100 DZD</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">
+                                            Settlement Pending
+                                        </span>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-right text-sm">
+<div class="flex items-center justify-end gap-2">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">#TR-2024-004</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+<div class="flex items-center gap-2">
+<span>Sétif</span>
+<span class="material-symbols-outlined text-[16px] text-slate-400">arrow_right_alt</span>
+<span>Algiers</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center border border-white dark:border-slate-800" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBP4hAtIhC6r8tZ4dfRjlhGJnTX6Yb2YBwUQB5l13O3sxJD7UDQioNPTkHzNPoYx-PKY7Um7Gbkp7tbCWalgsZda5Tu-WxD_u5VwFbYaUh4PuVPHcfoR9qXwoXYKrS7Fba1TD8DSHjGmgu2hyOY7xA93_ubI1eBL5XYh5SyP8Zjm4FFzcqODEtOYCI7ut0XIWvUWTb9CuIc1nenb8I2Zpq80HYmPQkbS9WW8OxJ3XY1eN5v1tNjXkGAPzY5p0UI7uPsAVoNMf1pAjQ');"></div>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Amira L.</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-900 dark:text-white font-bold">28,450 DZD</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
+                                            Completed
+                                        </span>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-right text-sm">
+<div class="flex items-center justify-end gap-2">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">#TR-2024-005</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+<div class="flex items-center gap-2">
+<span>Oran</span>
+<span class="material-symbols-outlined text-[16px] text-slate-400">arrow_right_alt</span>
+<span>Algiers</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center border border-white dark:border-slate-800" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCBNFDcn5O6SkKWZUlzJRlmSs3Ocp57iCaI0-d2gFh3koCdLckMdhGb0KyfoQYY_XjrPHxuVO0LcXo9-TxhkMBigbCnn3L-WJwkiAAkmJ0DMyUUTgU-in5bp2zShoJ8B1qNq5lEFC0Nd8JsRzyuEIBG28gZDmdCJBrHvw-xXac3BWneKH09h35fgYIDfksmEGBsUacQwsr_OQ1HKt-9mi68jENlr7buTN0yr6EKQfsOM0H-kAkLdRnvwqQHstXWfEI7YxLRIgI7KWA');"></div>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Yacine M.</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-400 dark:text-slate-500 font-medium">--</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                            Scheduled
+                                        </span>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-right text-sm">
+<div class="flex items-center justify-end gap-2">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">#TR-2024-006</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+<div class="flex items-center gap-2">
+<span>Béjaïa</span>
+<span class="material-symbols-outlined text-[16px] text-slate-400">arrow_right_alt</span>
+<span>Jijel</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center border border-white dark:border-slate-800" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBIlC9EhtgEbqWqjORzvEuMnqJw8JcihodTSgZWjALHyWVGHoQY9nqjnWpLfhZZmQaBQVz3yNO0kZYeLetvaEoEwiJRPjTnvFBhHbXOcBxaiLgbUuOL14P281dS3dLKEic20WcW1rnXGzOmiRNsipLEKyUvtUbGcRxodN2hgH5sXcmyCGVTznICVm6NlSPTET15w392BFlbnb9GdgEfTvKzesm6eyk8KJ2zQOEQxjuODCxyrSZn9otmCXKXV95O50vcerovEtNlUbc');"></div>
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Samia R.</span>
+</div>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-sm text-slate-900 dark:text-white font-bold">15,200 DZD</td>
+<td class="px-6 py-5 whitespace-nowrap">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
+                                            Completed
+                                        </span>
+</td>
+<td class="px-6 py-5 whitespace-nowrap text-right text-sm">
+<div class="flex items-center justify-end gap-2">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

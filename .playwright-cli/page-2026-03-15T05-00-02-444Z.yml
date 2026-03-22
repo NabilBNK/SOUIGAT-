@@ -1,0 +1,99 @@
+- generic [ref=e22]:
+  - complementary [ref=e23]:
+    - generic [ref=e25]:
+      - img [ref=e27]
+      - generic [ref=e31]: SOUIGAT
+    - navigation [ref=e32]:
+      - link "Tableau de bord" [ref=e33] [cursor=pointer]:
+        - /url: /office
+        - img [ref=e34]
+        - generic [ref=e39]: Tableau de bord
+      - link "Voyages" [ref=e40] [cursor=pointer]:
+        - /url: /office/trips
+        - img [ref=e41]
+        - generic [ref=e45]: Voyages
+      - link "Billets Passagers" [ref=e46] [cursor=pointer]:
+        - /url: /office/tickets
+        - img [ref=e47]
+        - generic [ref=e49]: Billets Passagers
+      - link "Rapports" [active] [ref=e50] [cursor=pointer]:
+        - /url: /office/reports
+        - img [ref=e51]
+        - generic [ref=e54]: Rapports
+      - link "Colis" [ref=e55] [cursor=pointer]:
+        - /url: /cargo
+        - img [ref=e56]
+        - generic [ref=e60]: Colis
+      - link "Quarantaine" [ref=e61] [cursor=pointer]:
+        - /url: /admin/quarantine
+        - img [ref=e62]
+        - generic [ref=e64]: Quarantaine
+    - paragraph [ref=e66]: SOUIGAT v1.0 — Phase 2
+  - generic [ref=e67]:
+    - banner [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]: Personnel Bureau
+          - generic [ref=e72]: Tous
+        - generic [ref=e73]:
+          - img [ref=e75]
+          - generic [ref=e78]:
+            - paragraph [ref=e79]: Karim Benali
+            - paragraph [ref=e80]: "0600000001"
+        - button "Déconnexion" [ref=e81]:
+          - img [ref=e82]
+    - main [ref=e85]:
+      - generic [ref=e481]:
+        - generic [ref=e482]:
+          - generic [ref=e483]:
+            - heading "Rapports Financiers" [level=1] [ref=e484]
+            - paragraph [ref=e485]: Consultez et exportez les résumés journaliers par agence.
+          - button "Exporter" [ref=e487]:
+            - img [ref=e488]
+            - text: Exporter
+        - generic [ref=e491]:
+          - generic [ref=e492]:
+            - generic [ref=e493]: Date de début
+            - generic [ref=e494]:
+              - img [ref=e495]
+              - textbox [ref=e497]: 2026-03-15
+          - generic [ref=e498]:
+            - generic [ref=e499]: Date de fin
+            - generic [ref=e500]:
+              - img [ref=e501]
+              - textbox [ref=e503]: 2026-03-15
+          - button "Filtrer" [ref=e504]
+        - generic [ref=e505]:
+          - generic [ref=e506]:
+            - generic [ref=e507]: Total Voyages
+            - generic [ref=e508]: "2"
+          - generic [ref=e509]:
+            - generic [ref=e510]: Revenus Passagers
+            - generic [ref=e511]: 5 000,00 DA
+          - generic [ref=e512]:
+            - generic [ref=e513]: Revenus Colis
+            - generic [ref=e514]: 0,00 DA
+          - generic [ref=e515]:
+            - generic [ref=e516]: Net à Percevoir
+            - generic [ref=e517]: 3 991,00 DA
+        - table [ref=e521]:
+          - rowgroup [ref=e522]:
+            - row "Date Agence Voyages Passagers Colis Rev. Passagers Rev. Colis Net à percevoir" [ref=e523]:
+              - columnheader "Date" [ref=e524]
+              - columnheader "Agence" [ref=e525]
+              - columnheader "Voyages" [ref=e526]
+              - columnheader "Passagers" [ref=e527]
+              - columnheader "Colis" [ref=e528]
+              - columnheader "Rev. Passagers" [ref=e529]
+              - columnheader "Rev. Colis" [ref=e530]
+              - columnheader "Net à percevoir" [ref=e531]
+          - rowgroup [ref=e532]:
+            - row "2026-03-15 Algiers Central 2 2 0 5 000,00 DA 0,00 DA 3 991,00 DA" [ref=e533]:
+              - cell "2026-03-15" [ref=e534]
+              - cell "Algiers Central" [ref=e535]
+              - cell "2" [ref=e536]
+              - cell "2" [ref=e537]
+              - cell "0" [ref=e538]
+              - cell "5 000,00 DA" [ref=e539]
+              - cell "0,00 DA" [ref=e540]
+              - cell "3 991,00 DA" [ref=e541]

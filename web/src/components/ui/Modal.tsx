@@ -42,21 +42,21 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-surface-900/80 backdrop-blur-sm"
+                className="absolute inset-0 bg-[#101922]/80 backdrop-blur-sm"
                 onClick={onClose}
             />
 
             {/* Modal Dialog */}
             <div
-                className={`relative w-full ${maxWidth} bg-surface-800 rounded-2xl border border-surface-600/50 shadow-2xl flex flex-col max-h-[90vh]`}
+                className={`relative w-full ${maxWidth} bg-white dark:bg-[#1a2634] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[90vh]`}
                 role="dialog"
                 aria-modal="true"
             >
-                <div className="flex items-center justify-between p-5 border-b border-surface-600/50 shrink-0">
-                    <h2 className="text-xl font-bold text-text-primary">{title}</h2>
+                <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{title}</h2>
                     <button
                         onClick={onClose}
-                        className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-700/50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:bg-[#1e293b]/50 rounded-lg transition-colors"
                         aria-label="Fermer"
                     >
                         <X className="w-5 h-5" />

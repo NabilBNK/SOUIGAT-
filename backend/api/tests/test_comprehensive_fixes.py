@@ -262,3 +262,84 @@ class TicketNumberSerializationTests(TestCase):
             f'PT-{self.trip.id}-004',
             f'PT-{self.trip.id}-005',
         ])
+
+
+class ApiContractRegressionTests(TestCase):
+    """Protect the fields consumed by the current web trip and ticket screens."""
+
+    def setUp(self):
+        self.office = Office.objects.create(name='HQ', city='Algiers')
+        self.office_b = Office.objects.create(name='Branch', city='Oran')
+        self.admin = User.objects.create_superuser(
+            phone='0550000010', password='pass',
+            first_name='Admin', last_name='X',
+        )
+        self.conductor = User.objects.create_user(
+            phone='0550000011', password='pass',
+            first_name='Cond', last_name='A',
+            role='conductor', office=self.office,
+        )
+        bus = Bus.objects.create(
+            plate_number='BUS-02', capacity=50, office=self.office,
+        )
+        self.trip = Trip.objects.create(
+            origin_office=self.office,
+            destination_office=self.office_b,
+            conductor=self.conductor,
+            bus=bus,
+            departure_datetime=timezone.now(),
+            status='in_progress',
+            passenger_base_price=1000,
+            cargo_small_price=500,
+            cargo_medium_price=1000,
+            cargo_large_price=1500,
+        )
+        PassengerTicket.objects.create(
+            trip=self.trip,
+            ticket_number='PT-1-001',
+            passenger_name='Passenger',
+            price=1000,
+            payment_source='cash',
+            created_by=self.conductor,
+        )
+        TripExpense.objects.create(
+            trip=self.trip,
+            description='Fuel',
+            amount=300,
+            category='fuel',
+            created_by=self.conductor,
+        )
+        self.client = APIClient()
+
+    def test_trip_list_contains_web_fields(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.get('/api/trips/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        trip = resp.data['results'][0]
+        self.assertIn('origin_office_name', trip)
+        self.assertIn('destination_office_name', trip)
+        self.assertIn('bus_plate', trip)
+        self.assertIn('conductor_name', trip)
+        self.assertIn('passenger_count', trip)
+        self.assertIn('cargo_count', trip)
+        self.assertIn('expense_total', trip)
+
+    def test_trip_detail_contains_web_fields(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.get(f'/api/trips/{self.trip.id}/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn('origin_office_name', resp.data)
+        self.assertIn('destination_office_name', resp.data)
+        self.assertIn('bus_plate', resp.data)
+        self.assertIn('created_at', resp.data)
+        self.assertIn('updated_at', resp.data)
+
+    def test_ticket_list_contains_web_fields(self):
+        self.client.force_authenticate(self.admin)
+        resp = self.client.get('/api/tickets/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        ticket = resp.data['results'][0]
+        self.assertIn('trip', ticket)
+        self.assertIn('payment_source', ticket)
+        self.assertIn('created_at', ticket)
+        self.assertIn('created_by_name', ticket)

@@ -126,6 +126,34 @@ class PassengerTicketTests(TestCase):
         ticket.refresh_from_db()
         self.assertEqual(ticket.status, 'cancelled')
 
+    def test_staff_can_refund_ticket_via_patch(self):
+        ticket = PassengerTicket.objects.create(
+            trip=self.trip, ticket_number='T2', price=1000,
+            passenger_name='John', payment_source='cash', created_by=self.conductor,
+        )
+        self.client.force_authenticate(self.staff)
+        resp = self.client.patch(
+            f'/api/tickets/{ticket.id}/',
+            {'status': 'refunded'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, 'refunded')
+
+    def test_conductor_cannot_refund_ticket_via_patch(self):
+        ticket = PassengerTicket.objects.create(
+            trip=self.trip, ticket_number='T3', price=1000,
+            passenger_name='John', payment_source='cash', created_by=self.conductor,
+        )
+        self.client.force_authenticate(self.conductor)
+        resp = self.client.patch(
+            f'/api/tickets/{ticket.id}/',
+            {'status': 'refunded'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_cancelled_ticket_frees_capacity(self):
         """After cancelling, a new ticket can be created."""
         for i in range(2):

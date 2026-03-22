@@ -12,7 +12,7 @@ class TripExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TripExpense
         fields = [
-            'id', 'trip', 'description', 'amount', 'currency',
+            'id', 'trip', 'description', 'amount', 'currency', 'category',
             'created_by_name', 'created_at',
         ]
         read_only_fields = ['currency', 'created_at']

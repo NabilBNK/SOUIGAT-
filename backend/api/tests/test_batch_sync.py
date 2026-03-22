@@ -330,6 +330,43 @@ class BatchSyncTests(TestCase):
         self.assertEqual(expense.amount, 3805)
         self.assertIsNotNone(expense.synced_at)
 
+    def test_sync_persists_expense_category(self):
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            item_type='expense',
+            key='expense-category',
+            payload={
+                'description': 'Fuel stop',
+                'amount': 900,
+                'category': 'fuel',
+            },
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        expense = TripExpense.objects.get(trip=self.trip)
+        self.assertEqual(expense.category, 'fuel')
+
+    def test_sync_invalid_expense_category_quarantined(self):
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            item_type='expense',
+            key='bad-expense-category',
+            payload={
+                'description': 'Unknown',
+                'amount': 900,
+                'category': 'bribe',
+            },
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['quarantined'], 1)
+
     def test_sync_respects_explicit_base_unit_money_scale(self):
         self.client.force_authenticate(self.conductor)
         item = self._make_item(

@@ -14,7 +14,7 @@ import {
     TrendingUp,
     Wallet,
 } from 'lucide-react'
-import { getDailyReport, getExportDownloadUrl, getExportStatus, triggerExport } from '../../api/reports'
+import { getDailyReport, downloadExportFile, getExportStatus, triggerExport } from '../../api/reports'
 import { getPendingSettlements } from '../../api/settlements'
 import { getTrips } from '../../api/trips'
 import { Button } from '../../components/ui/Button'
@@ -89,14 +89,27 @@ export function OfficeDashboard() {
 
     useEffect(() => {
         if (exportStatus?.status === 'success' && exportStatus.task_id && exportDownloadToken) {
-            const timer = setTimeout(() => {
-                window.location.assign(getExportDownloadUrl(exportStatus.task_id, exportDownloadToken))
-                setExportTaskId(null)
-                setExportDownloadToken(null)
-                setExportStartedAt(null)
-            }, 400)
+            let cancelled = false
+            const timer = window.setTimeout(() => {
+                void downloadExportFile(exportStatus.task_id, exportDownloadToken)
+                    .catch(() => {
+                        if (!cancelled) {
+                            setExportError('Download of the Excel report failed.')
+                        }
+                    })
+                    .finally(() => {
+                        if (!cancelled) {
+                            setExportTaskId(null)
+                            setExportDownloadToken(null)
+                            setExportStartedAt(null)
+                        }
+                    })
+            }, 300)
 
-            return () => clearTimeout(timer)
+            return () => {
+                cancelled = true
+                window.clearTimeout(timer)
+            }
         }
 
         if (exportStatus?.status === 'failure') {
@@ -193,18 +206,18 @@ export function OfficeDashboard() {
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <section className="rounded-3xl border border-surface-600/50 bg-gradient-to-br from-surface-800 via-surface-800 to-surface-700 p-6 shadow-lg shadow-surface-900/20">
+            <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-surface-800 via-surface-800 to-surface-700 p-6 shadow-lg shadow-surface-900/20">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-3">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-300">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-[#137fec]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-300">
                             <MapPin className="h-3.5 w-3.5" />
                             {officeLabel}
                         </div>
                         <div>
-                            <h1 className="text-3xl font-semibold tracking-tight text-text-primary">
+                            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                                 Welcome back, {firstName}
                             </h1>
-                            <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+                            <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
                                 Here is today&apos;s office view for trips, cash handovers, and financial follow-up.
                             </p>
                         </div>
@@ -222,7 +235,7 @@ export function OfficeDashboard() {
                         </Button>
                         <Link
                             to="/office/trips/new"
-                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-500/30 transition-colors hover:bg-brand-600"
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#137fec] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-500/30 transition-colors hover:bg-[#0b5ed7]"
                         >
                             <Plus className="h-4 w-4" />
                             Create new trip
@@ -233,7 +246,7 @@ export function OfficeDashboard() {
                 {(isExporting || exportError || isReportError || isTripsError || isSettlementsError) && (
                     <div className="mt-5 space-y-3">
                         {isExporting && (
-                            <div className="flex items-center gap-3 rounded-2xl border border-brand-500/20 bg-brand-500/10 px-4 py-3 text-sm text-brand-200">
+                            <div className="flex items-center gap-3 rounded-2xl border border-brand-500/20 bg-[#137fec]/10 px-4 py-3 text-sm text-brand-200">
                                 <Download className="h-4 w-4" />
                                 Preparing the Excel report
                                 {typeof exportStatus?.progress === 'number' ? ` (${exportStatus.progress}%)` : ''}
@@ -264,17 +277,17 @@ export function OfficeDashboard() {
             </section>
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-                <div className="overflow-hidden rounded-3xl border border-surface-600/50 bg-surface-800 shadow-lg shadow-surface-900/10">
-                    <div className="flex flex-col gap-3 border-b border-surface-600/50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a2634] shadow-lg shadow-surface-900/10">
+                    <div className="flex flex-col gap-3 border-b border-slate-200 dark:border-slate-800 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-text-primary">Recent activity</h2>
-                            <p className="mt-1 text-sm text-text-muted">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Recent activity</h2>
+                            <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
                                 Latest trips and the actions your office can take right now.
                             </p>
                         </div>
                         <Link
                             to="/office/trips"
-                            className="inline-flex items-center gap-2 text-sm font-semibold text-brand-400 transition-colors hover:text-brand-300"
+                            className="inline-flex items-center gap-2 text-sm font-semibold text-[#137fec] dark:text-[#60a5fa] transition-colors hover:text-brand-300"
                         >
                             View all trips
                             <ArrowRight className="h-4 w-4" />
@@ -283,8 +296,8 @@ export function OfficeDashboard() {
 
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-surface-600/50">
-                            <thead className="bg-surface-700/40">
-                                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                            <thead className="bg-slate-100 dark:bg-[#1e293b]/40">
+                                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                                     <th className="px-6 py-4">Trip</th>
                                     <th className="px-6 py-4">Route</th>
                                     <th className="px-6 py-4">Conductor</th>
@@ -298,7 +311,7 @@ export function OfficeDashboard() {
                                     Array.from({ length: 4 }).map((_, index) => (
                                         <tr key={index}>
                                             <td className="px-6 py-5" colSpan={6}>
-                                                <div className="h-12 animate-pulse rounded-2xl bg-surface-700/60" />
+                                                <div className="h-12 animate-pulse rounded-2xl bg-slate-100/60 dark:bg-[#1e293b]/60" />
                                             </td>
                                         </tr>
                                     ))
@@ -315,7 +328,7 @@ export function OfficeDashboard() {
                                     })
                                 ) : (
                                     <tr>
-                                        <td className="px-6 py-12 text-center text-sm text-text-muted" colSpan={6}>
+                                        <td className="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500" colSpan={6}>
                                             No trips found for the current dashboard view.
                                         </td>
                                     </tr>
@@ -326,11 +339,11 @@ export function OfficeDashboard() {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="rounded-3xl border border-surface-600/50 bg-surface-800 p-6 shadow-lg shadow-surface-900/10">
+                    <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a2634] p-6 shadow-lg shadow-surface-900/10">
                         <div className="flex items-start justify-between gap-4">
                             <div>
-                                <h2 className="text-lg font-semibold text-text-primary">Pending settlements</h2>
-                                <p className="mt-1 text-sm text-text-muted">
+                                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Pending settlements</h2>
+                                <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
                                     Trips that still need a cash handover review.
                                 </p>
                             </div>
@@ -342,36 +355,36 @@ export function OfficeDashboard() {
                         <div className="mt-5 space-y-3">
                             {isSettlementsLoading ? (
                                 Array.from({ length: 3 }).map((_, index) => (
-                                    <div key={index} className="h-20 animate-pulse rounded-2xl bg-surface-700/60" />
+                                    <div key={index} className="h-20 animate-pulse rounded-2xl bg-slate-100/60 dark:bg-[#1e293b]/60" />
                                 ))
                             ) : pendingSettlements.length > 0 ? (
                                 pendingSettlements.map((settlement) => (
                                     <Link
                                         key={settlement.id}
                                         to={`/office/trips/${settlement.trip}`}
-                                        className="block rounded-2xl border border-surface-600/50 bg-surface-700/40 p-4 transition-colors hover:border-brand-500/40 hover:bg-surface-700"
+                                        className="block rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#1e293b]/40 p-4 transition-colors hover:border-brand-500/40 hover:bg-slate-100 dark:bg-[#1e293b]"
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
-                                                <div className="text-sm font-semibold text-text-primary">
+                                                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                                                     Trip #{settlement.trip.toString().padStart(4, '0')}
                                                 </div>
-                                                <div className="mt-1 text-sm text-text-secondary">
+                                                <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                                                     {settlement.origin_name} to {settlement.destination_name}
                                                 </div>
                                             </div>
                                             <StatusBadge status={settlement.status} type="settlement" />
                                         </div>
                                         <div className="mt-4 flex items-center justify-between text-sm">
-                                            <div className="text-text-muted">{settlement.conductor_name}</div>
-                                            <div className="font-semibold text-status-warning">
+                                            <div className="text-slate-400 dark:text-slate-500">{settlement.conductor_name}</div>
+                                            <div className="font-semibold text-yellow-600 dark:text-yellow-400">
                                                 {formatCurrency(settlement.net_cash_expected)}
                                             </div>
                                         </div>
                                     </Link>
                                 ))
                             ) : (
-                                <div className="rounded-2xl border border-dashed border-status-success/30 bg-status-success/5 p-4 text-sm text-status-success">
+                                <div className="rounded-2xl border border-dashed border-status-success/30 bg-status-success/5 p-4 text-sm text-emerald-600 dark:text-emerald-400">
                                     All settlements are up to date for now.
                                 </div>
                             )}
@@ -379,15 +392,15 @@ export function OfficeDashboard() {
 
                         <Link
                             to={settlementListPath}
-                            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-400 transition-colors hover:text-brand-300"
+                            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#137fec] dark:text-[#60a5fa] transition-colors hover:text-brand-300"
                         >
                             Review settlement work
                             <ArrowRight className="h-4 w-4" />
                         </Link>
                     </div>
 
-                    <div className="rounded-3xl border border-surface-600/50 bg-surface-800 p-6 shadow-lg shadow-surface-900/10">
-                        <h2 className="text-lg font-semibold text-text-primary">Today at a glance</h2>
+                    <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a2634] p-6 shadow-lg shadow-surface-900/10">
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Today at a glance</h2>
                         <div className="mt-5 space-y-4">
                             <SummaryLine
                                 icon={<TrendingUp className="h-4 w-4" />}
@@ -433,22 +446,22 @@ function MetricLinkCard({
     tone: MetricTone
 }) {
     const toneClasses: Record<MetricTone, string> = {
-        success: 'bg-status-success/10 text-status-success',
-        info: 'bg-brand-500/10 text-brand-300',
-        warning: 'bg-status-warning/10 text-status-warning',
-        danger: 'bg-status-error/10 text-status-error',
+        success: 'bg-status-success/10 text-emerald-600 dark:text-emerald-400',
+        info: 'bg-[#137fec]/10 text-brand-300',
+        warning: 'bg-status-warning/10 text-yellow-600 dark:text-yellow-400',
+        danger: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
     }
 
     return (
         <Link
             to={to}
-            className="group rounded-3xl border border-surface-600/50 bg-surface-800 p-5 shadow-lg shadow-surface-900/10 transition-all hover:-translate-y-0.5 hover:border-brand-500/30 hover:bg-surface-700/80"
+            className="group rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a2634] p-5 shadow-lg shadow-surface-900/10 transition-all hover:-translate-y-0.5 hover:border-brand-500/30 hover:bg-slate-100 dark:bg-[#1e293b]/80"
         >
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <p className="text-sm font-medium text-text-muted">{label}</p>
-                    <p className="mt-2 text-3xl font-semibold tracking-tight text-text-primary">{value}</p>
-                    <p className="mt-2 text-sm text-text-secondary">{meta}</p>
+                    <p className="text-sm font-medium text-slate-400 dark:text-slate-500">{label}</p>
+                    <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{value}</p>
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{meta}</p>
                 </div>
                 <div className={`rounded-2xl p-3 ${toneClasses[tone]}`}>
                     {icon}
@@ -479,31 +492,31 @@ function RecentTripRow({
                 : 'View trip'
 
     return (
-        <tr className="transition-colors hover:bg-surface-700/30">
+        <tr className="transition-colors hover:bg-slate-100 dark:bg-[#1e293b]/30">
             <td className="px-6 py-5">
-                <div className="font-mono text-sm font-semibold text-text-primary">
+                <div className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
                     #{trip.id.toString().padStart(4, '0')}
                 </div>
-                <div className="mt-1 text-xs text-text-muted">
+                <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                     {formatDateTime(trip.departure_datetime)}
                 </div>
             </td>
             <td className="px-6 py-5">
-                <div className="text-sm font-medium text-text-primary">
+                <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                     {trip.origin_office_name} to {trip.destination_office_name}
                 </div>
-                <div className="mt-1 text-xs text-text-muted">
+                <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                     Bus {trip.bus_plate}
                 </div>
             </td>
             <td className="px-6 py-5">
-                <div className="text-sm font-medium text-text-primary">{trip.conductor_name}</div>
-                <div className="mt-1 text-xs text-text-muted">
+                <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{trip.conductor_name}</div>
+                <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                     {(trip.passenger_count || 0)} passenger(s), {(trip.cargo_count || 0)} cargo
                 </div>
             </td>
             <td className="px-6 py-5">
-                <div className={`text-sm font-semibold ${pendingSettlement ? 'text-status-warning' : 'text-text-secondary'}`}>
+                <div className={`text-sm font-semibold ${pendingSettlement ? 'text-yellow-600 dark:text-yellow-400' : 'text-slate-600 dark:text-slate-400'}`}>
                     {financeText}
                 </div>
             </td>
@@ -518,7 +531,7 @@ function RecentTripRow({
             <td className="px-6 py-5 text-right">
                 <Link
                     to={`/office/trips/${trip.id}`}
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-brand-400 transition-colors hover:text-brand-300"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-[#137fec] dark:text-[#60a5fa] transition-colors hover:text-brand-300"
                 >
                     {actionLabel}
                     <ArrowRight className="h-4 w-4" />
@@ -538,21 +551,21 @@ function SummaryLine({
     value: string
 }) {
     return (
-        <div className="flex items-center justify-between rounded-2xl border border-surface-600/40 bg-surface-700/30 px-4 py-3">
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 dark:border-slate-700/40 bg-slate-100 dark:bg-[#1e293b]/30 px-4 py-3">
             <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-brand-500/10 p-2 text-brand-300">
+                <div className="rounded-xl bg-[#137fec]/10 p-2 text-brand-300">
                     {icon}
                 </div>
-                <span className="text-sm text-text-secondary">{label}</span>
+                <span className="text-sm text-slate-600 dark:text-slate-400">{label}</span>
             </div>
-            <span className="text-sm font-semibold text-text-primary">{value}</span>
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</span>
         </div>
     )
 }
 
 function InlineAlert({ message }: { message: string }) {
     return (
-        <div className="flex items-start gap-3 rounded-2xl border border-status-error/20 bg-status-error/10 px-4 py-3 text-sm text-status-error">
+        <div className="flex items-start gap-3 rounded-2xl border border-status-error/20 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{message}</span>
         </div>
@@ -573,12 +586,12 @@ function getPendingSettlementMeta(count: number): string {
 
 function getPendingBadgeClass(count: number): string {
     if (count === 0) {
-        return 'inline-flex h-10 min-w-10 items-center justify-center rounded-2xl bg-status-success/10 px-3 text-sm font-semibold text-status-success'
+        return 'inline-flex h-10 min-w-10 items-center justify-center rounded-2xl bg-status-success/10 px-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400'
     }
 
     if (count <= 2) {
-        return 'inline-flex h-10 min-w-10 items-center justify-center rounded-2xl bg-status-warning/10 px-3 text-sm font-semibold text-status-warning'
+        return 'inline-flex h-10 min-w-10 items-center justify-center rounded-2xl bg-status-warning/10 px-3 text-sm font-semibold text-yellow-600 dark:text-yellow-400'
     }
 
-    return 'inline-flex h-10 min-w-10 items-center justify-center rounded-2xl bg-status-error/10 px-3 text-sm font-semibold text-status-error'
+    return 'inline-flex h-10 min-w-10 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-900/20 px-3 text-sm font-semibold text-red-600 dark:text-red-400'
 }

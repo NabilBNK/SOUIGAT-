@@ -1,0 +1,24 @@
+{
+  "content": [
+    {
+      "text": "{\"name\":\"projects/9527716185008310538/screens/f94377ee5427403e8e36638c8e7f1008\",\"title\":\"Final Office Staff Dashboard\",\"screenshot\":{\"name\":\"projects/9527716185008310538/files/bd9b64fd355345e0b30b636baa805b43\",\"downloadUrl\":\"https://lh3.googleusercontent.com/aida/ADBb0ugDz5tr893Hw3ynU4YYCwo6TwmS4nR21iOXw4aZx_nEbI8lA3tT10ztfHVQbgbdjvKo29u4EkA0aCg1Py9BIQYSX9Xct1LsB3S8kCvqjN2I--sDDtzYTKmXlr_PYBphdgrvn-NZWl9xqeLYcY9todDEAtP2I8nTWiCYq-kbUd399mAzHI7qHLrgy5Z8527h1gNOj1F3o34QGvj0wVvvnNCj3WRIeMIo6ueMlUDcbtaS4KmmJPEdIKhdfjE\"},\"htmlCode\":{\"name\":\"projects/9527716185008310538/files/edc6a334b22a467abad4313555fb16da\",\"downloadUrl\":\"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2U3NjU3YzdkOTc3MTRmMGM5NWJjOTdhZTUyMmIyMzhlEgsSBxC8sa74pA8YAZIBIwoKcHJvamVjdF9pZBIVQhM5NTI3NzE2MTg1MDA4MzEwNTM4&filename=&opi=89354086\",\"mimeType\":\"text/html\"},\"width\":\"2560\",\"height\":\"2048\",\"deviceType\":\"DESKTOP\"}",
+      "type": "text"
+    }
+  ],
+  "structuredContent": {
+    "deviceType": "DESKTOP",
+    "height": "2048",
+    "htmlCode": {
+      "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2U3NjU3YzdkOTc3MTRmMGM5NWJjOTdhZTUyMmIyMzhlEgsSBxC8sa74pA8YAZIBIwoKcHJvamVjdF9pZBIVQhM5NTI3NzE2MTg1MDA4MzEwNTM4&filename=&opi=89354086",
+      "mimeType": "text/html",
+      "name": "projects/9527716185008310538/files/edc6a334b22a467abad4313555fb16da"
+    },
+    "name": "projects/9527716185008310538/screens/f94377ee5427403e8e36638c8e7f1008",
+    "screenshot": {
+      "downloadUrl": "https://lh3.googleusercontent.com/aida/ADBb0ugDz5tr893Hw3ynU4YYCwo6TwmS4nR21iOXw4aZx_nEbI8lA3tT10ztfHVQbgbdjvKo29u4EkA0aCg1Py9BIQYSX9Xct1LsB3S8kCvqjN2I--sDDtzYTKmXlr_PYBphdgrvn-NZWl9xqeLYcY9todDEAtP2I8nTWiCYq-kbUd399mAzHI7qHLrgy5Z8527h1gNOj1F3o34QGvj0wVvvnNCj3WRIeMIo6ueMlUDcbtaS4KmmJPEdIKhdfjE",
+      "name": "projects/9527716185008310538/files/bd9b64fd355345e0b30b636baa805b43"
+    },
+    "title": "Final Office Staff Dashboard",
+    "width": "2560"
+  }
+}

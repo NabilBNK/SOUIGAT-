@@ -1,57 +1,33 @@
 package com.souigat.mobile.ui.screens.trips
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocalAtm
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.souigat.mobile.ui.components.ConductorPanelSurface
 import com.souigat.mobile.ui.components.EmptyStatePanel
 import com.souigat.mobile.ui.components.StatusPill
-import com.souigat.mobile.ui.components.TripSummaryCard
-import com.souigat.mobile.ui.theme.ErrorRed
-import com.souigat.mobile.ui.theme.Success
-import com.souigat.mobile.ui.theme.Warning
-import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +54,6 @@ fun TripDetailScreen(
                 snackbarHostState.showSnackbar(current.message)
                 viewModel.resetActionState()
             }
-
             is TripDetailViewModel.ActionState.Success -> {
                 showCompleteDialog = false
                 val preview = current.response.settlementPreview
@@ -87,20 +62,15 @@ fun TripDetailScreen(
                         snackbarHostState.showSnackbar("Trajet termine. Ouverture du recapitulatif de remise.")
                         onNavigateToSettlementSummary(viewModel.toSettlementPreviewUiModel(preview))
                     }
-
                     current.response.settlementPreviewError != null -> {
-                        snackbarHostState.showSnackbar(
-                            "Trajet termine. Le recapitulatif de remise est indisponible pour le moment."
-                        )
+                        snackbarHostState.showSnackbar("Trajet termine. Le recapitulatif de remise est indisponible pour le moment.")
                     }
-
                     else -> {
                         snackbarHostState.showSnackbar("Mise a jour effectuee.")
                     }
                 }
                 viewModel.resetActionState()
             }
-
             else -> Unit
         }
     }
@@ -109,26 +79,20 @@ fun TripDetailScreen(
         AlertDialog(
             onDismissRequest = { showCompleteDialog = false },
             title = { Text("Confirmer la fin du trajet") },
-            text = {
-                Text("Cette action cloture le trajet et bloque les nouvelles ventes et depenses. Verifiez une derniere fois avant de terminer.")
-            },
+            text = { Text("Cette action cloture le trajet et bloque les nouvelles ventes et depenses. Verifiez reellemnt avant de terminer.") },
             confirmButton = {
                 Button(
                     onClick = viewModel::completeTrip,
                     enabled = actionState !is TripDetailViewModel.ActionState.Loading,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))
-                ) {
-                    Text("Terminer")
-                }
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA1A1A))
+                ) { Text("Terminer") }
             },
             dismissButton = {
                 Button(
                     onClick = { showCompleteDialog = false },
                     enabled = actionState !is TripDetailViewModel.ActionState.Loading,
-                    colors = ButtonDefaults.buttonColors(containerColor = Success)
-                ) {
-                    Text("Annuler")
-                }
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF34D399))
+                ) { Text("Annuler") }
             }
         )
     }
@@ -136,15 +100,16 @@ fun TripDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Detail du trajet") },
+                title = { Text("Détail du trajet", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                    containerColor = Color.White
+                ),
+                modifier = Modifier.border(1.dp, Color(0xFFE2E5EA), RoundedCornerShape(0.dp))
             )
         },
         bottomBar = {
@@ -165,24 +130,12 @@ fun TripDetailScreen(
     ) { paddingValues ->
         when (val state = uiState) {
             TripDetailUiState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
-
             is TripDetailUiState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp), contentAlignment = Alignment.Center) {
                     EmptyStatePanel(
                         icon = Icons.Default.Inventory2,
                         title = "Trajet indisponible",
@@ -194,75 +147,65 @@ fun TripDetailScreen(
                     )
                 }
             }
-
             is TripDetailUiState.Success -> {
                 val trip = state.trip
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 140.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    contentPadding = PaddingValues(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 160.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    item(key = "trip_summary", contentType = "trip_summary") {
-                        TripSummaryCard(
+                    item(key = "hero_trip_card") {
+                        HeroTripCard(
                             origin = trip.origin,
                             destination = trip.destination,
                             busPlate = trip.busPlate,
-                            departureLabel = trip.departureLabel,
                             statusLabel = trip.statusLabel,
-                            supportingLabel = trip.arrivalLabel ?: "Arrivee non renseignee"
+                            departureLabel = trip.departureLabel
                         )
                     }
 
-                    item(key = "operator", contentType = "section_card") {
+                    item(key = "conductor_team") {
                         DetailSectionCard(
-                            title = "Equipe de conduite",
-                            lines = listOf(
-                                "Conducteur" to trip.conductorName,
-                                "Bus" to trip.busPlate
-                            )
+                            title = "ÉQUIPE DE CONDUITE",
+                            lines = listOf("Conducteur" to trip.conductorName, "Bus" to trip.busPlate)
                         )
                     }
 
-                    item(key = "pricing", contentType = "section_card") {
+                    item(key = "pricing") {
                         PriceSectionCard(priceLines = trip.priceLines)
                     }
 
-                    item(key = "offline_title", contentType = "section_header") {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "Activite hors ligne",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "Billets, colis et depenses crees localement avant synchronisation serveur.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    item(key = "offline_title") {
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.5f))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "ACTIVITÉ HORS-LIGNE",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                        )
                     }
 
-                    item(key = "offline_tabs", contentType = "tab_row") {
-                        TabRow(selectedTabIndex = selectedTab) {
+                    item(key = "offline_tabs") {
+                        TabRow(
+                            selectedTabIndex = selectedTab,
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.primary
+                        ) {
                             Tab(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
-                                text = { Text("Passagers") },
-                                icon = { Icon(Icons.Default.Person, contentDescription = null) }
+                                text = { Text("Passagers", fontWeight = FontWeight.SemiBold) },
                             )
                             Tab(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                text = { Text("Colis") },
-                                icon = { Icon(Icons.Default.Inventory2, contentDescription = null) }
+                                text = { Text("Colis", fontWeight = FontWeight.SemiBold) },
                             )
                             Tab(
                                 selected = selectedTab == 2,
                                 onClick = { selectedTab = 2 },
-                                text = { Text("Depenses") },
-                                icon = { Icon(Icons.Default.LocalAtm, contentDescription = null) }
+                                text = { Text("Depenses", fontWeight = FontWeight.SemiBold) },
                             )
                         }
                     }
@@ -271,60 +214,28 @@ fun TripDetailScreen(
                         0 -> {
                             if (passengerTickets.isEmpty()) {
                                 item(key = "passenger_empty") {
-                                    EmptyStatePanel(
-                                        icon = Icons.Default.Person,
-                                        title = "Aucun billet passager",
-                                        message = "Les billets crees hors ligne apparaitront ici."
-                                    )
+                                    EmptyStatePanel(icon = Icons.Default.Person, title = "Aucun billet passager", message = "Les billets apparaitront ici.")
                                 }
                             } else {
-                                items(
-                                    items = passengerTickets,
-                                    key = { it.id },
-                                    contentType = { "offline_activity" }
-                                ) { item ->
-                                    OfflineActivityCard(item = item)
-                                }
+                                items(items = passengerTickets, key = { it.id }) { item -> OfflineActivityCard(item = item) }
                             }
                         }
-
                         1 -> {
                             if (cargoTickets.isEmpty()) {
                                 item(key = "cargo_empty") {
-                                    EmptyStatePanel(
-                                        icon = Icons.Default.Inventory2,
-                                        title = "Aucun colis hors ligne",
-                                        message = "Les enregistrements colis apparaitront ici."
-                                    )
+                                    EmptyStatePanel(icon = Icons.Default.Inventory2, title = "Aucun colis hors ligne", message = "Les enregistrements apparaitront ici.")
                                 }
                             } else {
-                                items(
-                                    items = cargoTickets,
-                                    key = { it.id },
-                                    contentType = { "offline_activity" }
-                                ) { item ->
-                                    OfflineActivityCard(item = item)
-                                }
+                                items(items = cargoTickets, key = { it.id }) { item -> OfflineActivityCard(item = item) }
                             }
                         }
-
                         else -> {
                             if (expenses.isEmpty()) {
                                 item(key = "expense_empty") {
-                                    EmptyStatePanel(
-                                        icon = Icons.Default.LocalAtm,
-                                        title = "Aucune depense hors ligne",
-                                        message = "Les depenses creees sur ce trajet apparaitront ici."
-                                    )
+                                    EmptyStatePanel(icon = Icons.Default.LocalAtm, title = "Aucune depense hors ligne", message = "Les depenses apparaitront ici.")
                                 }
                             } else {
-                                items(
-                                    items = expenses,
-                                    key = { it.id },
-                                    contentType = { "offline_activity" }
-                                ) { item ->
-                                    OfflineActivityCard(item = item)
-                                }
+                                items(items = expenses, key = { it.id }) { item -> OfflineActivityCard(item = item) }
                             }
                         }
                     }
@@ -335,31 +246,94 @@ fun TripDetailScreen(
 }
 
 @Composable
-private fun DetailSectionCard(
-    title: String,
-    lines: List<Pair<String, String>>
-) {
-    ConductorPanelSurface(shape = MaterialTheme.shapes.extraLarge) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+private fun HeroTripCard(origin: String, destination: String, busPlate: String, statusLabel: String, departureLabel: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, Color(0xFFC3C5D7).copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+    ) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.width(6.dp).fillMaxHeight().align(Alignment.CenterVertically).background(Color(0xFF1A56DB)))
+            Column(modifier = Modifier.padding(20.dp).fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                    Column {
+                        Text(
+                            text = statusLabel.uppercase(),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = origin.uppercase(), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black))
+                            Text(text = " → ", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primaryContainer)
+                            Text(text = destination.uppercase(), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black))
+                        }
+                    }
+                    Text(
+                        text = busPlate,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(8.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.background).padding(12.dp)) {
+                        Column {
+                            Text(
+                                text = "DÉPART PRÉVU",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = departureLabel,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailSectionCard(title: String, lines: List<Pair<String, String>>) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White)
+                .border(1.dp, Color(0xFFC3C5D7).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            lines.forEach { (label, value) ->
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = value,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                lines.forEachIndexed { index, pair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = pair.first, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(text = pair.second, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.End)
+                    }
+                    if (index < lines.size - 1) {
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.1f))
+                    }
                 }
             }
         }
@@ -368,32 +342,38 @@ private fun DetailSectionCard(
 
 @Composable
 private fun PriceSectionCard(priceLines: List<TripPriceLineUiModel>) {
-    ConductorPanelSurface(shape = MaterialTheme.shapes.extraLarge) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "TARIFICATION",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White)
+                .border(1.dp, Color(0xFFC3C5D7).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
         ) {
-            Text(
-                text = "Tarification",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            priceLines.forEach { price ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = price.label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = price.value,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                priceLines.forEachIndexed { index, price ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = price.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(
+                            text = price.value,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (index == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.End
+                        )
+                    }
+                    if (index < priceLines.size - 1) {
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.1f))
+                    }
                 }
             }
         }
@@ -402,42 +382,28 @@ private fun PriceSectionCard(priceLines: List<TripPriceLineUiModel>) {
 
 @Composable
 private fun OfflineActivityCard(item: OfflineActivityUiModel) {
-    val tone = when (item.kind) {
+    val toneColor = when (item.kind) {
         OfflineActivityKind.Passenger -> MaterialTheme.colorScheme.primary
-        OfflineActivityKind.Cargo -> Warning
-        OfflineActivityKind.Expense -> ErrorRed
+        OfflineActivityKind.Cargo -> Color(0xFFEAB308) // Warning
+        OfflineActivityKind.Expense -> Color(0xFFBA1A1A) // Error
     }
-
-    ConductorPanelSurface(shape = MaterialTheme.shapes.extraLarge) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                StatusPill(
-                    text = item.amountLabel,
-                    containerColor = tone.copy(alpha = 0.14f),
-                    contentColor = tone
-                )
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .border(1.dp, Color(0xFFC3C5D7).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .padding(16.dp)
+            .padding(bottom = 8.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(text = item.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                StatusPill(text = item.amountLabel, containerColor = toneColor.copy(alpha = 0.1f), contentColor = toneColor)
             }
-            Text(
-                text = item.subtitle,
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                text = item.meta,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(text = item.subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = item.meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
         }
     }
 }
@@ -451,72 +417,69 @@ private fun TripDetailActionBar(
     onStartTrip: () -> Unit,
     onCompleteTrip: () -> Unit
 ) {
-    ConductorPanelSurface(
-        shape = MaterialTheme.shapes.extraLarge,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .background(Color.White)
+            .border(1.dp, Color(0xFFE2E5EA), RoundedCornerShape(0.dp))
+            .padding(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (trip.canCreateOfflineItems) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
                         onClick = onCreateTicket,
                         enabled = !isLoading,
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSurface),
+                        modifier = Modifier.weight(1f).height(48.dp).border(2.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.4f), RoundedCornerShape(12.dp))
                     ) {
-                        Text("Billet")
+                        Text("Billet", fontWeight = FontWeight.SemiBold)
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = onCreateExpense,
                         enabled = !isLoading,
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onSurface),
+                        modifier = Modifier.weight(1f).height(48.dp).border(2.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.4f), RoundedCornerShape(12.dp))
                     ) {
-                        Text("Depense")
+                        Text("Dépense", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
 
-            when {
-                trip.canStartTrip -> {
-                    Button(
-                        onClick = onStartTrip,
-                        enabled = !isLoading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(vertical = 2.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text("Demarrer")
+            if (trip.canStartTrip) {
+                Button(
+                    onClick = onStartTrip,
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    modifier = Modifier.fillMaxWidth().height(56.dp).shadow(4.dp, RoundedCornerShape(12.dp))
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimaryContainer, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                            Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Démarrer le trajet", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                 }
+            }
 
-                trip.canCompleteTrip -> {
-                    Button(
-                        onClick = onCompleteTrip,
-                        enabled = !isLoading,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(vertical = 2.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text("Terminer")
-                        }
+            if (trip.canCompleteTrip) {
+                Button(
+                    onClick = onCompleteTrip,
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA1A1A)),
+                    modifier = Modifier.fillMaxWidth().height(56.dp).shadow(4.dp, RoundedCornerShape(12.dp))
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+                    } else {
+                        Text("Terminer", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }

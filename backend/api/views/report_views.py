@@ -7,13 +7,14 @@ from django.db.models.functions import Coalesce
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from api.models import CargoTicket, Office, PassengerTicket, Trip, TripExpense, User
 from api.permissions import get_cached_user_permissions
 
 
 REPORT_ROLES = ('admin', 'office_staff')
+MAX_REPORT_RANGE_DAYS = 31
 
 def _check_report_perm(request, required_perm='view_office_reports'):
     """Reports accessible by users with 'view_office_reports' in their matrix permissions."""
@@ -27,15 +28,29 @@ def _check_report_perm(request, required_perm='view_office_reports'):
 def _parse_date_range(request):
     """Extract date_from / date_to from query params. Default: today."""
     today = date.today()
-    date_from = request.query_params.get('date_from')
-    date_to = request.query_params.get('date_to')
+    date_from_raw = request.query_params.get('date_from')
+    date_to_raw = request.query_params.get('date_to')
 
     try:
-        date_from = date.fromisoformat(date_from) if date_from else today
-        date_to = date.fromisoformat(date_to) if date_to else today
+        date_from = date.fromisoformat(date_from_raw) if date_from_raw else today
+        date_to = date.fromisoformat(date_to_raw) if date_to_raw else today
     except ValueError:
-        date_from = today
-        date_to = today
+        raise ValidationError({
+            'error_code': 'INVALID_DATE_RANGE',
+            'detail': 'date_from and date_to must use YYYY-MM-DD format.',
+        })
+
+    if date_to < date_from:
+        raise ValidationError({
+            'error_code': 'INVALID_DATE_RANGE',
+            'detail': 'date_to must be greater than or equal to date_from.',
+        })
+
+    if (date_to - date_from).days > (MAX_REPORT_RANGE_DAYS - 1):
+        raise ValidationError({
+            'error_code': 'DATE_RANGE_TOO_LARGE',
+            'detail': f'Report date range cannot exceed {MAX_REPORT_RANGE_DAYS} days.',
+        })
 
     return date_from, date_to
 
@@ -192,7 +207,7 @@ def trip_report(request, trip_id):
 
     expenses = list(
         TripExpense.objects.filter(trip=trip)
-        .values('description', 'amount', 'currency')
+        .values('description', 'amount', 'currency', 'category')
     )
     expense_total = sum(e['amount'] for e in expenses)
 

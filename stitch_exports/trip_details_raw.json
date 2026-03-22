@@ -1,0 +1,24 @@
+{
+  "content": [
+    {
+      "text": "{\"name\":\"projects/9527716185008310538/screens/2667e3d62d554773896e4227ad2f7d14\",\"title\":\"Détails du Voyage (Mis à jour)\",\"screenshot\":{\"name\":\"projects/9527716185008310538/files/415297005aaa493a8e0d68ac189684c1\",\"downloadUrl\":\"https://lh3.googleusercontent.com/aida/ADBb0uh4wvpUUM5SIZEOt89zvyByxD5NiVX7-iegpjMHw_IZ03KE7epkkCesRFyTQ9xnTiYdZD94tDKqbXe8FByepwy3GOGTsJYIg9a4-Xcus4owL4ljd2ehSFgq7pKYEWFVOTTnx7NL0lPFsJRRSNLhBfDd6UP5V_cs18pOXax-SxA_SlEtZTkMhaClKJ_T-tmFbkCxpvw2TFA1OHIN2YkHjIsDPb-WyCYQ4hlAwTwPbVUUmGdG-f4lF5YdZQ\"},\"htmlCode\":{\"name\":\"projects/9527716185008310538/files/c310e53b1f7147e99416c2b98974bd32\",\"downloadUrl\":\"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2M4NTBkMTVmNzgyYjQxZmI4OTZkMDgyMDJlZGI4MWYwEgsSBxC8sa74pA8YAZIBIwoKcHJvamVjdF9pZBIVQhM5NTI3NzE2MTg1MDA4MzEwNTM4&filename=&opi=89354086\",\"mimeType\":\"text/html\"},\"width\":\"2560\",\"height\":\"2048\",\"deviceType\":\"DESKTOP\"}",
+      "type": "text"
+    }
+  ],
+  "structuredContent": {
+    "deviceType": "DESKTOP",
+    "height": "2048",
+    "htmlCode": {
+      "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2M4NTBkMTVmNzgyYjQxZmI4OTZkMDgyMDJlZGI4MWYwEgsSBxC8sa74pA8YAZIBIwoKcHJvamVjdF9pZBIVQhM5NTI3NzE2MTg1MDA4MzEwNTM4&filename=&opi=89354086",
+      "mimeType": "text/html",
+      "name": "projects/9527716185008310538/files/c310e53b1f7147e99416c2b98974bd32"
+    },
+    "name": "projects/9527716185008310538/screens/2667e3d62d554773896e4227ad2f7d14",
+    "screenshot": {
+      "downloadUrl": "https://lh3.googleusercontent.com/aida/ADBb0uh4wvpUUM5SIZEOt89zvyByxD5NiVX7-iegpjMHw_IZ03KE7epkkCesRFyTQ9xnTiYdZD94tDKqbXe8FByepwy3GOGTsJYIg9a4-Xcus4owL4ljd2ehSFgq7pKYEWFVOTTnx7NL0lPFsJRRSNLhBfDd6UP5V_cs18pOXax-SxA_SlEtZTkMhaClKJ_T-tmFbkCxpvw2TFA1OHIN2YkHjIsDPb-WyCYQ4hlAwTwPbVUUmGdG-f4lF5YdZQ",
+      "name": "projects/9527716185008310538/files/415297005aaa493a8e0d68ac189684c1"
+    },
+    "title": "Détails du Voyage (Mis à jour)",
+    "width": "2560"
+  }
+}

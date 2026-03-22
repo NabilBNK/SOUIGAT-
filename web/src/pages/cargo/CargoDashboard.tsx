@@ -36,7 +36,7 @@ const columns: ColumnDef<CargoTicket, any>[] = [
     columnHelper.accessor('payment_source', {
         header: 'Paiement',
         cell: info => (
-            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${info.getValue() === 'prepaid' ? 'bg-status-success/10 text-status-success' : 'bg-status-warning/10 text-status-warning'
+            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${info.getValue() === 'prepaid' ? 'bg-status-success/10 text-emerald-600 dark:text-emerald-400' : 'bg-status-warning/10 text-yellow-600 dark:text-yellow-400'
                 }`}>
                 {info.getValue() === 'prepaid' ? 'Payé' : 'À payer'}
             </span>
@@ -47,9 +47,9 @@ const columns: ColumnDef<CargoTicket, any>[] = [
         cell: info => {
             const status = info.getValue() as CargoStatus
             return (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${['delivered', 'paid'].includes(status) ? 'bg-status-success/10 text-status-success border-status-success/20' :
-                    ['created', 'in_transit', 'arrived'].includes(status) ? 'bg-brand-500/10 text-brand-400 border-brand-500/20' :
-                        'bg-status-error/10 text-status-error border-status-error/20'
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${['delivered', 'paid'].includes(status) ? 'bg-status-success/10 text-emerald-600 dark:text-emerald-400 border-status-success/20' :
+                    ['created', 'in_transit', 'arrived'].includes(status) ? 'bg-[#137fec]/10 text-[#137fec] dark:text-[#60a5fa] border-brand-500/20' :
+                        'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-status-error/20'
                     }`}>
                     {CARGO_STATUS_LABELS[status] || status}
                 </span>
@@ -88,16 +88,16 @@ export function CargoDashboard() {
     })
 
     const StatCard = ({ title, value, icon, trend }: { title: string, value: string | number, icon: React.ReactNode, trend?: string }) => (
-        <div className="bg-surface-800 border border-surface-600/50 rounded-xl p-5 hover:border-brand-500/30 transition-colors">
+        <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl p-5 hover:border-brand-500/30 transition-colors">
             <div className="flex items-center justify-between mb-4">
-                <div className="p-2 bg-surface-700/50 rounded-lg text-brand-400">
+                <div className="p-2 bg-slate-100 dark:bg-[#1e293b]/50 rounded-lg text-[#137fec] dark:text-[#60a5fa]">
                     {icon}
                 </div>
-                {trend && <span className="text-xs font-medium text-status-success">{trend}</span>}
+                {trend && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{trend}</span>}
             </div>
             <div>
-                <p className="text-sm text-text-muted mb-1">{title}</p>
-                <h3 className="text-2xl font-bold text-text-primary">{value}</h3>
+                <p className="text-sm text-slate-400 dark:text-slate-500 mb-1">{title}</p>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</h3>
             </div>
         </div>
     )
@@ -106,8 +106,8 @@ export function CargoDashboard() {
         <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-text-primary">Département Colis</h1>
-                    <p className="text-sm text-text-muted mt-1">Gérez la messagerie, les expéditions et les réceptions.</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Département Colis</h1>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Gérez la messagerie, les expéditions et les réceptions.</p>
                 </div>
             </div>
 
@@ -120,15 +120,15 @@ export function CargoDashboard() {
             </div>
 
             {/* Filters */}
-            <div className="bg-surface-800 border border-surface-600/50 p-4 rounded-xl flex flex-col md:flex-row gap-4">
+            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                         type="text"
                         placeholder="Rechercher (Nom, Réf, Téléphone)..."
                         value={search}
                         onChange={handleSearch}
-                        className="w-full bg-surface-700 border border-surface-600/50 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                        className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg pl-10 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                     />
                 </div>
                 <div className="w-full md:w-64">
@@ -138,7 +138,7 @@ export function CargoDashboard() {
                             setStatusFilter(e.target.value)
                             setPage(1)
                         }}
-                        className="w-full bg-surface-700 border border-surface-600/50 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50 appearance-none"
+                        className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50 appearance-none"
                     >
                         <option value="">Tous les statuts</option>
                         {Object.entries(CARGO_STATUS_LABELS).map(([key, label]) => (
@@ -149,9 +149,9 @@ export function CargoDashboard() {
             </div>
 
             {/* Data Table */}
-            <div className="bg-surface-800 border border-surface-600/50 rounded-xl overflow-hidden min-h-[400px]">
+            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-h-[400px]">
                 {error ? (
-                    <div className="p-8 text-center text-status-error">
+                    <div className="p-8 text-center text-red-600 dark:text-red-400">
                         <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-80" />
                         <p>Erreur lors du chargement des colis.</p>
                     </div>

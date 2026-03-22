@@ -19,7 +19,7 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
     """
 
     # Required by DRF router for basename resolution. Overridden by get_queryset().
-    queryset = PassengerTicket.objects.all().select_related('trip')
+    queryset = PassengerTicket.objects.all().select_related('trip', 'created_by')
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -42,7 +42,7 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter tickets by user scope and optional trip param."""
         user = self.request.user
-        qs = PassengerTicket.objects.select_related('trip', 'trip__bus')
+        qs = PassengerTicket.objects.select_related('trip', 'trip__bus', 'created_by')
 
         trip_id = self.request.query_params.get('trip')
         if trip_id:
@@ -147,6 +147,35 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
 
         out = PassengerTicketSerializer(ticket)
         return Response(out.data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Allow status-only updates for office/admin review flows."""
+        unexpected_fields = set(request.data.keys()) - {'status'}
+        if unexpected_fields:
+            raise ValidationError(
+                f"Only status updates are supported. Unexpected fields: {', '.join(sorted(unexpected_fields))}."
+            )
+
+        new_status = request.data.get('status')
+        if new_status not in ('cancelled', 'refunded'):
+            raise ValidationError({
+                'status': "Only 'cancelled' and 'refunded' are supported.",
+            })
+
+        ticket = self.get_object()
+
+        if request.user.role not in ('admin', 'office_staff'):
+            raise PermissionDenied(
+                'Only admin or office staff can update ticket status via this endpoint.'
+            )
+
+        if ticket.status != 'active':
+            raise ValidationError('Ticket is not active.')
+
+        ticket.status = new_status
+        ticket.save(update_fields=['status', 'updated_at'])
+
+        return Response(PassengerTicketSerializer(ticket).data)
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):

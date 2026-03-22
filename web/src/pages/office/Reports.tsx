@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { getDailyReport, triggerExport, getExportStatus, getExportDownloadUrl } from '../../api/reports'
+import { getDailyReport, triggerExport, getExportStatus, downloadExportFile } from '../../api/reports'
 import { getOffices } from '../../api/admin'
 import { useAuth } from '../../hooks/useAuth'
 import { formatCurrency } from '../../utils/formatters'
@@ -45,7 +45,7 @@ const columns = [
         cell: info => {
             const val = info.getValue()
             return (
-                <span className={`font-semibold ${val > 0 ? 'text-status-success' : 'text-text-primary'}`}>
+                <span className={`font-semibold ${val > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'}`}>
                     {formatCurrency(val)}
                 </span>
             )
@@ -128,17 +128,26 @@ export function ReportsPage() {
     // Handle export completion
     useEffect(() => {
         if (exportStatus?.status === 'success' && exportStatus.task_id && exportDownloadToken) {
-            // Give user a brief moment to see 100% then redirect to download
-            const timer = setTimeout(() => {
-                window.location.href = getExportDownloadUrl(exportStatus.task_id, exportDownloadToken)
-                // Reset state after download starts
-                setTimeout(() => {
-                    setExportTaskId(null)
-                    setExportDownloadToken(null)
-                    setExportStartTime(null)
-                }, 2000)
-            }, 1000)
-            return () => clearTimeout(timer)
+            let cancelled = false
+            const timer = window.setTimeout(() => {
+                void downloadExportFile(exportStatus.task_id, exportDownloadToken)
+                    .catch(() => {
+                        if (!cancelled) {
+                            setExportError('Le telechargement du fichier a echoue.')
+                        }
+                    })
+                    .finally(() => {
+                        if (!cancelled) {
+                            setExportTaskId(null)
+                            setExportDownloadToken(null)
+                            setExportStartTime(null)
+                        }
+                    })
+            }, 300)
+            return () => {
+                cancelled = true
+                window.clearTimeout(timer)
+            }
         } else if (exportStatus?.status === 'failure') {
             setExportError("L'export a échoué. Veuillez réessayer.")
             setExportTaskId(null)
@@ -171,14 +180,14 @@ export function ReportsPage() {
         <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-text-primary">Rapports Financiers</h1>
-                    <p className="text-sm text-text-muted mt-1">Consultez et exportez les résumés journaliers par agence.</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Rapports Financiers</h1>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Consultez et exportez les résumés journaliers par agence.</p>
                 </div>
 
                 <div className="flex items-center gap-3">
                     {/* Export Status Banner */}
                     {isExporting && (
-                        <div className="flex items-center gap-2 bg-brand-500/10 text-brand-400 px-3 py-1.5 rounded-lg border border-brand-500/20 text-sm font-medium">
+                        <div className="flex items-center gap-2 bg-[#137fec]/10 text-[#137fec] dark:text-[#60a5fa] px-3 py-1.5 rounded-lg border border-brand-500/20 text-sm font-medium">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             Préparation de l'Excel...
                             {exportStatus?.progress !== undefined && ` ${exportStatus.progress}%`}
@@ -198,47 +207,47 @@ export function ReportsPage() {
             </div>
 
             {exportError && (
-                <div className="bg-status-error/10 border border-status-error/20 p-4 rounded-lg flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-status-error shrink-0 mt-0.5" />
-                    <p className="text-sm text-status-error">{exportError}</p>
+                <div className="bg-red-50 dark:bg-red-900/20 border border-status-error/20 p-4 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-600 dark:text-red-400">{exportError}</p>
                 </div>
             )}
 
             {/* Filters */}
-            <form onSubmit={handleFilterSubmit} className="bg-surface-800 border border-surface-600/50 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-end">
+            <form onSubmit={handleFilterSubmit} className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-1 w-full">
-                    <label className="block text-xs font-medium text-text-secondary mb-1">Date de début</label>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date de début</label>
                     <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                         <input
                             type="date"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
-                            className="w-full bg-surface-700 border border-surface-600/50 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg pl-10 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                         />
                     </div>
                 </div>
                 <div className="flex-1 w-full">
-                    <label className="block text-xs font-medium text-text-secondary mb-1">Date de fin</label>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date de fin</label>
                     <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                         <input
                             type="date"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
-                            className="w-full bg-surface-700 border border-surface-600/50 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg pl-10 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                         />
                     </div>
                 </div>
                 {user?.role === 'admin' && (
                     <div className="flex-1 w-full">
-                        <label className="block text-xs font-medium text-text-secondary mb-1">Agence</label>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Agence</label>
                         <div className="relative">
-                            <LayoutDashboard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                            <LayoutDashboard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                             <select
                                 value={selectedOffice}
                                 onChange={(e) => setSelectedOffice(e.target.value)}
-                                className="w-full bg-surface-700 border border-surface-600/50 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/50 appearance-none"
+                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg pl-10 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50 appearance-none"
                             >
                                 <option value="all">Toutes les agences</option>
                                 {offices.map((office: any) => (
@@ -264,12 +273,12 @@ export function ReportsPage() {
                         highlightPositive: true
                     },
                 ].map((kpi, idx) => (
-                    <div key={idx} className="bg-surface-800 border border-surface-600/50 p-4 rounded-xl flex flex-col justify-center">
-                        <span className="text-xs font-medium text-text-secondary truncate">{kpi.label}</span>
+                    <div key={idx} className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex flex-col justify-center">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400 truncate">{kpi.label}</span>
                         {isLoading ? (
-                            <div className="h-7 mt-1 w-24 bg-surface-700 rounded animate-pulse" />
+                            <div className="h-7 mt-1 w-24 bg-slate-100 dark:bg-[#1e293b] rounded animate-pulse" />
                         ) : (
-                            <span className={`text-xl font-bold mt-1 ${kpi.highlightPositive && kpi.value > 0 ? 'text-status-success' : 'text-brand-400'}`}>
+                            <span className={`text-xl font-bold mt-1 ${kpi.highlightPositive && kpi.value > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#137fec] dark:text-[#60a5fa]'}`}>
                                 {kpi.format(kpi.value)}
                             </span>
                         )}
@@ -278,9 +287,9 @@ export function ReportsPage() {
             </div>
 
             {/* Data Table */}
-            <div className="bg-surface-800 border border-surface-600/50 rounded-xl overflow-hidden min-h-[400px]">
+            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-h-[400px]">
                 {isError ? (
-                    <div className="p-8 text-center text-status-error">
+                    <div className="p-8 text-center text-red-600 dark:text-red-400">
                         <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-80" />
                         <p>Erreur lors du chargement des rapports.</p>
                     </div>

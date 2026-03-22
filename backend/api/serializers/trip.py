@@ -9,6 +9,11 @@ class TripSerializer(serializers.ModelSerializer):
     bus_plate = serializers.CharField(source='bus.plate_number', read_only=True)
     origin_name = serializers.CharField(source='origin_office.name', read_only=True)
     destination_name = serializers.CharField(source='destination_office.name', read_only=True)
+    origin_office_name = serializers.CharField(source='origin_office.name', read_only=True)
+    destination_office_name = serializers.CharField(source='destination_office.name', read_only=True)
+    passenger_count = serializers.SerializerMethodField()
+    cargo_count = serializers.SerializerMethodField()
+    expense_total = serializers.SerializerMethodField()
 
     class Meta:
         model = Trip
@@ -19,12 +24,24 @@ class TripSerializer(serializers.ModelSerializer):
             'cargo_medium_price', 'cargo_large_price',
             'currency', 'conductor_name', 'bus_plate',
             'origin_name', 'destination_name',
+            'origin_office_name', 'destination_office_name',
+            'passenger_count', 'cargo_count', 'expense_total',
+            'created_at', 'updated_at',
         ]
         read_only_fields = [
             'status', 'arrival_datetime', 'currency',
             'passenger_base_price', 'cargo_small_price',
             'cargo_medium_price', 'cargo_large_price',
         ]
+
+    def get_passenger_count(self, obj):
+        return getattr(obj, 'passenger_count', 0)
+
+    def get_cargo_count(self, obj):
+        return getattr(obj, 'cargo_count', 0)
+
+    def get_expense_total(self, obj):
+        return getattr(obj, 'expense_total', 0)
 
     def create(self, validated_data):
         """Freeze pricing snapshot from active PricingConfig for this route."""
@@ -56,10 +73,31 @@ class TripListSerializer(serializers.ModelSerializer):
     destination = serializers.CharField(source='destination_office.name', read_only=True)
     conductor = serializers.CharField(source='conductor.get_full_name', read_only=True)
     plate = serializers.CharField(source='bus.plate_number', read_only=True)
+    origin_office_name = serializers.CharField(source='origin_office.name', read_only=True)
+    destination_office_name = serializers.CharField(source='destination_office.name', read_only=True)
+    conductor_name = serializers.CharField(source='conductor.get_full_name', read_only=True)
+    bus_plate = serializers.CharField(source='bus.plate_number', read_only=True)
+    passenger_count = serializers.SerializerMethodField()
+    cargo_count = serializers.SerializerMethodField()
+    expense_total = serializers.SerializerMethodField()
 
     class Meta:
         model = Trip
         fields = [
-            'id', 'origin', 'destination', 'conductor', 'plate',
+            'id', 'origin_office', 'destination_office', 'bus',
+            'origin', 'destination', 'conductor', 'plate',
+            'origin_office_name', 'destination_office_name',
+            'conductor_name', 'bus_plate',
             'departure_datetime', 'status', 'passenger_base_price', 'currency',
+            'passenger_count', 'cargo_count', 'expense_total',
+            'created_at', 'updated_at',
         ]
+
+    def get_passenger_count(self, obj):
+        return getattr(obj, 'passenger_count', 0)
+
+    def get_cargo_count(self, obj):
+        return getattr(obj, 'cargo_count', 0)
+
+    def get_expense_total(self, obj):
+        return getattr(obj, 'expense_total', 0)
