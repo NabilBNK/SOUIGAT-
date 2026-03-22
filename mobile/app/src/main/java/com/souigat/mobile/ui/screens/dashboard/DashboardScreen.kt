@@ -49,7 +49,7 @@ fun DashboardScreen(
                                 text = "Bonjour, ${state.conductorFirstName}",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0D1117)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             )
                             Text(
@@ -124,11 +124,11 @@ fun DashboardScreen(
                             .padding(start = 4.dp), 
                         verticalAlignment = Alignment.Top
                     ) {
-                        Box(modifier = Modifier.fillMaxHeight().width(4.dp).background(Color(0xFFB45309)))
+                        Box(modifier = Modifier.fillMaxHeight().width(4.dp).background(Warning))
                         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFB45309))
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = Warning)
                             Column {
-                                Text("Action requise", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFFB45309)))
+                                Text("Action requise", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = Warning))
                                 Text("${state.quarantinedCount} element(s) necessite attention.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -307,7 +307,7 @@ private fun HeroMetricCard(metric: DashboardMetricUiModel) {
             .fillMaxWidth()
             .shadow(4.dp, RoundedCornerShape(24.dp))
             .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xFFEBF0FF))
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
             .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
             .padding(24.dp)
     ) {
@@ -325,12 +325,12 @@ private fun HeroMetricCard(metric: DashboardMetricUiModel) {
                 Text(
                     text = metric.value.replace(Regex("[A-Za-z]"), "").trim(),
                     style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 38.sp),
-                    color = Color(0xFF1A56DB)
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "DZD",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF1A56DB)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -427,7 +427,7 @@ private fun DashboardMetricCard(
 
 @Composable
 private fun DashboardMetricTone.toColor(): Color = when (this) {
-    DashboardMetricTone.Primary -> Color(0xFF1D4ED8)
+    DashboardMetricTone.Primary -> MaterialTheme.colorScheme.primary
     DashboardMetricTone.Positive -> Success
     DashboardMetricTone.Negative -> ErrorRed
     DashboardMetricTone.Neutral -> MaterialTheme.colorScheme.onSurface

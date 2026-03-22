@@ -147,7 +147,7 @@ fun AppNavGraph(
             
             composable(
                 route = "trip_detail/{tripId}",
-                arguments = listOf(navArgument("tripId") { type = NavType.IntType })
+                arguments = listOf(navArgument("tripId") { type = NavType.LongType })
             ) {
                 TripDetailScreen(
                     onNavigateBack = { navController.popBackStack() },
@@ -205,53 +205,53 @@ fun AppNavGraph(
             
             composable(
                 route = "create_ticket/{tripId}",
-                arguments = listOf(navArgument("tripId") { type = NavType.IntType })
+                arguments = listOf(navArgument("tripId") { type = NavType.LongType })
             ) {
                 CreateTicketScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable(
                 route = "create_expense/{tripId}",
-                arguments = listOf(navArgument("tripId") { type = NavType.IntType })
+                arguments = listOf(navArgument("tripId") { type = NavType.LongType })
             ) {
                 CreateExpenseScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable("office_dashboard") {
                 val role = tokenManager?.getUserRole()
-                if (role != "office_staff" && role != "admin") {
+                if (role == "office_staff" || role == "admin") {
+                    Text("Office Staff Dashboard — Coming Soon")
+                } else {
                     LaunchedEffect(Unit) {
                         navController.navigate(NavRoute.Dashboard.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
-                } else {
-                    Text("Office Staff Dashboard — Coming Soon")
                 }
             }
             composable("admin_dashboard") {
                 val role = tokenManager?.getUserRole()
-                if (role != "admin") {
+                if (role == "admin") {
+                    Text("Admin Dashboard — Coming Soon")
+                } else {
                     LaunchedEffect(Unit) {
                         navController.navigate(NavRoute.Dashboard.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
-                } else {
-                    Text("Admin Dashboard — Coming Soon")
                 }
             }
 
             composable(NavRoute.History.route) {
                 HistoryScreen(
                     onNavigateToDetail = { tripId ->
-                        navController.navigate("trip_detail/${tripId.toInt()}")
+                        navController.navigate("trip_detail/${tripId}")
                     }
                 )
             }
             composable(NavRoute.Expenses.route) {
                 ExpensesScreen(
                     onNavigateToCreate = { tripId ->
-                        navController.navigate("create_expense/${tripId.toInt()}")
+                        navController.navigate("create_expense/${tripId}")
                     }
                 )
             }

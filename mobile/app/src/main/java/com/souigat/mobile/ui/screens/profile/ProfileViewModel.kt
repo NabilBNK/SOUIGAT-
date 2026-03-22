@@ -48,10 +48,7 @@ class ProfileViewModel @Inject constructor(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ProfileUiState(
-            fullName = tokenManager.getFullName()?.ifBlank { null } ?: "Conducteur",
-            roleLabel = tokenManager.getUserRole().toRoleLabel()
-        )
+        initialValue = ProfileUiState()
     )
 
     fun triggerSync() {

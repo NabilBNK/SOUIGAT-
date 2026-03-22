@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 
 enum class DashboardMetricTone {
     Primary,
@@ -39,8 +41,9 @@ enum class DashboardActivityKind {
     Expense
 }
 
+@Immutable
 data class DashboardRouteUiModel(
-    val tripId: Int?,
+    val tripId: Long?,
     val origin: String,
     val destination: String,
     val busPlate: String,
@@ -49,6 +52,7 @@ data class DashboardRouteUiModel(
     val statusLabel: String
 )
 
+@Immutable
 data class DashboardMetricUiModel(
     val id: String,
     val label: String,
@@ -57,6 +61,7 @@ data class DashboardMetricUiModel(
     val tone: DashboardMetricTone = DashboardMetricTone.Neutral
 )
 
+@Immutable
 data class DashboardActivityUiModel(
     val id: String,
     val title: String,
@@ -67,6 +72,7 @@ data class DashboardActivityUiModel(
     val createdAt: Long
 )
 
+@Stable
 data class DashboardUiState(
     val conductorFirstName: String = "Conducteur",
     val conductorFullName: String = "Conducteur",
@@ -200,15 +206,12 @@ class DashboardViewModel @Inject constructor(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = DashboardUiState(
-            conductorFirstName = tokenManager.getFirstName() ?: "Conducteur",
-            conductorFullName = tokenManager.getFullName() ?: "Conducteur"
-        )
+        initialValue = DashboardUiState()
     )
 
     private fun TripEntity.toDashboardRouteUiModel(): DashboardRouteUiModel {
         return DashboardRouteUiModel(
-            tripId = serverId?.toInt(),
+            tripId = serverId?.toLongOrNull(),
             origin = originOffice,
             destination = destinationOffice,
             busPlate = busPlate,
