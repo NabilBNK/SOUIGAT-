@@ -4,6 +4,7 @@ import android.content.Context
 import com.souigat.mobile.BuildConfig
 import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.data.remote.api.AuthApi
+import com.souigat.mobile.data.remote.interceptor.DynamicBaseUrlInterceptor
 import com.souigat.mobile.data.repository.AuthRepositoryImpl
 import com.souigat.mobile.domain.repository.AuthRepository
 import com.souigat.mobile.util.Constants
@@ -30,12 +31,14 @@ object AuthModule {
     @Singleton
     @Named("auth") // Pure retrofit without custom interceptors/authenticators
     fun provideAuthRetrofit(
-        json: Json
+        json: Json,
+        dynamicBaseUrlInterceptor: DynamicBaseUrlInterceptor
     ): Retrofit {
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(Constants.CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
             .readTimeout(Constants.READ_TIMEOUT_S, TimeUnit.SECONDS)
             .writeTimeout(Constants.WRITE_TIMEOUT_S, TimeUnit.SECONDS)
+            .addInterceptor(dynamicBaseUrlInterceptor)
             .apply {
                 // TODO P0: Re-add CertificatePinner when real SPKI hashes are available
                 if (BuildConfig.DEBUG) {

@@ -344,6 +344,10 @@ class TicketRepositoryImpl @Inject constructor(
         )
     }
 
+    override fun observePassengerTicketCount(tripId: Long): Flow<Int> {
+        return passengerDao.observeCountByTripOrServerId(tripId)
+    }
+
     override fun observePassengerTickets(tripId: Long): Flow<List<PassengerTicketEntity>> {
         return passengerDao.observeByTripOrServerId(tripId)
     }

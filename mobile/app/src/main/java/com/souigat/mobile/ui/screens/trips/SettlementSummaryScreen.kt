@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.LocalAtm
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -103,7 +103,7 @@ fun SettlementSummaryScreen(
             item {
                 SettlementSummaryCard(
                     title = "Encaissements restants",
-                    icon = Icons.Default.ReceiptLong,
+                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
                     lines = listOf(
                         "Cargo a percevoir (POD)" to preview.outstandingCargoDeliveryLabel,
                         "Statut" to preview.status,

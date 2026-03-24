@@ -3,6 +3,7 @@ package com.souigat.mobile.di
 import com.souigat.mobile.BuildConfig
 import com.souigat.mobile.data.remote.interceptor.AuthInterceptor
 import com.souigat.mobile.data.remote.interceptor.BackendStatusInterceptor
+import com.souigat.mobile.data.remote.interceptor.DynamicBaseUrlInterceptor
 import com.souigat.mobile.data.remote.interceptor.TokenRefreshAuthenticator
 import com.souigat.mobile.util.Constants
 import dagger.Module
@@ -41,6 +42,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
+        dynamicBaseUrlInterceptor: DynamicBaseUrlInterceptor,
         authInterceptor: AuthInterceptor,
         backendStatusInterceptor: BackendStatusInterceptor,
         tokenRefreshAuthenticator: TokenRefreshAuthenticator
@@ -49,6 +51,7 @@ object NetworkModule {
             .connectTimeout(Constants.CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
             .readTimeout(Constants.READ_TIMEOUT_S, TimeUnit.SECONDS)
             .writeTimeout(Constants.WRITE_TIMEOUT_S, TimeUnit.SECONDS)
+            .addInterceptor(dynamicBaseUrlInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(backendStatusInterceptor)
             .authenticator(tokenRefreshAuthenticator)

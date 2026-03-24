@@ -32,7 +32,7 @@ class TripRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getTripDetail(id: Int): Result<TripDetailDto> {
+    override suspend fun getTripDetail(id: Long): Result<TripDetailDto> {
         return safeApiCall { tripApi.getTripDetail(id) }
             .mapCatching { detail ->
                 persistTripDetailLocally(detail)
@@ -40,18 +40,18 @@ class TripRepositoryImpl @Inject constructor(
             }
     }
 
-    override suspend fun startTrip(id: Int): Result<TripStatusDto> {
+    override suspend fun startTrip(id: Long): Result<TripStatusDto> {
         return safeApiCall { tripApi.startTrip(id) }
             .mapCatching { status ->
-                updateLocalTripStatus(id.toLong(), status.status)
+                updateLocalTripStatus(id, status.status)
                 status
             }
     }
 
-    override suspend fun completeTrip(id: Int): Result<TripStatusDto> {
+    override suspend fun completeTrip(id: Long): Result<TripStatusDto> {
         return safeApiCall { tripApi.completeTrip(id) }
             .mapCatching { status ->
-                updateLocalTripStatus(id.toLong(), status.status)
+                updateLocalTripStatus(id, status.status)
                 status
             }
     }
@@ -120,12 +120,12 @@ class TripRepositoryImpl @Inject constructor(
             return
         }
 
-        val existingByServerId = tripDao.getByServerIds(trips.map { it.id.toLong() })
+        val existingByServerId = tripDao.getByServerIds(trips.map { it.id })
             .associateBy { it.serverId }
         val updatedAt = System.currentTimeMillis()
 
         val entities = trips.map { dto ->
-            val serverTripId = dto.id.toLong()
+            val serverTripId = dto.id
             val existing = existingByServerId[serverTripId]
 
             TripEntity(
@@ -151,7 +151,7 @@ class TripRepositoryImpl @Inject constructor(
     }
 
     private suspend fun persistTripDetailLocally(detail: TripDetailDto) {
-        val serverTripId = detail.id.toLong()
+        val serverTripId = detail.id
         val existing = tripDao.getByLocalOrServerId(serverTripId)
 
         val entity = TripEntity(

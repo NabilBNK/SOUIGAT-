@@ -15,6 +15,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = config('DJANGO_DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('DJANGO_ALLOWED_HOSTS', default='', cast=lambda v: [h.strip() for h in v.split(',') if h.strip()])
+if DEBUG:
+    # Local Docker/mobile development moves across LANs, so debug should not require
+    # manual ALLOWED_HOSTS edits every time DHCP assigns a new laptop IP.
+    ALLOWED_HOSTS = ['*']
 
 # Production Security Headers
 SECURE_BROWSER_XSS_FILTER = True

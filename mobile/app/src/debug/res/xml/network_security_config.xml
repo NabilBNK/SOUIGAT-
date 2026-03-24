@@ -1,20 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Network Security Config — DEBUG ONLY.
-    Allows cleartext to localhost/emulator for local backend development.
+    Network Security Config - DEBUG ONLY.
+    Allows cleartext traffic to debug backends on the local LAN.
     This file is NOT included in release/staging APKs.
 -->
 <network-security-config>
-    <!-- Emulator → host machine (Docker backend at localhost:8000) -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">10.0.2.2</domain>
-        <!-- Physical device via adb reverse tcp:8000 tcp:8000 -->
-        <domain includeSubdomains="false">localhost</domain>
-        <!-- Physical device via local Wi-Fi LAN -->
-        <domain includeSubdomains="false">192.168.100.9</domain>
-    </domain-config>
-
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

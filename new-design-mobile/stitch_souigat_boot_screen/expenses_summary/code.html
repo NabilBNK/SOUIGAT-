@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface": "#f7f9fc",
+              "secondary-container": "#d6e0f1",
+              "on-tertiary-container": "#92efc7",
+              "on-secondary": "#ffffff",
+              "background": "#f7f9fc",
+              "on-surface": "#191c1e",
+              "tertiary-container": "#006f50",
+              "outline": "#737686",
+              "primary-fixed": "#dbe1ff",
+              "secondary": "#555f6d",
+              "on-error-container": "#93000a",
+              "inverse-surface": "#2d3133",
+              "secondary-fixed-dim": "#bdc7d8",
+              "on-primary": "#ffffff",
+              "surface-container-low": "#f2f4f7",
+              "surface-container-highest": "#e0e3e6",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary-container": "#596372",
+              "on-tertiary-fixed-variant": "#00513a",
+              "primary-container": "#1a56db",
+              "on-primary-fixed-variant": "#003dab",
+              "on-background": "#191c1e",
+              "on-error": "#ffffff",
+              "primary": "#003fb1",
+              "surface-dim": "#d8dadd",
+              "on-surface-variant": "#434654",
+              "on-secondary-fixed-variant": "#3e4755",
+              "primary-fixed-dim": "#b5c4ff",
+              "surface-bright": "#f7f9fc",
+              "inverse-on-surface": "#eff1f4",
+              "surface-tint": "#1353d8",
+              "secondary-fixed": "#d9e3f4",
+              "inverse-primary": "#b5c4ff",
+              "on-primary-fixed": "#00174d",
+              "error-container": "#ffdad6",
+              "tertiary-fixed-dim": "#7bd8b1",
+              "surface-variant": "#e0e3e6",
+              "outline-variant": "#c3c5d7",
+              "on-tertiary-fixed": "#002115",
+              "on-primary-container": "#d4dcff",
+              "tertiary": "#00543c",
+              "on-secondary-fixed": "#121c28",
+              "error": "#ba1a1a",
+              "surface-container-high": "#e6e8eb",
+              "on-tertiary": "#ffffff",
+              "tertiary-fixed": "#97f5cc",
+              "surface-container": "#eceef1"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"],
+              "mono": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .mono-data { font-family: 'JetBrains Mono', monospace; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-20">
+<!-- Active Trip Banner -->
+<div class="bg-primary text-on-primary py-1.5 px-4 flex items-center justify-center text-[10px] font-bold tracking-[0.1em] uppercase">
+<span class="flex items-center gap-2">
+            Alger <span class="material-symbols-outlined text-[14px]">arrow_forward</span> Oran
+        </span>
+</div>
+<!-- TopAppBar -->
+<header class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between w-full px-4 h-16 sticky top-0 z-40 transition-colors duration-150 ease-in-out">
+<div class="flex items-center gap-4">
+<button class="text-blue-700 dark:text-blue-500 hover:bg-slate-200 dark:hover:bg-slate-800 p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<div class="flex flex-col">
+<h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-50">Dépenses</h1>
+<span class="font-mono text-red-600 dark:text-red-400 text-sm font-bold">Total: 4,850 DZD</span>
+</div>
+</div>
+<button class="text-blue-700 dark:text-blue-500 hover:bg-slate-200 dark:hover:bg-slate-800 p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</header>
+<!-- Summary KPI Strip -->
+<div class="grid grid-cols-3 border-y border-outline-variant bg-surface-container-low text-on-surface-variant h-12 items-center">
+<div class="flex items-center justify-center border-r border-outline-variant h-full px-2 text-[11px] font-bold tracking-tight mono-data">
+            4,850 DZD
+        </div>
+<div class="flex items-center justify-center border-r border-outline-variant h-full px-2 text-[11px] font-bold tracking-tight uppercase">
+            8 lignes
+        </div>
+<div class="flex items-center justify-center h-full px-2 text-[11px] font-bold tracking-widest mono-data">
+            DZD
+        </div>
+</div>
+<!-- Expense Content Canvas -->
+<main class="max-w-2xl mx-auto px-4 py-6">
+<!-- Group: Aujourd'hui -->
+<section class="mb-8">
+<header class="flex items-center mb-3">
+<span class="text-[11px] font-medium tracking-widest text-secondary uppercase">Aujourd'hui</span>
+<div class="flex-grow ml-4 h-[1px] bg-outline-variant opacity-30"></div>
+</header>
+<div class="divide-y divide-outline-variant/30">
+<!-- Item 1 -->
+<div class="flex items-center py-4 gap-4">
+<div class="w-10 h-10 rounded bg-primary-container/10 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined" data-icon="local_gas_station">local_gas_station</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<span class="text-sm font-bold text-on-surface">Carburant</span>
+<span class="mono-data text-red-600 font-bold">2,500 DZD</span>
+</div>
+<span class="text-xs text-secondary font-medium uppercase tracking-tighter">Naftal</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center py-4 gap-4">
+<div class="w-10 h-10 rounded bg-primary-container/10 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined" data-icon="restaurant">restaurant</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<span class="text-sm font-bold text-on-surface">Repas</span>
+<span class="mono-data text-red-600 font-bold">850 DZD</span>
+</div>
+<span class="text-xs text-secondary font-medium uppercase tracking-tighter">Pause déjeuner</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Group: Hier -->
+<section class="mb-8">
+<header class="flex items-center mb-3">
+<span class="text-[11px] font-medium tracking-widest text-secondary uppercase">Hier</span>
+<div class="flex-grow ml-4 h-[1px] bg-outline-variant opacity-30"></div>
+</header>
+<div class="divide-y divide-outline-variant/30">
+<!-- Item 3 -->
+<div class="flex items-center py-4 gap-4">
+<div class="w-10 h-10 rounded bg-primary-container/10 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined" data-icon="build">build</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<span class="text-sm font-bold text-on-surface">Entretien</span>
+<span class="mono-data text-red-600 font-bold">1,500 DZD</span>
+</div>
+<span class="text-xs text-secondary font-medium uppercase tracking-tighter">Vidange</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Placeholder for Visual Variety (Bento Card Concept) -->
+<div class="mt-4 p-5 bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-sm overflow-hidden relative group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl" data-icon="receipt_long">receipt_long</span>
+</div>
+<h3 class="text-xs font-black uppercase tracking-[0.2em] text-primary mb-2">Note de frais</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed mb-4">Besoin d'ajouter un justificatif ? Prenez une photo directement depuis l'application.</p>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[18px]" data-icon="add_a_photo">add_a_photo</span>
+                AJOUTER REÇU
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-16 px-2 pb-safe bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-50">
+<!-- Accueil -->
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-1 px-3 hover:text-blue-600 dark:hover:text-blue-300 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-xs font-medium uppercase tracking-wider mt-1">Accueil</span>
+</a>
+<!-- Dépenses -->
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-1 px-3 hover:text-blue-600 dark:hover:text-blue-300 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="text-xs font-medium uppercase tracking-wider mt-1">Dépenses</span>
+</a>
+<!-- Rapport (ACTIVE) -->
+<a class="flex flex-col items-center justify-center text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-xl py-1 px-3 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="analytics" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="text-xs font-medium uppercase tracking-wider mt-1">Rapport</span>
+</a>
+<!-- Paramètres -->
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 py-1 px-3 hover:text-blue-600 dark:hover:text-blue-300 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-xs font-medium uppercase tracking-wider mt-1">Paramètres</span>
+</a>
+</nav>
+</body></html>

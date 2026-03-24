@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SOUIGAT - Tableau de Bord</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary-container": "#92efc7",
+                        "secondary-fixed": "#d9e3f4",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#97f5cc",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#d4dcff",
+                        "surface-bright": "#f7f9fc",
+                        "on-tertiary-fixed": "#002115",
+                        "primary": "#003fb1",
+                        "outline-variant": "#c3c5d7",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#00513a",
+                        "surface-tint": "#1353d8",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#b5c4ff",
+                        "tertiary-fixed-dim": "#7bd8b1",
+                        "inverse-surface": "#2d3133",
+                        "on-surface": "#191c1e",
+                        "on-secondary-fixed-variant": "#3e4755",
+                        "on-primary-fixed": "#00174d",
+                        "surface-container": "#eceef1",
+                        "on-secondary-fixed": "#121c28",
+                        "primary-fixed": "#dbe1ff",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f2f4f7",
+                        "secondary-fixed-dim": "#bdc7d8",
+                        "secondary-container": "#d6e0f1",
+                        "primary-container": "#1a56db",
+                        "on-error-container": "#93000a",
+                        "surface": "#f7f9fc",
+                        "background": "#f7f9fc",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#434654",
+                        "tertiary-container": "#006f50",
+                        "on-secondary-container": "#596372",
+                        "outline": "#737686",
+                        "surface-variant": "#e0e3e6",
+                        "secondary": "#555f6d",
+                        "surface-dim": "#d8dadd",
+                        "tertiary": "#00543c",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e0e3e6",
+                        "surface-container-high": "#e6e8eb",
+                        "inverse-on-surface": "#eff1f4",
+                        "inverse-primary": "#b5c4ff",
+                        "on-primary-fixed-variant": "#003dab",
+                        "on-background": "#191c1e"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .mono-data { font-family: 'JetBrains Mono', monospace; }
+        .rugged-shadow { box-shadow: 0 8px 24px rgba(13, 17, 23, 0.08); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background font-body text-on-background min-h-screen pb-24">
+<!-- Top Header -->
+<header class="fixed top-0 w-full z-50 bg-white flex items-center justify-between px-4 h-16 border-b border-[#E2E5EA]">
+<div class="flex items-center gap-3">
+<img alt="SOUIGAT Logo" class="h-8 w-auto" src="https://lh3.googleusercontent.com/aida/ADBb0ugqOz-NFroUpwjzeKSf6V3DtAAmhQfaruv1GNUAi65uevkpYk-E-pOnzYeh40RCZKdPVsiaU-3y3drCQb_Z99tst6I_neX9qy_Kjvvrgh3YzEruYlqyUeNBXhjyQ73QRZR_eJrvlF5UnbwAmIJftqK480b8ldaO4HvTv7WE9xqmxnOERpSZs1Tbhdlt51e2tCFWjJjC9BfXy_OOst3okCcLeJRlu_MhowKUjdK_cevTVTfqvDISwxbCKBNI4SF0o0pxYdBCl6_4bA"/>
+<div class="flex flex-col">
+<h1 class="text-lg font-bold text-[#0D1117] leading-tight">Bonjour, Conducteur</h1>
+<p class="text-[10px] text-on-surface-variant">Tableau de bord · 24 Octobre 2023</p>
+</div>
+</div>
+<div class="w-9 h-9 rounded-full bg-surface-container overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Photo de profil du conducteur de bus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCW1EoINeaaVvpfq_T-PLnQoHDOVJ74aOz6V4J_Dc6rf0aR3yXMZ6FIrgq8CXVXcu5z5H2aok62WbB56N_b3YYKuVZJ2z3IhoupSS9JIlFO2butAAqmrZ6Ns1pXdYFt3gdUOKJrbM6rGdsjKPRerR2Kt9fBEwoq4dU7YOQHRT2YIWiKIaHRmdjGh7ja6UT6f46rUMClau_jGTR5kt8rD3rB-ds0zm8sGrIY9l7Ynz_SjB1cnFKcFUz_2LiHnOZM8W7GrwIV9h47BBQ"/>
+</div>
+</header>
+<!-- Terrain Bar (Sync Status) -->
+<div class="mt-16 bg-tertiary-container text-on-tertiary-container h-9 flex items-center px-4 gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="check_circle">check_circle</span>
+<span class="text-xs font-medium uppercase tracking-wider">✓ Synchronisé</span>
+</div>
+<main class="p-4 space-y-4 max-w-2xl mx-auto">
+<!-- Quarantine Banner (Warning Callout) -->
+<div class="bg-white border-l-4 border-[#B45309] p-4 flex items-start gap-3 rounded-r-xl rugged-shadow">
+<span class="material-symbols-outlined text-[#B45309]" data-icon="warning">warning</span>
+<div class="flex-1">
+<p class="text-sm font-semibold text-[#B45309]">Action requise</p>
+<p class="text-xs text-on-surface-variant">3 tickets en attente de validation physique. Veuillez vérifier le terminal de paiement.</p>
+</div>
+</div>
+<!-- Revenue Hero Metric -->
+<div class="bg-[#EBF0FF] rounded-[24px] p-6 flex flex-col justify-between rugged-shadow border border-primary/10">
+<p class="text-[11px] font-medium text-primary-container opacity-70 tracking-widest uppercase">REVENUS</p>
+<div class="flex items-baseline gap-2 mt-2">
+<span class="mono-data text-[38px] font-extrabold text-[#1A56DB] leading-tight">34,250</span>
+<span class="mono-data text-xl font-bold text-[#1A56DB]">DZD</span>
+</div>
+<div class="mt-4 flex items-center gap-2">
+<span class="text-xs font-medium text-tertiary">+12.5%</span>
+<span class="text-[10px] text-on-surface-variant">vs hier</span>
+</div>
+</div>
+<!-- Active Trip Card -->
+<div class="bg-white rounded-xl border border-outline-variant relative overflow-hidden flex rugged-shadow">
+<div class="w-1 bg-tertiary h-full absolute left-0"></div>
+<div class="p-4 pl-5 w-full">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-primary text-white text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-tighter">TRAJET EN COURS</span>
+<span class="bg-tertiary/10 text-tertiary mono-data text-sm font-bold px-2 py-0.5 rounded">800 DZD</span>
+</div>
+<h2 class="text-2xl font-extrabold text-on-surface tracking-tight mb-2">Alger → Oran</h2>
+<div class="flex items-center gap-3">
+<div class="border border-outline px-2 py-0.5 rounded text-[10px] font-bold text-on-surface-variant uppercase tracking-widest bg-surface-container-low">
+                        12345-123-16
+                    </div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span class="mono-data text-xs">08:45</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary Metrics Grid (2x2) -->
+<div class="grid grid-cols-2 gap-3">
+<!-- Metric 1 -->
+<div class="bg-white h-[72px] rounded-lg border border-outline-variant p-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-lg" data-icon="group">group</span>
+</div>
+<span class="text-xs font-medium text-on-surface-variant">Passagers</span>
+</div>
+<span class="mono-data text-lg font-bold text-on-surface">42</span>
+</div>
+<!-- Metric 2 -->
+<div class="bg-white h-[72px] rounded-lg border border-outline-variant p-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-lg" data-icon="payments">payments</span>
+</div>
+<span class="text-xs font-medium text-on-surface-variant">Dépenses</span>
+</div>
+<span class="mono-data text-lg font-bold text-on-surface">1.2k</span>
+</div>
+<!-- Metric 3 -->
+<div class="bg-white h-[72px] rounded-lg border border-outline-variant p-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-lg" data-icon="hourglass_empty">hourglass_empty</span>
+</div>
+<span class="text-xs font-medium text-on-surface-variant">En attente</span>
+</div>
+<span class="mono-data text-lg font-bold text-on-surface">03</span>
+</div>
+<!-- Metric 4 -->
+<div class="bg-white h-[72px] rounded-lg border border-outline-variant p-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-lg" data-icon="receipt_long">receipt_long</span>
+</div>
+<span class="text-xs font-medium text-on-surface-variant">Ticket moy.</span>
+</div>
+<span class="mono-data text-lg font-bold text-on-surface">450</span>
+</div>
+</div>
+<!-- Activity Feed -->
+<section class="mt-6">
+<h3 class="text-sm font-bold text-on-surface mb-3 uppercase tracking-wider">Activité récente</h3>
+<div class="bg-white rounded-xl border border-outline-variant overflow-hidden rugged-shadow">
+<div class="divide-y divide-surface-container-high">
+<div class="p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary" data-icon="confirmation_number">confirmation_number</span>
+<div>
+<p class="text-sm font-semibold">Ticket #8922</p>
+<p class="text-[10px] text-on-surface-variant mono-data">14:22 · Terminal Alpha</p>
+</div>
+</div>
+<span class="mono-data text-sm font-bold">400 DZD</span>
+</div>
+<div class="p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="sync">sync</span>
+<div>
+<p class="text-sm font-semibold">Sync. Données</p>
+<p class="text-[10px] text-on-surface-variant mono-data">14:05 · Route Alger-Oran</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-tertiary text-sm" data-icon="done_all">done_all</span>
+</div>
+<div class="p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-error" data-icon="gas_meter">gas_meter</span>
+<div>
+<p class="text-sm font-semibold">Carburant</p>
+<p class="text-[10px] text-on-surface-variant mono-data">13:40 · Station Naftal</p>
+</div>
+</div>
+<span class="mono-data text-sm font-bold text-error">-2,500 DZD</span>
+</div>
+<div class="p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary" data-icon="confirmation_number">confirmation_number</span>
+<div>
+<p class="text-sm font-semibold">Ticket #8921</p>
+<p class="text-[10px] text-on-surface-variant mono-data">13:35 · Terminal Alpha</p>
+</div>
+</div>
+<span class="mono-data text-sm font-bold">800 DZD</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- FAB -->
+<button class="fixed bottom-20 right-4 bg-primary text-white h-14 pl-4 pr-6 rounded-2xl flex items-center gap-3 shadow-lg hover:bg-primary-container transition-colors z-40">
+<span class="material-symbols-outlined" data-icon="directions_bus">directions_bus</span>
+<span class="text-sm font-bold uppercase tracking-wider">Mes trajets</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center bg-white h-14 border-t border-[#E2E5EA]">
+<div class="flex flex-col items-center justify-center text-gray-500 h-full w-1/4">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+<span class="text-xs font-medium">Vente</span>
+</div>
+<div class="flex flex-col items-center justify-center text-gray-500 h-full w-1/4">
+<span class="material-symbols-outlined" data-icon="directions_bus">directions_bus</span>
+<span class="text-xs font-medium">Trajet</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#1A56DB] border-t-2 border-[#1A56DB] h-full w-1/4">
+<span class="material-symbols-outlined" data-icon="assessment" style="font-variation-settings: 'FILL' 1;">assessment</span>
+<span class="text-xs font-medium">Rapport</span>
+</div>
+<div class="flex flex-col items-center justify-center text-gray-500 h-full w-1/4">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-xs font-medium">Profil</span>
+</div>
+</nav>
+</body></html>

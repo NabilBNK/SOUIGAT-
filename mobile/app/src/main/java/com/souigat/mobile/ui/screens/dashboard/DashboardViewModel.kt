@@ -3,14 +3,14 @@ package com.souigat.mobile.ui.screens.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.souigat.mobile.data.local.TokenManager
+import com.souigat.mobile.data.local.dao.CargoDashboardActivityRow
 import com.souigat.mobile.data.local.dao.CargoTicketDao
+import com.souigat.mobile.data.local.dao.ExpenseDashboardActivityRow
 import com.souigat.mobile.data.local.dao.ExpenseDao
+import com.souigat.mobile.data.local.dao.PassengerDashboardActivityRow
 import com.souigat.mobile.data.local.dao.PassengerTicketDao
 import com.souigat.mobile.data.local.dao.SyncQueueDao
 import com.souigat.mobile.data.local.dao.TripDao
-import com.souigat.mobile.data.local.entity.CargoTicketEntity
-import com.souigat.mobile.data.local.entity.ExpenseEntity
-import com.souigat.mobile.data.local.entity.PassengerTicketEntity
 import com.souigat.mobile.data.local.entity.TripEntity
 import com.souigat.mobile.util.formatCompact
 import com.souigat.mobile.util.formatCurrency
@@ -18,12 +18,14 @@ import com.souigat.mobile.util.toDisplayDateTime
 import com.souigat.mobile.util.toDisplayTime
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
@@ -127,19 +129,22 @@ class DashboardViewModel @Inject constructor(
     }
 
     private val activityFeedFlow: Flow<List<DashboardActivityUiModel>> = combine(
-        ticketDao.observeRecentGlobal(),
-        cargoTicketDao.observeRecentGlobal(),
-        expenseDao.observeRecentGlobal(),
-        tripDao.observeAll()
-    ) { passengerTickets, cargoTickets, expenses, trips ->
+        ticketDao.observeRecentDashboardItems(),
+        cargoTicketDao.observeRecentDashboardItems(),
+        expenseDao.observeRecentDashboardItems()
+    ) { passengerTickets, cargoTickets, expenses ->
         buildActivityFeed(
             tickets = passengerTickets,
             cargoTickets = cargoTickets,
-            expenses = expenses,
-            routeLabels = trips.associate { trip ->
-                trip.id to "${trip.originOffice} -> ${trip.destinationOffice}"
-            }
+            expenses = expenses
         )
+    }.flowOn(Dispatchers.Default)
+
+    private val syncMetaFlow = combine(
+        syncQueueDao.observeLastSyncedAt(),
+        tokenManager.session
+    ) { lastSyncedAt, session ->
+        lastSyncedAt to session
     }
 
     val uiState = combine(
@@ -147,10 +152,11 @@ class DashboardViewModel @Inject constructor(
         activityFeedFlow,
         syncQueueDao.observePendingCount(),
         syncQueueDao.observeQuarantinedCount(),
-        syncQueueDao.observeLastSyncedAt()
-    ) { tripStats, activity, pendingCount, quarantinedCount, lastSyncedAt ->
-        val firstName = tokenManager.getFirstName()?.ifBlank { null } ?: "Conducteur"
-        val fullName = tokenManager.getFullName()?.ifBlank { null } ?: firstName
+        syncMetaFlow
+    ) { tripStats, activity, pendingCount, quarantinedCount, syncMeta ->
+        val (lastSyncedAt, session) = syncMeta
+        val firstName = session.firstName?.ifBlank { null } ?: "Conducteur"
+        val fullName = session.fullName?.ifBlank { null } ?: firstName
         val currency = tripStats.activeTrip?.currency ?: "DZD"
 
         DashboardUiState(
@@ -203,7 +209,7 @@ class DashboardViewModel @Inject constructor(
             quarantinedCount = quarantinedCount,
             lastSyncLabel = lastSyncedAt?.toDisplayDateTime() ?: "Pas encore synchronise"
         )
-    }.stateIn(
+    }.flowOn(Dispatchers.Default).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = DashboardUiState()
@@ -211,7 +217,7 @@ class DashboardViewModel @Inject constructor(
 
     private fun TripEntity.toDashboardRouteUiModel(): DashboardRouteUiModel {
         return DashboardRouteUiModel(
-            tripId = serverId?.toLongOrNull(),
+            tripId = serverId ?: id,
             origin = originOffice,
             destination = destinationOffice,
             busPlate = busPlate,
@@ -222,59 +228,54 @@ class DashboardViewModel @Inject constructor(
     }
 
     private fun buildActivityFeed(
-        tickets: List<PassengerTicketEntity>,
-        cargoTickets: List<CargoTicketEntity>,
-        expenses: List<ExpenseEntity>,
-        routeLabels: Map<Long, String>
+        tickets: List<PassengerDashboardActivityRow>,
+        cargoTickets: List<CargoDashboardActivityRow>,
+        expenses: List<ExpenseDashboardActivityRow>
     ): List<DashboardActivityUiModel> {
-        val ticketItems = tickets.take(4).map { ticket ->
-            DashboardActivityUiModel(
-                id = "ticket_${ticket.id}",
-                title = "Billet ${ticket.ticketNumber}",
-                subtitle = buildActivitySubtitle(
-                    primary = ticket.passengerName.ifBlank { "Passager" },
-                    routeLabel = routeLabels[ticket.tripId]
-                ),
-                timestampLabel = ticket.createdAt.toDisplayTime(),
-                amountLabel = formatCurrency(ticket.price, ticket.currency),
-                kind = DashboardActivityKind.PassengerTicket,
-                createdAt = ticket.createdAt
-            )
+        if (tickets.isEmpty() && cargoTickets.isEmpty() && expenses.isEmpty()) {
+            return emptyList()
         }
 
-        val cargoItems = cargoTickets.take(4).map { cargoTicket ->
-            DashboardActivityUiModel(
-                id = "cargo_${cargoTicket.id}",
-                title = "Colis ${cargoTicket.ticketNumber}",
-                subtitle = buildActivitySubtitle(
-                    primary = cargoTicket.receiverName.ifBlank { cargoTicket.senderName.ifBlank { "Colis" } },
-                    routeLabel = routeLabels[cargoTicket.tripId]
-                ),
-                timestampLabel = cargoTicket.createdAt.toDisplayTime(),
-                amountLabel = formatCurrency(cargoTicket.price, cargoTicket.currency),
-                kind = DashboardActivityKind.CargoTicket,
-                createdAt = cargoTicket.createdAt
+        val maxItems = 6
+        val activities = ArrayList<DashboardActivityUiModel>(minOf(maxItems, tickets.size + cargoTickets.size + expenses.size))
+        var ticketIndex = 0
+        var cargoIndex = 0
+        var expenseIndex = 0
+
+        while (activities.size < maxItems) {
+            val ticket = tickets.getOrNull(ticketIndex)
+            val cargoTicket = cargoTickets.getOrNull(cargoIndex)
+            val expense = expenses.getOrNull(expenseIndex)
+
+            val nextCreatedAt = maxOf(
+                ticket?.createdAt ?: Long.MIN_VALUE,
+                cargoTicket?.createdAt ?: Long.MIN_VALUE,
+                expense?.createdAt ?: Long.MIN_VALUE
             )
+
+            if (nextCreatedAt == Long.MIN_VALUE) {
+                break
+            }
+
+            when (nextCreatedAt) {
+                ticket?.createdAt -> {
+                    activities += ticket.toActivityUiModel()
+                    ticketIndex++
+                }
+
+                cargoTicket?.createdAt -> {
+                    activities += cargoTicket.toActivityUiModel()
+                    cargoIndex++
+                }
+
+                else -> {
+                    activities += expense!!.toActivityUiModel()
+                    expenseIndex++
+                }
+            }
         }
 
-        val expenseItems = expenses.take(4).map { expense ->
-            DashboardActivityUiModel(
-                id = "expense_${expense.id}",
-                title = expense.category.toExpenseTitle(),
-                subtitle = buildActivitySubtitle(
-                    primary = expense.description.ifBlank { "Depense du trajet" },
-                    routeLabel = routeLabels[expense.tripId]
-                ),
-                timestampLabel = expense.createdAt.toDisplayTime(),
-                amountLabel = formatCurrency(expense.amount, expense.currency),
-                kind = DashboardActivityKind.Expense,
-                createdAt = expense.createdAt
-            )
-        }
-
-        return (ticketItems + cargoItems + expenseItems)
-            .sortedByDescending { it.createdAt }
-            .take(6)
+        return activities
     }
 
     private fun buildActivitySubtitle(primary: String, routeLabel: String?): String {
@@ -283,6 +284,51 @@ class DashboardViewModel @Inject constructor(
         } else {
             "$primary - $routeLabel"
         }
+    }
+
+    private fun PassengerDashboardActivityRow.toActivityUiModel(): DashboardActivityUiModel {
+        return DashboardActivityUiModel(
+            id = "ticket_$id",
+            title = "Billet $ticketNumber",
+            subtitle = buildActivitySubtitle(
+                primary = passengerName.ifBlank { "Passager" },
+                routeLabel = routeLabel
+            ),
+            timestampLabel = createdAt.toDisplayTime(),
+            amountLabel = formatCurrency(price, currency),
+            kind = DashboardActivityKind.PassengerTicket,
+            createdAt = createdAt
+        )
+    }
+
+    private fun CargoDashboardActivityRow.toActivityUiModel(): DashboardActivityUiModel {
+        return DashboardActivityUiModel(
+            id = "cargo_$id",
+            title = "Colis $ticketNumber",
+            subtitle = buildActivitySubtitle(
+                primary = receiverName.ifBlank { senderName.ifBlank { "Colis" } },
+                routeLabel = routeLabel
+            ),
+            timestampLabel = createdAt.toDisplayTime(),
+            amountLabel = formatCurrency(price, currency),
+            kind = DashboardActivityKind.CargoTicket,
+            createdAt = createdAt
+        )
+    }
+
+    private fun ExpenseDashboardActivityRow.toActivityUiModel(): DashboardActivityUiModel {
+        return DashboardActivityUiModel(
+            id = "expense_$id",
+            title = category.toExpenseTitle(),
+            subtitle = buildActivitySubtitle(
+                primary = description.ifBlank { "Depense du trajet" },
+                routeLabel = routeLabel
+            ),
+            timestampLabel = createdAt.toDisplayTime(),
+            amountLabel = formatCurrency(amount, currency),
+            kind = DashboardActivityKind.Expense,
+            createdAt = createdAt
+        )
     }
 
     private fun String.toExpenseTitle(): String = when (this) {

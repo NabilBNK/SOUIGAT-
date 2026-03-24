@@ -4,6 +4,16 @@ import androidx.room.*
 import com.souigat.mobile.data.local.entity.PassengerTicketEntity
 import kotlinx.coroutines.flow.Flow
 
+data class PassengerDashboardActivityRow(
+    val id: Long,
+    val ticketNumber: String,
+    val passengerName: String,
+    val price: Long,
+    val currency: String,
+    val createdAt: Long,
+    val routeLabel: String?
+)
+
 @Dao
 interface PassengerTicketDao {
 
@@ -18,12 +28,40 @@ interface PassengerTicketDao {
     )
     fun observeByTripOrServerId(tripId: Long): Flow<List<PassengerTicketEntity>>
 
+    @Query(
+        "SELECT COUNT(*) FROM passenger_tickets " +
+            "WHERE tripId = :tripId " +
+            "OR tripId = COALESCE((SELECT id FROM trips WHERE serverId = :tripId LIMIT 1), -1)"
+    )
+    fun observeCountByTripOrServerId(tripId: Long): Flow<Int>
+
     /** Last 10 tickets for the activity feed on Dashboard. */
     @Query("SELECT * FROM passenger_tickets WHERE tripId = :tripId ORDER BY createdAt DESC LIMIT 10")
     fun observeRecentByTrip(tripId: Long): Flow<List<PassengerTicketEntity>>
 
     @Query("SELECT * FROM passenger_tickets ORDER BY createdAt DESC LIMIT 12")
     fun observeRecentGlobal(): Flow<List<PassengerTicketEntity>>
+
+    @Query(
+        """
+        SELECT
+            passenger_tickets.id AS id,
+            passenger_tickets.ticketNumber AS ticketNumber,
+            passenger_tickets.passengerName AS passengerName,
+            passenger_tickets.price AS price,
+            passenger_tickets.currency AS currency,
+            passenger_tickets.createdAt AS createdAt,
+            CASE
+                WHEN trips.id IS NULL THEN NULL
+                ELSE trips.originOffice || ' -> ' || trips.destinationOffice
+            END AS routeLabel
+        FROM passenger_tickets
+        LEFT JOIN trips ON passenger_tickets.tripId = trips.id
+        ORDER BY passenger_tickets.createdAt DESC
+        LIMIT 4
+        """
+    )
+    fun observeRecentDashboardItems(): Flow<List<PassengerDashboardActivityRow>>
 
     /** Reactive total revenue (sum of prices in centimes) for a trip. */
     @Query("SELECT COALESCE(SUM(price), 0) FROM passenger_tickets WHERE tripId = :tripId AND status = 'active'")

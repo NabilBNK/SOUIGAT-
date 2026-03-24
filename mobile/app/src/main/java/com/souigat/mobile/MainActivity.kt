@@ -9,11 +9,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.ContextCompat
+import com.souigat.mobile.BuildConfig
+import com.souigat.mobile.debug.DebugProfileSeeder
 import com.souigat.mobile.ui.navigation.AppNavGraph
 import com.souigat.mobile.ui.theme.SouigatTheme
 import dagger.hilt.android.AndroidEntryPoint
 import com.souigat.mobile.data.local.TokenManager
 import javax.inject.Inject
+import kotlinx.coroutines.runBlocking
 
 /**
  * Single-activity Compose host.
@@ -27,19 +30,37 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var tokenManager: TokenManager
 
+    @Inject
+    lateinit var debugProfileSeeder: DebugProfileSeeder
+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* no-op */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            SouigatTheme {
-                AppNavGraph(tokenManager = tokenManager)
+        if (BuildConfig.DEBUG && intent.getBooleanExtra("debugSeedProfile", false)) {
+            runBlocking {
+                debugProfileSeeder.seedHeavyDataset()
             }
         }
-        requestNotificationPermissionIfNeeded()
+        enableEdgeToEdge()
+        val debugStartRoute = if (BuildConfig.DEBUG) {
+            intent.getStringExtra("debugRoute")
+        } else {
+            null
+        }
+        setContent {
+            SouigatTheme {
+                AppNavGraph(
+                    tokenManager = tokenManager,
+                    debugStartRoute = debugStartRoute
+                )
+            }
+        }
+        window.decorView.post {
+            requestNotificationPermissionIfNeeded()
+        }
     }
 
     private fun requestNotificationPermissionIfNeeded() {

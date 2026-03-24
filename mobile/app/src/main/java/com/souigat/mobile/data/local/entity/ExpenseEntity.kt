@@ -17,6 +17,7 @@ import androidx.room.PrimaryKey
     ],
     indices = [
         Index("tripId"),
+        Index("createdAt"),
         Index(value = ["idempotencyKey"], unique = true)
     ]
 )

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SOUIGAT - Nouveau Billet Colis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-variant": "#e0e3e6",
+              "outline-variant": "#c3c5d7",
+              "on-tertiary-fixed": "#002115",
+              "on-primary-container": "#d4dcff",
+              "secondary-fixed": "#d9e3f4",
+              "inverse-primary": "#b5c4ff",
+              "on-primary-fixed": "#00174d",
+              "error-container": "#ffdad6",
+              "tertiary-fixed-dim": "#7bd8b1",
+              "surface-container-high": "#e6e8eb",
+              "on-tertiary": "#ffffff",
+              "tertiary-fixed": "#97f5cc",
+              "surface-container": "#eceef1",
+              "tertiary": "#00543c",
+              "on-secondary-fixed": "#121c28",
+              "error": "#ba1a1a",
+              "surface-dim": "#d8dadd",
+              "on-surface-variant": "#434654",
+              "on-secondary-fixed-variant": "#3e4755",
+              "on-error": "#ffffff",
+              "primary": "#1A56DB",
+              "inverse-on-surface": "#eff1f4",
+              "surface-tint": "#1353d8",
+              "primary-fixed-dim": "#b5c4ff",
+              "surface-bright": "#f7f9fc",
+              "inverse-surface": "#2d3133",
+              "secondary-fixed-dim": "#bdc7d8",
+              "on-primary": "#ffffff",
+              "primary-fixed": "#dbe1ff",
+              "secondary": "#555f6d",
+              "on-error-container": "#93000a",
+              "on-secondary-container": "#596372",
+              "on-tertiary-fixed-variant": "#00513a",
+              "primary-container": "#1a56db",
+              "on-primary-fixed-variant": "#003dab",
+              "on-background": "#191c1e",
+              "surface-container-low": "#f2f4f7",
+              "surface-container-highest": "#e0e3e6",
+              "surface-container-lowest": "#ffffff",
+              "secondary-container": "#d6e0f1",
+              "on-tertiary-container": "#92efc7",
+              "on-secondary": "#ffffff",
+              "surface": "#f7f9fc",
+              "tertiary-container": "#006f50",
+              "outline": "#737686",
+              "background": "#F0F2F5",
+              "on-surface": "#0D1117"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"],
+              "mono": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .mono-text { font-family: 'JetBrains Mono', monospace; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background font-body text-on-surface min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-[#0D1117] flex items-center justify-between px-4 h-14 w-full docked full-width top-0 border-b border-[#E6E8EB] dark:border-gray-800 z-50 sticky">
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined text-[#1A56DB] transition-colors duration-200 hover:bg-[#F2F4F7] p-2 rounded-full">arrow_back</button>
+<h1 class="font-['Inter'] font-black tracking-tighter text-[#0D1117] dark:text-white text-lg">Nouveau billet</h1>
+</div>
+<div class="w-8 h-8 rounded-lg bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="SOUIGAT corporate brand logo mark" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzK5L-eou55u52MKPbgt_hrD_TfkggwkeJ7XAzHqoLrmbfgXQmRrW4-ZYd3RHOhkqTokQkHTHHfXAsLouzW1D1zBcwm0f9FS1hiVHNokMR-Ub4MPy5x23AMufinZsORbV7hut7fYpLhWWvI0CFAdD7XV0eWXFiBa1ZbzXToQ065Z-jJy8HLpDfnOzs9norMIecUhaSN3Vh1ZYb-Cti97r6HoQRg4xqDBJ_E504ODZyc2dsQPxSde4MIs57950gtznPkSQC-v53hCc"/>
+</div>
+</header>
+<main class="flex-1 pb-32">
+<!-- Trip Summary Header -->
+<section class="p-4 bg-surface-container-lowest border-b border-outline-variant/20">
+<div class="flex items-start justify-between">
+<div class="space-y-1">
+<p class="font-mono text-[10px] text-secondary uppercase tracking-widest font-bold">Ligne Actuelle</p>
+<div class="flex items-center gap-2">
+<span class="font-headline font-extrabold text-[#0D1117] tracking-tight">Alger (Gare Centrale)</span>
+<span class="material-symbols-outlined text-sm text-primary">arrow_forward</span>
+<span class="font-headline font-extrabold text-[#0D1117] tracking-tight">Oran (El Bahia)</span>
+</div>
+</div>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-2 py-1 rounded text-[10px] font-black tracking-widest">DIRECT</span>
+</div>
+</section>
+<!-- Segmented Tab Switcher -->
+<div class="px-4 py-6">
+<div class="flex w-full bg-surface-container-high p-1 rounded-xl">
+<button class="flex-1 py-3 text-sm font-bold text-secondary rounded-lg transition-all">Passager</button>
+<button class="flex-1 py-3 text-sm font-bold bg-white text-primary rounded-lg shadow-sm border border-outline-variant/30">Colis</button>
+</div>
+</div>
+<!-- CARGO FORM -->
+<div class="px-4 space-y-6">
+<!-- Tier Selection -->
+<div>
+<label class="block font-mono text-[11px] font-bold text-secondary uppercase tracking-widest mb-3 px-1">Format du colis</label>
+<div class="grid grid-cols-3 gap-3">
+<!-- Petit -->
+<div class="h-20 bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 flex flex-col justify-between relative transition-all">
+<div class="flex justify-between items-start">
+<span class="text-[14px] font-bold text-on-surface">Petit</span>
+</div>
+<span class="mono-text text-sm font-bold text-primary">400 DZD</span>
+</div>
+<!-- Moyen (Selected) -->
+<div class="h-20 bg-primary/5 border-2 border-primary rounded-xl p-3 flex flex-col justify-between relative transition-all">
+<div class="flex justify-between items-start">
+<span class="text-[14px] font-bold text-on-surface">Moyen</span>
+<span class="material-symbols-outlined text-primary text-lg" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="mono-text text-sm font-bold text-primary">800 DZD</span>
+</div>
+<!-- Grand -->
+<div class="h-20 bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 flex flex-col justify-between relative transition-all">
+<div class="flex justify-between items-start">
+<span class="text-[14px] font-bold text-on-surface">Grand</span>
+</div>
+<span class="mono-text text-sm font-bold text-primary">1500 DZD</span>
+</div>
+</div>
+</div>
+<!-- Sender/Receiver Info Card -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm">
+<!-- Expéditeur -->
+<div class="p-4 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm">unarchive</span>
+<span class="text-[11px] font-bold text-secondary uppercase tracking-widest">Expéditeur</span>
+</div>
+<p class="text-[15px] font-medium text-on-surface pl-6">Ahmed Belkacem</p>
+<p class="text-[12px] text-outline pl-6">+213 550 12 34 56</p>
+</div>
+<!-- Divider -->
+<div class="h-[1px] bg-outline-variant/30 mx-4"></div>
+<!-- Destinataire -->
+<div class="p-4 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm">archive</span>
+<span class="text-[11px] font-bold text-secondary uppercase tracking-widest">Destinataire</span>
+</div>
+<p class="text-[15px] font-medium text-on-surface pl-6">Sonia Mansouri</p>
+<p class="text-[12px] text-outline pl-6">+213 661 98 76 54</p>
+</div>
+</div>
+<!-- Additional Details -->
+<button class="w-full flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-outline-variant/10">
+<span class="text-sm font-bold text-on-surface">Détails supplémentaires</span>
+<span class="material-symbols-outlined text-on-surface">arrow_drop_down</span>
+</button>
+<!-- Payment Method -->
+<div>
+<label class="block font-mono text-[11px] font-bold text-secondary uppercase tracking-widest mb-3 px-1">Mode de Paiement</label>
+<div class="flex w-full bg-surface-container-high p-1 rounded-xl">
+<button class="flex-1 py-3 text-sm font-bold bg-white text-primary rounded-lg shadow-sm border border-outline-variant/30">Espèces</button>
+<button class="flex-1 py-3 text-sm font-bold text-secondary rounded-lg">Prépayé</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Bar -->
+<footer class="fixed bottom-16 left-0 w-full bg-white border-t border-outline-variant/50 p-4 flex items-center justify-between z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-secondary uppercase tracking-widest">À PAYER</span>
+<span class="mono-text text-xl font-bold text-on-surface tracking-tighter">800.00 DZD</span>
+</div>
+<button class="bg-primary text-white font-headline font-black px-8 py-4 rounded-xl shadow-lg active:scale-95 transition-transform">
+            Créer billet
+        </button>
+</footer>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-16 px-2 bg-white dark:bg-[#0D1117] border-t border-[#E6E8EB] dark:border-gray-800 z-50 shadow-[0_-8px_24px_rgba(13,23,23,0.08)]">
+<!-- Ventes (Active but non-highlighted for this specific sub-view flow as per instructions) -->
+<div class="flex flex-col items-center justify-center text-[#1A56DB] dark:text-[#1A56DB] py-1 px-3 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl" data-icon="Confirmation_Number">confirmation_number</span>
+<span class="font-['Inter'] font-medium text-[10px] uppercase tracking-wider">Ventes</span>
+</div>
+<!-- Trajets -->
+<div class="flex flex-col items-center justify-center text-[#0D1117] dark:text-gray-400 py-1 px-3 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl" data-icon="Directions_Bus">directions_bus</span>
+<span class="font-['Inter'] font-medium text-[10px] uppercase tracking-wider">Trajets</span>
+</div>
+<!-- Colis -->
+<div class="flex flex-col items-center justify-center text-[#0D1117] dark:text-gray-400 py-1 px-3 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl" data-icon="Inventory_2">inventory_2</span>
+<span class="font-['Inter'] font-medium text-[10px] uppercase tracking-wider">Colis</span>
+</div>
+<!-- Profil -->
+<div class="flex flex-col items-center justify-center text-[#0D1117] dark:text-gray-400 py-1 px-3 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl" data-icon="Account_Circle">account_circle</span>
+<span class="font-['Inter'] font-medium text-[10px] uppercase tracking-wider">Profil</span>
+</div>
+</nav>
+</body></html>

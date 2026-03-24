@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SOUIGAT - Détail du trajet</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f2f4f7",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-secondary-container": "#596372",
+                        "primary-container": "#1a56db",
+                        "on-primary-fixed-variant": "#003dab",
+                        "on-background": "#191c1e",
+                        "on-tertiary-fixed-variant": "#00513a",
+                        "primary-fixed": "#dbe1ff",
+                        "secondary": "#555f6d",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#bdc7d8",
+                        "on-primary": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "background": "#f7f9fc",
+                        "tertiary-container": "#006f50",
+                        "outline": "#737686",
+                        "surface": "#f7f9fc",
+                        "on-secondary": "#ffffff",
+                        "secondary-container": "#d6e0f1",
+                        "on-tertiary-container": "#92efc7",
+                        "on-secondary-fixed": "#121c28",
+                        "tertiary": "#00543c",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-high": "#e6e8eb",
+                        "surface-container": "#eceef1",
+                        "tertiary-fixed": "#97f5cc",
+                        "inverse-primary": "#b5c4ff",
+                        "secondary-fixed": "#d9e3f4",
+                        "tertiary-fixed-dim": "#7bd8b1",
+                        "on-primary-fixed": "#00174d",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e0e3e6",
+                        "outline-variant": "#c3c5d7",
+                        "on-tertiary-fixed": "#002115",
+                        "on-primary-container": "#d4dcff",
+                        "surface-bright": "#f7f9fc",
+                        "primary-fixed-dim": "#b5c4ff",
+                        "surface-tint": "#1353d8",
+                        "inverse-on-surface": "#eff1f4",
+                        "primary": "#003fb1",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#d8dadd",
+                        "on-surface-variant": "#434654",
+                        "on-secondary-fixed-variant": "#3e4755"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .filled-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        .glass-effect {
+            backdrop-filter: blur(16px);
+            background: rgba(255, 255, 255, 0.85);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background font-body text-on-surface antialiased">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-4 h-16 bg-white border-b border-[#E2E5EA]">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-transform active:scale-95">
+<span class="material-symbols-outlined text-on-surface">arrow_back</span>
+</button>
+<h1 class="text-xl font-semibold text-on-surface">Détail du trajet</h1>
+</div>
+<img alt="SOUIGAT Logo" class="h-8 w-auto" data-alt="Corporate branding logo of SOUIGAT transportation" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDck8qkCyAPPnEBd4MqxUNwKIzBwB6wVUqowGYTGdzDcXwyJqmz2jTG47gn7svLg2Rd6lF7gqsqHixPX9YrR-SlvmAlXXKz7Kk_z4U27KQ8eR6SVQnhDrsi1mK459a6-SyMGWdRr4J_VSl3WoCyAZjw7ZT9wiP6bgozAdUd_d8bfkBvNVfnnZmnp1Q7NVfsz9_yxa6j8wX72NGbr_uh1PqZL0sb98nw-yVndnyZoAVAVlJ4s-dPF_A902T4h2eNLTNkbk74HsjKHX8"/>
+</header>
+<main class="pt-20 pb-32 px-4 max-w-lg mx-auto space-y-6">
+<!-- Hero Trip Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-5 relative overflow-hidden shadow-sm">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-primary-container"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="space-y-1">
+<span class="text-[10px] font-bold tracking-wider text-on-secondary-container uppercase">Ligne Active</span>
+<h2 class="text-2xl font-black text-on-surface tracking-tight">ALGER <span class="text-primary-container">→</span> ORAN</h2>
+</div>
+<div class="bg-surface-container-low px-3 py-1 rounded-lg border border-outline-variant/30">
+<span class="font-mono text-sm font-semibold text-primary">BUS-048</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-background rounded-xl p-3">
+<p class="text-[11px] font-medium text-on-secondary-container uppercase mb-1">Départ Prévu</p>
+<p class="font-mono text-lg font-bold">08:45</p>
+</div>
+<div class="bg-background rounded-xl p-3">
+<p class="text-[11px] font-medium text-on-secondary-container uppercase mb-1">Passagers</p>
+<p class="font-mono text-lg font-bold">32/50</p>
+</div>
+</div>
+</section>
+<!-- M3 TabRow -->
+<nav class="flex border-b border-outline-variant">
+<button class="flex-1 py-3 text-sm font-semibold text-primary border-b-2 border-primary">Informations</button>
+<button class="flex-1 py-3 text-sm font-medium text-on-secondary-container hover:bg-surface-container-low">Activité Hors-ligne</button>
+<button class="flex-1 py-3 text-sm font-medium text-on-secondary-container hover:bg-surface-container-low">Documents</button>
+</nav>
+<!-- Conduction Team Section -->
+<section class="space-y-3">
+<h3 class="text-xs font-bold text-on-secondary-container uppercase tracking-widest px-1">Équipe de conduite</h3>
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+<table class="w-full text-left border-collapse">
+<tbody><tr class="border-b border-outline-variant/10">
+<td class="py-4 px-4 text-[13px] text-on-secondary-container">Chauffeur Principal</td>
+<td class="py-4 px-4 text-[15px] font-medium text-right">Ahmed Benali</td>
+</tr>
+<tr class="border-b border-outline-variant/10">
+<td class="py-4 px-4 text-[13px] text-on-secondary-container">Receveur</td>
+<td class="py-4 px-4 text-[15px] font-medium text-right">Karim Touati</td>
+</tr>
+<tr>
+<td class="py-4 px-4 text-[13px] text-on-secondary-container">ID Équipage</td>
+<td class="py-4 px-4 text-[15px] font-medium text-right font-mono">#99283-TR</td>
+</tr>
+</tbody></table>
+</div>
+</section>
+<!-- Pricing Section -->
+<section class="space-y-3">
+<h3 class="text-xs font-bold text-on-secondary-container uppercase tracking-widest px-1">Tarification</h3>
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+<table class="w-full text-left border-collapse">
+<tbody><tr class="border-b border-outline-variant/10">
+<td class="py-4 px-4 text-[13px] text-on-secondary-container">Tarif Standard</td>
+<td class="py-4 px-4 text-[15px] font-medium text-right font-mono text-primary">850,00 DZD</td>
+</tr>
+<tr class="border-b border-outline-variant/10">
+<td class="py-4 px-4 text-[13px] text-on-secondary-container">Tarif Réduit (Étudiant)</td>
+<td class="py-4 px-4 text-[15px] font-medium text-right font-mono">600,00 DZD</td>
+</tr>
+<tr>
+<td class="py-4 px-4 text-[13px] text-on-secondary-container">Frais Bagages (&gt;10kg)</td>
+<td class="py-4 px-4 text-[15px] font-medium text-right font-mono">150,00 DZD</td>
+</tr>
+</tbody></table>
+</div>
+</section>
+<!-- Route Visualization (Bento-lite) -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-primary-container/5 rounded-2xl p-4 border border-primary-container/10 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-primary-container mb-2">distance</span>
+<p class="text-[11px] font-bold text-primary-container uppercase">Distance</p>
+<p class="font-mono text-lg font-black text-on-surface">412 KM</p>
+</div>
+<div class="bg-tertiary-container/5 rounded-2xl p-4 border border-tertiary-container/10 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-tertiary text-green-700 mb-2">timer</span>
+<p class="text-[11px] font-bold text-green-700 uppercase">Temps Estimé</p>
+<p class="font-mono text-lg font-black text-on-surface">05:15 H</p>
+</div>
+</div>
+</main>
+<!-- Bottom Action Bar (Docked Panel) -->
+<footer class="fixed bottom-0 w-full z-50 bg-white border-t border-[#E2E5EA] px-4 py-4 flex flex-col gap-3">
+<div class="flex gap-3">
+<button class="flex-1 h-12 flex items-center justify-center gap-2 border-2 border-outline-variant rounded-xl text-on-surface font-semibold text-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]">confirmation_number</span>
+                Billet
+            </button>
+<button class="flex-1 h-12 flex items-center justify-center gap-2 border-2 border-outline-variant rounded-xl text-on-surface font-semibold text-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+                Dépense
+            </button>
+</div>
+<button class="w-full h-14 bg-primary-container text-white rounded-xl font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-primary-container/20 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined filled-icon">play_circle</span>
+            Démarrer le trajet
+        </button>
+</footer>
+<!-- Bottom Navigation Component (Suppressed on Task-focused screen as per instructions, but kept as reference for shell consistency if it were a main hub) -->
+<!-- The prompt specifically asked for a bottom action bar for "Billet", "Dépense" and "Démarrer", which overrides the Global BottomNavBar for this focused intent -->
+</body></html>

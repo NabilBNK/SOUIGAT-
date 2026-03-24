@@ -9,17 +9,17 @@ import com.souigat.mobile.data.remote.dto.UserProfileDto
 import com.souigat.mobile.data.repository.AuthException
 import com.souigat.mobile.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-// Typed UI state honoring the orchestration specs
 sealed class LoginUiState {
     object Idle : LoginUiState()
     object Loading : LoginUiState()
     data class Success(val user: UserProfileDto) : LoginUiState()
+
     sealed class Error : LoginUiState() {
         object InvalidCredentials : Error()
         object AccountDisabled : Error()
@@ -42,8 +42,13 @@ class LoginViewModel @Inject constructor(
     var password by mutableStateOf("")
         private set
 
-    fun onPhoneChanged(value: String) { phone = value }
-    fun onPasswordChanged(value: String) { password = value }
+    fun onPhoneChanged(value: String) {
+        phone = value
+    }
+
+    fun onPasswordChanged(value: String) {
+        password = value
+    }
 
     fun resetState() {
         if (_uiState.value is LoginUiState.Error) {
@@ -58,21 +63,23 @@ class LoginViewModel @Inject constructor(
             return
         }
         if (password.length < 8) {
-            _uiState.value = LoginUiState.Error.Unknown("Le mot de passe doit faire au moins 8 caractères")
+            _uiState.value = LoginUiState.Error.Unknown("Le mot de passe doit faire au moins 8 caracteres")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = LoginUiState.Loading
             authRepository.login(phone.trim(), password)
-                .onSuccess { user -> _uiState.value = LoginUiState.Success(user) }
-                .onFailure { e ->
-                    _uiState.value = when (e) {
+                .onSuccess { user ->
+                    _uiState.value = LoginUiState.Success(user)
+                }
+                .onFailure { error ->
+                    _uiState.value = when (error) {
                         is AuthException.InvalidCredentials -> LoginUiState.Error.InvalidCredentials
                         is AuthException.AccountDisabled -> LoginUiState.Error.AccountDisabled
                         is AuthException.NetworkUnavailable -> LoginUiState.Error.NetworkUnavailable
                         is AuthException.TooManyAttempts -> LoginUiState.Error.TooManyAttempts
-                        else -> LoginUiState.Error.Unknown(e.message ?: "Erreur inconnue")
+                        else -> LoginUiState.Error.Unknown(error.message ?: "Erreur inconnue")
                     }
                 }
         }

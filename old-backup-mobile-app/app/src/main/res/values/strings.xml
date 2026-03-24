@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SOUIGAT</string>
+    <string name="nav_home">Accueil</string>
+    <string name="nav_trips">Trajets</string>
+    <string name="nav_history">Historique</string>
+    <string name="nav_expenses">Depenses</string>
+    <string name="nav_profile">Profil</string>
+    <string name="login_title">SOUIGAT</string>
+    <string name="login_subtitle">Operations terrain</string>
+    <string name="login_button">Se connecter</string>
+    <string name="sync_status_pending">En attente de sync</string>
+    <string name="sync_status_syncing">Synchronisation</string>
+    <string name="sync_status_synced">Synchronise</string>
+    <string name="sync_status_quarantined">En quarantaine</string>
+    <string name="sync_status_failed">Echec de sync</string>
+</resources>

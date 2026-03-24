@@ -1,5 +1,6 @@
 package com.souigat.mobile.util
 
+import android.os.Build
 import com.souigat.mobile.BuildConfig
 
 /**
@@ -7,18 +8,36 @@ import com.souigat.mobile.BuildConfig
  */
 object Constants {
 
+    private fun isEmulator(): Boolean {
+        val fingerprint = Build.FINGERPRINT.lowercase()
+        val model = Build.MODEL.lowercase()
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val product = Build.PRODUCT.lowercase()
+
+        return fingerprint.startsWith("generic") ||
+            fingerprint.contains("emulator") ||
+            model.contains("sdk") ||
+            model.contains("emulator") ||
+            manufacturer.contains("genymotion") ||
+            product.contains("sdk")
+    }
+
+    fun usesDynamicDebugBackend(): Boolean = BuildConfig.DEBUG && !isEmulator()
+
     /**
-     * Base URL switches by build type.
+     * Bootstrap base URL used to initialize Retrofit.
      *
-     * debug   → 10.0.2.2:8000 (emulator host = developer machine running Docker)
-     *           Use `adb reverse tcp:8000 tcp:8000` for physical device testing.
-     * staging → HTTPS staging server (requires real cert pins — see P0.5)
-     * release → HTTPS production server
+     * For debug physical devices this is only a placeholder. Requests are rewritten at runtime
+     * to the currently reachable LAN backend so DHCP changes do not break the app.
      */
     val BASE_URL: String = when (BuildConfig.BUILD_TYPE) {
-        "staging"  -> "https://staging.souigat.dz/api/"
-        "release"  -> "https://api.souigat.dz/api/"
-        else       -> "http://192.168.100.9:8000/api/"  // debug (LAN IP)
+        "staging" -> "https://staging.souigat.dz/api/"
+        "release" -> "https://api.souigat.dz/api/"
+        else -> if (isEmulator()) {
+            "http://10.0.2.2:8000/api/"
+        } else {
+            "http://127.0.0.1:8000/api/"
+        }
     }
 
     const val CONNECT_TIMEOUT_S = 30L

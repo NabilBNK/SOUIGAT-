@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.souigat.mobile.data.local.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,10 +33,11 @@ class BootViewModel @Inject constructor(
     }
 
     private fun checkAuthStatus() {
-        viewModelScope.launch {
-            val accessToken = tokenManager.getAccessToken()
-            val refreshToken = tokenManager.getRefreshToken()
-            val role = tokenManager.getUserRole() ?: "conductor" // default fallback
+        viewModelScope.launch(Dispatchers.Default) {
+            val session = tokenManager.ensureSessionLoaded()
+            val accessToken = session.accessToken
+            val refreshToken = session.refreshToken
+            val role = session.userRole ?: "conductor"
 
             if (accessToken == null || refreshToken == null) {
                 _bootState.value = BootState.RequireLogin

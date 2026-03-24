@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.google.firebase.FirebaseApp
+import com.souigat.mobile.data.connectivity.BackendEndpointResolver
 import com.souigat.mobile.notification.TripReminderNotifier
 import com.souigat.mobile.notification.TripReminderScheduler
 import com.souigat.mobile.worker.SyncScheduler
@@ -30,6 +31,9 @@ class SouigatApp : Application(), Configuration.Provider {
     @Inject
     lateinit var tripReminderScheduler: TripReminderScheduler
 
+    @Inject
+    lateinit var backendEndpointResolver: BackendEndpointResolver
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val workManagerConfiguration: Configuration
@@ -44,17 +48,16 @@ class SouigatApp : Application(), Configuration.Provider {
             Timber.plant(Timber.DebugTree())
         }
 
-        try {
-            FirebaseApp.initializeApp(this)
-        } catch (e: Exception) {
-            Timber.e(e, "Firebase initialization failed.")
-        }
-
-        TripReminderNotifier.createChannels(this)
-
-        // Idempotent schedule (KEEP policy): safe at every app launch.
-        syncScheduler.schedulePeriodicSync()
         applicationScope.launch {
+            try {
+                FirebaseApp.initializeApp(this@SouigatApp)
+            } catch (e: Exception) {
+                Timber.e(e, "Firebase initialization failed.")
+            }
+
+            backendEndpointResolver.resolveBaseUrl(forceRefresh = false)
+            TripReminderNotifier.createChannels(this@SouigatApp)
+            syncScheduler.schedulePeriodicSync()
             tripReminderScheduler.rescheduleFromDatabase()
         }
     }

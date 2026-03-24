@@ -18,6 +18,7 @@ import androidx.room.PrimaryKey
     indices = [
         Index("tripId"), 
         Index("status"),
+        Index("createdAt"),
         Index("ticketNumber", unique = true)
     ]
 )

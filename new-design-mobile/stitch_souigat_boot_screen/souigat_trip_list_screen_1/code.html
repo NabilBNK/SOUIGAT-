@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SOUIGAT - Mes trajets</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-container": "#92efc7",
+              "secondary-fixed": "#d9e3f4",
+              "error-container": "#ffdad6",
+              "tertiary-fixed": "#97f5cc",
+              "on-tertiary": "#ffffff",
+              "on-primary-container": "#d4dcff",
+              "surface-bright": "#f7f9fc",
+              "on-tertiary-fixed": "#002115",
+              "primary": "#003fb1",
+              "outline-variant": "#c3c5d7",
+              "error": "#ba1a1a",
+              "on-tertiary-fixed-variant": "#00513a",
+              "surface-tint": "#1353d8",
+              "on-primary": "#ffffff",
+              "primary-fixed-dim": "#b5c4ff",
+              "tertiary-fixed-dim": "#7bd8b1",
+              "inverse-surface": "#2d3133",
+              "on-surface": "#191c1e",
+              "on-secondary-fixed-variant": "#3e4755",
+              "on-primary-fixed": "#00174d",
+              "surface-container": "#eceef1",
+              "on-secondary-fixed": "#121c28",
+              "primary-fixed": "#dbe1ff",
+              "on-error": "#ffffff",
+              "surface-container-low": "#f2f4f7",
+              "secondary-fixed-dim": "#bdc7d8",
+              "secondary-container": "#d6e0f1",
+              "primary-container": "#1a56db",
+              "on-error-container": "#93000a",
+              "surface": "#f7f9fc",
+              "background": "#f7f9fc",
+              "on-secondary": "#ffffff",
+              "on-surface-variant": "#434654",
+              "tertiary-container": "#006f50",
+              "on-secondary-container": "#596372",
+              "outline": "#737686",
+              "surface-variant": "#e0e3e6",
+              "secondary": "#555f6d",
+              "surface-dim": "#d8dadd",
+              "tertiary": "#00543c",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-highest": "#e0e3e6",
+              "surface-container-high": "#e6e8eb",
+              "inverse-on-surface": "#eff1f4",
+              "inverse-primary": "#b5c4ff",
+              "on-primary-fixed-variant": "#003dab",
+              "on-background": "#191c1e"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"],
+              "mono": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .mono-text { font-family: 'JetBrains Mono', monospace; }
+        .trip-card-border { border-color: rgba(195, 197, 215, 0.4); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-4 h-16 bg-white dark:bg-[#0D1117] border-b border-[#E2E5EA] dark:border-gray-800">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[#0D1117] dark:text-white">menu</span>
+</button>
+<div class="flex items-center gap-2"><img alt="SOUIGAT Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ugqOz-NFroUpwjzeKSf6V3DtAAmhQfaruv1GNUAi65uevkpYk-E-pOnzYeh40RCZKdPVsiaU-3y3drCQb_Z99tst6I_neX9qy_Kjvvrgh3YzEruYlqyUeNBXhjyQ73QRZR_eJrvlF5UnbwAmIJftqK480b8ldaO4HvTv7WE9xqmxnOERpSZs1Tbhdlt51e2tCFWjJjC9BfXy_OOst3okCcLeJRlu_MhowKUjdK_cevTVTfqvDISwxbCKBNI4SF0o0pxYdBCl6_4bA"/><h1 class="text-xl font-semibold text-[#0D1117] dark:text-white">Mes trajets</h1></div>
+</div>
+<button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[#1A56DB] dark:text-[#3B82F6]">sync</span>
+</button>
+</header>
+<main class="pt-16 px-4 max-w-2xl mx-auto">
+<!-- Terrain Bar (Sync Status) -->
+<div class="mt-4 mb-6">
+<div class="bg-surface-container-low rounded-xl p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+<span class="text-xs font-medium uppercase tracking-wider text-on-surface-variant">État de synchronisation</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="mono-text text-xs font-bold text-primary">Dernier: 14:32</span>
+<div class="w-2 h-2 rounded-full bg-[#34D399] animate-pulse"></div>
+</div>
+</div>
+</div>
+<!-- Pull-to-refresh Visual Indicator -->
+<div class="flex justify-center mb-4 opacity-40">
+<span class="material-symbols-outlined animate-bounce">expand_more</span>
+</div>
+<!-- Trip Cards List -->
+<div class="space-y-4">
+<!-- Trip Card: In Progress (Green) -->
+<div class="bg-surface-container-lowest trip-card-border border rounded-xl overflow-hidden relative flex shadow-sm">
+<div class="w-1 bg-[#34D399]"></div>
+<div class="p-4 flex-1">
+<div class="flex justify-between items-start mb-1">
+<h2 class="text-[18px] font-bold text-on-surface leading-tight">Alger → Oran</h2>
+<span class="px-2 py-0.5 rounded bg-[#DCFCE7] text-[#166534] text-[10px] font-extrabold uppercase tracking-tighter">EN COURS</span>
+</div>
+<div class="mb-4">
+<p class="mono-text text-[13px] text-on-surface-variant">22 OCT 2023 • 08:30</p>
+</div>
+<div class="flex justify-between items-center">
+<div class="bg-surface-container-high px-2 py-1 rounded">
+<span class="mono-text text-[12px] font-bold text-on-secondary-fixed-variant">12345-121-16</span>
+</div>
+<div class="bg-primary-container text-white px-3 py-1 rounded-full">
+<span class="mono-text text-[14px] font-bold">1,200 DZD</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Trip Card: Scheduled (Blue) -->
+<div class="bg-surface-container-lowest trip-card-border border rounded-xl overflow-hidden relative flex shadow-sm">
+<div class="w-1 bg-primary"></div>
+<div class="p-4 flex-1">
+<div class="flex justify-between items-start mb-1">
+<h2 class="text-[18px] font-bold text-on-surface leading-tight">Constantine → Sétif</h2>
+<span class="px-2 py-0.5 rounded bg-primary-fixed text-primary text-[10px] font-extrabold uppercase tracking-tighter">PLANIFIÉ</span>
+</div>
+<div class="mb-4">
+<p class="mono-text text-[13px] text-on-surface-variant">22 OCT 2023 • 14:15</p>
+</div>
+<div class="flex justify-between items-center">
+<div class="bg-surface-container-high px-2 py-1 rounded">
+<span class="mono-text text-[12px] font-bold text-on-secondary-fixed-variant">00982-121-25</span>
+</div>
+<div class="bg-primary-container text-white px-3 py-1 rounded-full">
+<span class="mono-text text-[14px] font-bold">850 DZD</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Trip Card: Completed (Gray) -->
+<div class="bg-surface-container-lowest trip-card-border border rounded-xl overflow-hidden relative flex opacity-80">
+<div class="w-1 bg-secondary"></div>
+<div class="p-4 flex-1">
+<div class="flex justify-between items-start mb-1">
+<h2 class="text-[18px] font-bold text-on-surface leading-tight">Annaba → Skikda</h2>
+<span class="px-2 py-0.5 rounded bg-surface-variant text-secondary text-[10px] font-extrabold uppercase tracking-tighter">TERMINÉ</span>
+</div>
+<div class="mb-4">
+<p class="mono-text text-[13px] text-on-surface-variant text-opacity-60">21 OCT 2023 • 17:00</p>
+</div>
+<div class="flex justify-between items-center">
+<div class="bg-surface-container-high px-2 py-1 rounded">
+<span class="mono-text text-[12px] font-bold text-on-secondary-fixed-variant">05521-121-23</span>
+</div>
+<div class="bg-surface-container-highest text-on-surface px-3 py-1 rounded-full">
+<span class="mono-text text-[14px] font-bold">400 DZD</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Trip Card: Cancelled (Red) -->
+<div class="bg-surface-container-lowest trip-card-border border rounded-xl overflow-hidden relative flex">
+<div class="w-1 bg-error"></div>
+<div class="p-4 flex-1">
+<div class="flex justify-between items-start mb-1">
+<h2 class="text-[18px] font-bold text-on-surface leading-tight text-error">Béjaïa → Tizi Ouzou</h2>
+<span class="px-2 py-0.5 rounded bg-error-container text-error text-[10px] font-extrabold uppercase tracking-tighter">ANNULÉ</span>
+</div>
+<div class="mb-4">
+<p class="mono-text text-[13px] text-on-surface-variant">21 OCT 2023 • 10:45</p>
+</div>
+<div class="flex justify-between items-center">
+<div class="bg-surface-container-high px-2 py-1 rounded">
+<span class="mono-text text-[12px] font-bold text-on-secondary-fixed-variant">03412-121-06</span>
+</div>
+<div class="bg-surface-container-highest text-error text-opacity-50 px-3 py-1 rounded-full">
+<span class="mono-text text-[14px] font-bold">550 DZD</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center bg-white dark:bg-[#0D1117] h-14 border-t border-[#E2E5EA] dark:border-gray-800">
+<a class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 h-full w-full hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">confirmation_number</span>
+<span class="text-xs font-medium">Vente</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#1A56DB] border-t-2 border-[#1A56DB] h-full w-full hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">directions_bus</span>
+<span class="text-xs font-medium">Trajet</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 h-full w-full hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">assessment</span>
+<span class="text-xs font-medium">Rapport</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 h-full w-full hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<span class="text-xs font-medium">Profil</span>
+</a>
+</nav>
+<!-- Contextual Floating Action Button (Only for relevant screens) -->
+<button class="fixed right-6 bottom-20 w-14 h-14 bg-primary-container text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform z-40">
+<span class="material-symbols-outlined text-[28px]">add_road</span>
+</button>
+</body></html>
