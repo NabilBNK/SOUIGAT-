@@ -83,6 +83,14 @@ SOUIGAT/
   - `firestore.indexes.json`
 - Integration details: `firebase-sync.md`
 
+### Reuse Existing Firebase Project (No New Firebase Setup)
+
+- This repo is already configured for Firebase project `souigat-6be49`.
+- Web: copy `web/.env.example` to `web/.env.local` (values are prefilled for the same Firebase project).
+- Backend: keep `FIREBASE_PROJECT_ID=souigat-6be49` in `.env` and provide only your local service-account file path:
+  - `FIREBASE_SERVICE_ACCOUNT_PATH=/absolute/path/to/your-service-account.json`
+- Do not run `firebase init` for a new project; use the committed `firebase.json`, `firestore.rules`, and `firestore.indexes.json` as-is.
+
 ## License
 
 Internal use only.
