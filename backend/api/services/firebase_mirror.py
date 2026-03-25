@@ -8,7 +8,7 @@ from typing import Any, Dict, Tuple
 from django.db import transaction
 from django.utils import timezone
 
-from api.models import CargoTicket, FirebaseMirrorEvent, PassengerTicket, Settlement, Trip, TripExpense
+from api.models import CargoTicket, FirebaseMirrorEvent, PassengerTicket, PricingConfig, Settlement, Trip, TripExpense
 from api.services.firebase_admin import FirebaseConfigurationError, get_firebase_app
 
 try:
@@ -23,6 +23,7 @@ ENTITY_PASSENGER_TICKET = 'passenger_ticket'
 ENTITY_CARGO_TICKET = 'cargo_ticket'
 ENTITY_TRIP_EXPENSE = 'trip_expense'
 ENTITY_SETTLEMENT = 'settlement'
+ENTITY_PRICING_CONFIG = 'pricing_config'
 
 ENTITY_COLLECTIONS = {
     ENTITY_TRIP: 'trip_mirror_v1',
@@ -30,6 +31,7 @@ ENTITY_COLLECTIONS = {
     ENTITY_CARGO_TICKET: 'cargo_ticket_mirror_v1',
     ENTITY_TRIP_EXPENSE: 'trip_expense_mirror_v1',
     ENTITY_SETTLEMENT: 'settlement_mirror_v1',
+    ENTITY_PRICING_CONFIG: 'pricing_config_mirror_v1',
 }
 
 
@@ -77,6 +79,10 @@ def _trip_scope(trip: Trip) -> list[int]:
     return [trip.origin_office_id, trip.destination_office_id]
 
 
+def _pricing_scope(pricing: PricingConfig) -> list[int]:
+    return [pricing.origin_office_id, pricing.destination_office_id]
+
+
 def resolve_entity_type(instance: Any) -> str:
     if isinstance(instance, Trip):
         return ENTITY_TRIP
@@ -88,6 +94,8 @@ def resolve_entity_type(instance: Any) -> str:
         return ENTITY_TRIP_EXPENSE
     if isinstance(instance, Settlement):
         return ENTITY_SETTLEMENT
+    if isinstance(instance, PricingConfig):
+        return ENTITY_PRICING_CONFIG
     raise ValueError(f'Unsupported entity type for Firebase mirror: {instance.__class__.__name__}')
 
 
@@ -257,6 +265,34 @@ def _build_settlement_payload(settlement: Settlement) -> Dict[str, Any]:
     }
 
 
+def _build_pricing_config_payload(pricing: PricingConfig) -> Dict[str, Any]:
+    source_created_at = _to_iso(pricing.created_at)
+    source_updated_at = _to_iso(pricing.updated_at)
+    return {
+        'entity': ENTITY_PRICING_CONFIG,
+        'id': pricing.id,
+        'origin_office_id': pricing.origin_office_id,
+        'origin_office_name': pricing.origin_office.name if pricing.origin_office_id and pricing.origin_office else '',
+        'destination_office_id': pricing.destination_office_id,
+        'destination_office_name': pricing.destination_office.name if pricing.destination_office_id and pricing.destination_office else '',
+        'office_scope_ids': _pricing_scope(pricing),
+        'route_key': f'{pricing.origin_office_id}:{pricing.destination_office_id}',
+        'passenger_price': pricing.passenger_price,
+        'cargo_small_price': pricing.cargo_small_price,
+        'cargo_medium_price': pricing.cargo_medium_price,
+        'cargo_large_price': pricing.cargo_large_price,
+        'currency': pricing.currency,
+        'effective_from': pricing.effective_from.isoformat() if pricing.effective_from else None,
+        'effective_until': pricing.effective_until.isoformat() if pricing.effective_until else None,
+        'is_active': pricing.is_active,
+        'source_created_at': source_created_at,
+        'source_updated_at': source_updated_at,
+        'is_deleted': bool(getattr(pricing, 'is_deleted', False)),
+        'deleted_at': _to_iso(getattr(pricing, 'deleted_at', None)),
+        'sync_version': 1,
+    }
+
+
 def build_payload_from_instance(entity_type: str, instance: Any) -> Dict[str, Any]:
     if entity_type == ENTITY_TRIP:
         return _build_trip_payload(instance)
@@ -268,6 +304,8 @@ def build_payload_from_instance(entity_type: str, instance: Any) -> Dict[str, An
         return _build_trip_expense_payload(instance)
     if entity_type == ENTITY_SETTLEMENT:
         return _build_settlement_payload(instance)
+    if entity_type == ENTITY_PRICING_CONFIG:
+        return _build_pricing_config_payload(instance)
     raise ValueError(f'Unsupported mirror entity: {entity_type}')
 
 

@@ -9,6 +9,7 @@ interface TripRepository {
     suspend fun getTripDetail(id: Long): Result<TripDetailDto>
     suspend fun startTrip(id: Long): Result<TripStatusDto>
     suspend fun completeTrip(id: Long): Result<TripStatusDto>
+    suspend fun startRealtimeTripSync(): Result<Unit>
 }
 
 // Typed error hierarchy for Trip operations

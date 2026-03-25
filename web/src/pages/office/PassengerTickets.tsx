@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import {
     createPassengerTicket,
     deletePassengerTicket,
-    getTripPassengerTickets,
     updatePassengerTicket,
 } from '../../api/tickets'
 import { useAuth } from '../../hooks/useAuth'
+import { useTripPassengerMirror } from '../../hooks/useTripMirrorData'
 import { Button } from '../../components/ui/Button'
 import { formatCurrency, formatDateTime } from '../../utils/formatters'
 import { AlertCircle, Plus, RotateCcw, Trash2 } from 'lucide-react'
@@ -18,7 +18,6 @@ interface PassengerTicketsProps {
 
 export function PassengerTickets({ trip }: PassengerTicketsProps) {
     const { user } = useAuth()
-    const queryClient = useQueryClient()
     const [actionError, setActionError] = useState<string | null>(null)
     const [isCreating, setIsCreating] = useState(false)
 
@@ -27,15 +26,11 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
     const [seatNumber, setSeatNumber] = useState('')
     const [paymentSource, setPaymentSource] = useState('cash')
 
-    const { data: tickets = [], isLoading, error } = useQuery({
-        queryKey: ['tickets', trip.id],
-        queryFn: () => getTripPassengerTickets(trip.id),
-    })
-
-    const invalidateTickets = () => {
-        queryClient.invalidateQueries({ queryKey: ['tickets', trip.id] })
-        queryClient.invalidateQueries({ queryKey: ['trip', trip.id] }) // To update revenue
-    }
+    const {
+        data: tickets,
+        isLoading,
+        error,
+    } = useTripPassengerMirror(trip.id)
 
     const extractErrorMsg = (err: unknown, defaultMsg: string) => {
         if (err && typeof err === 'object' && 'response' in err) {
@@ -52,7 +47,6 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
             payment_source: paymentSource
         }),
         onSuccess: () => {
-            invalidateTickets()
             setIsCreating(false)
             setPassengerName('')
             setSeatNumber('')
@@ -65,13 +59,13 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
     const updateStatusMutation = useMutation({
         mutationFn: ({ id, status }: { id: number, status: 'cancelled' | 'refunded' }) =>
             updatePassengerTicket(id, { status }),
-        onSuccess: invalidateTickets,
+        onSuccess: () => setActionError(null),
         onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de la mise à jour du billet."))
     })
 
     const deleteMutation = useMutation({
         mutationFn: (ticketId: number) => deletePassengerTicket(ticketId),
-        onSuccess: invalidateTickets,
+        onSuccess: () => setActionError(null),
         onError: (err) => setActionError(extractErrorMsg(err, 'Erreur lors de la suppression du billet.')),
     })
 

@@ -4,11 +4,9 @@ import type {
     Settlement,
     SettlementListItem,
 } from '../types/settlement'
-import { queueSettlementUpsert } from '../sync/operationalSync'
 
 export async function initiateSettlement(tripId: number): Promise<Settlement> {
     const response = await client.post<Settlement>(`/settlements/initiate/${tripId}/`)
-    void queueSettlementUpsert(response.data)
     return response.data
 }
 
@@ -26,7 +24,6 @@ export async function recordSettlement(
     }
 ): Promise<Settlement> {
     const response = await client.patch<Settlement>(`/settlements/${tripId}/record/`, data)
-    void queueSettlementUpsert(response.data)
     return response.data
 }
 
@@ -35,7 +32,6 @@ export async function disputeSettlement(
     data: { dispute_reason: string; notes?: string }
 ): Promise<Settlement> {
     const response = await client.patch<Settlement>(`/settlements/${tripId}/dispute/`, data)
-    void queueSettlementUpsert(response.data)
     return response.data
 }
 
@@ -48,7 +44,6 @@ export async function resolveSettlement(
     }
 ): Promise<Settlement> {
     const response = await client.patch<Settlement>(`/settlements/${tripId}/resolve/`, data)
-    void queueSettlementUpsert(response.data)
     return response.data
 }
 

@@ -1,5 +1,6 @@
 package com.souigat.mobile.data.repository
 
+import android.util.Base64
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -12,6 +13,7 @@ import com.souigat.mobile.data.remote.dto.LogoutRequest
 import com.souigat.mobile.data.remote.dto.UserProfileDto
 import com.souigat.mobile.domain.repository.AuthRepository
 import java.io.IOException
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -42,12 +44,35 @@ class AuthRepositoryImpl @Inject constructor(
                 }
 
             val previousUserId = tokenManager.getUserId()
-            val response = authApi.firebaseLogin(
-                FirebaseLoginRequest(
-                    idToken = firebaseIdToken,
-                    deviceId = tokenManager.getDeviceId(),
+            val response = try {
+                authApi.firebaseLogin(
+                    FirebaseLoginRequest(
+                        idToken = firebaseIdToken,
+                        deviceId = tokenManager.getDeviceId(),
+                    )
                 )
-            )
+            } catch (networkError: IOException) {
+                val offlineUser = buildOfflineFirebaseProfile(firebaseIdToken, phone.trim())
+                if (offlineUser != null) {
+                    if (previousUserId != null && previousUserId != offlineUser.id) {
+                        clearLocalOperationalData()
+                    }
+
+                    tokenManager.saveTokens(firebaseIdToken, firebaseIdToken)
+                    tokenManager.saveUserProfile(
+                        userId = offlineUser.id,
+                        role = offlineUser.role,
+                        officeId = offlineUser.office,
+                        firstName = offlineUser.first_name,
+                        lastName = offlineUser.last_name,
+                    )
+
+                    return Result.success(offlineUser)
+                }
+
+                return Result.failure(AuthException.NetworkUnavailable)
+            }
+
             if (response.isSuccessful) {
                 val body = response.body()!!
                 val incomingUserId = body.user.id
@@ -62,7 +87,7 @@ class AuthRepositoryImpl @Inject constructor(
                     firstName = body.user.first_name,
                     lastName = body.user.last_name
                 )
-                firebaseSessionManager.ensureSignedIn(forceRefresh = false)
+                firebaseSessionManager.ensureSignedIn(forceRefresh = true)
                 Result.success(body.user)
             } else {
                 val errorCode = response.code()
@@ -110,7 +135,7 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun getStoredUserProfile(): UserProfileDto? {
         val role = tokenManager.getUserRole() ?: return null
         val id = tokenManager.getUserId() ?: return null
-        val officeId = tokenManager.getOfficeId() ?: return null
+        val officeId = tokenManager.getOfficeId()
         val firstName = tokenManager.getFirstName() ?: return null
         val lastName = tokenManager.getLastName() ?: return null
         
@@ -134,6 +159,67 @@ class AuthRepositoryImpl @Inject constructor(
     override fun isLoggedIn(): Boolean {
         return tokenManager.getAccessToken() != null
                 && tokenManager.getRefreshToken() != null
+    }
+
+    private fun buildOfflineFirebaseProfile(idToken: String, phone: String): UserProfileDto? {
+        val payload = decodeJwtPayload(idToken) ?: return null
+
+        val role = payload.optString("role").ifBlank { "conductor" }
+        val userId = extractIntClaim(payload, "user_id")
+            ?: extractUserIdFromUid(payload.optString("uid", payload.optString("user_id", "")))
+            ?: return null
+        val officeId = extractIntClaim(payload, "office_id")
+
+        val fullName = payload.optString("name").trim()
+        val nameParts = fullName.split(' ').filter { it.isNotBlank() }
+        val firstName = nameParts.firstOrNull() ?: "Conducteur"
+        val lastName = nameParts.drop(1).joinToString(" ").ifBlank { "Souigat" }
+
+        return UserProfileDto(
+            id = userId,
+            phone = phone,
+            first_name = firstName,
+            last_name = lastName,
+            role = role,
+            department = payload.optString("department").ifBlank { null },
+            office = officeId,
+            office_name = null,
+            office_city = null,
+            is_active = true,
+            device_id = tokenManager.getDeviceId(),
+            last_login = null,
+            permissions = emptyList(),
+        )
+    }
+
+    private fun decodeJwtPayload(token: String): JSONObject? {
+        return runCatching {
+            val parts = token.split('.')
+            if (parts.size < 2) {
+                return null
+            }
+
+            val decoded = Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP)
+            JSONObject(String(decoded, Charsets.UTF_8))
+        }.getOrNull()
+    }
+
+    private fun extractIntClaim(payload: JSONObject, key: String): Int? {
+        val raw = payload.opt(key) ?: return null
+        return when (raw) {
+            is Number -> raw.toInt()
+            is String -> raw.toIntOrNull()
+            else -> null
+        }
+    }
+
+    private fun extractUserIdFromUid(uid: String?): Int? {
+        if (uid.isNullOrBlank()) {
+            return null
+        }
+
+        val digits = uid.substringAfterLast('-').trim()
+        return digits.toIntOrNull()
     }
 }
 

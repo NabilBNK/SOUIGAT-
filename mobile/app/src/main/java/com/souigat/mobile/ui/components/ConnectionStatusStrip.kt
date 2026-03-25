@@ -46,7 +46,7 @@ fun ConnectionStatusStrip(
 
         BackendConnectionState.BackendUnavailable -> ConnectionStripStyle(
             icon = Icons.Default.CloudQueue,
-            label = "Serveur indisponible",
+            label = "Serveur indisponible - mode local/Firebase actif",
             containerColor = ErrorRed.copy(alpha = 0.12f),
             contentColor = ErrorRed
         )

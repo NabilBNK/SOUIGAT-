@@ -53,6 +53,7 @@ class SouigatApp : Application(), Configuration.Provider {
 
             TripReminderNotifier.createChannels(this@SouigatApp)
             syncScheduler.schedulePeriodicSync()
+            syncScheduler.triggerOneTimeSync()
             tripReminderScheduler.rescheduleFromDatabase()
         }
     }

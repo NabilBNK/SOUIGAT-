@@ -107,6 +107,118 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "passenger_ticket_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "conductor_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source_created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "passenger_ticket_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "office_scope_ids",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source_created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "cargo_ticket_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "conductor_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source_created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "cargo_ticket_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "office_scope_ids",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source_created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pricing_config_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "office_scope_ids",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "is_active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "effective_from",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pricing_config_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "origin_office_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "destination_office_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "is_active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "effective_from",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -74,9 +74,9 @@ SOUIGAT/
 
 ## Firebase Shared Layer (Local-First)
 
-- Local backend DB remains the source of truth.
-- Web app mirrors selected records to Firestore asynchronously.
-- Mobile app reads mirrored records from Firestore (with backend fallback).
+- Backend remains source of truth for admin/web operations.
+- Mobile works local-first (SQLite), then syncs ticket/expense operations to Firebase in background.
+- Web admin reads trip passenger/cargo/expense data from Firebase realtime listeners.
 - Firestore config files live at:
   - `firebase.json`
   - `firestore.rules`
@@ -87,9 +87,10 @@ SOUIGAT/
 
 - This repo is already configured for Firebase project `souigat-6be49`.
 - Web: copy `web/.env.example` to `web/.env.local` (values are prefilled for the same Firebase project).
-- Backend: keep `FIREBASE_PROJECT_ID=souigat-6be49` in `.env` and provide only your local service-account file path:
+- Mobile: `mobile/app/google-services.json` is already set for `souigat-6be49`.
+- Backend (optional for local admin-only actions): keep `FIREBASE_PROJECT_ID=souigat-6be49` in `.env` and provide only your local service-account file path:
   - `FIREBASE_SERVICE_ACCOUNT_PATH=/absolute/path/to/your-service-account.json`
-- Do not run `firebase init` for a new project; use the committed `firebase.json`, `firestore.rules`, and `firestore.indexes.json` as-is.
+- Do not run `firebase init` for a new project; use the committed `firebase.json`, `firestore.rules`, `firestore.indexes.json`, and `google-services.json` as-is.
 
 ## License
 

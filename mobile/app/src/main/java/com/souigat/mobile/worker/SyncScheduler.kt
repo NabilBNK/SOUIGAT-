@@ -8,6 +8,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkRequest
@@ -20,6 +21,9 @@ import javax.inject.Singleton
 class SyncScheduler @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+
+    @Volatile
+    private var lastOneTimeTriggerAtMs: Long = 0L
 
     fun schedulePeriodicSync() {
         val constraints = Constraints.Builder()
@@ -43,6 +47,12 @@ class SyncScheduler @Inject constructor(
     }
 
     fun triggerOneTimeSync() {
+        val now = System.currentTimeMillis()
+        if (now - lastOneTimeTriggerAtMs < 1_500L) {
+            return
+        }
+        lastOneTimeTriggerAtMs = now
+
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -54,11 +64,12 @@ class SyncScheduler @Inject constructor(
                 WorkRequest.MIN_BACKOFF_MILLIS,
                 TimeUnit.MILLISECONDS
             )
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .build()
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME_ONETIME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             oneTimeWorkRequest
         )
     }

@@ -241,6 +241,11 @@ async function drainSyncQueue(): Promise<void> {
             return
         }
 
+        const hasWork = await hasPendingSyncWork()
+        if (!hasWork) {
+            return
+        }
+
         const db = getFirebaseFirestore()
         if (!db) {
             return

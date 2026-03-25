@@ -160,8 +160,15 @@ fun TripListScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
+                                        val syncLabel = when {
+                                            uiState.isRefreshing -> "Sync en cours"
+                                            uiState.lastRefreshAt == null && uiState.trips.isNotEmpty() -> "Synchronise"
+                                            uiState.lastRefreshAt == null -> "Initialisation"
+                                            else -> "Dernier sync"
+                                        }
+
                                         Text(
-                                            text = if (uiState.lastRefreshAt == null) "En attente" else "Dernier sync",
+                                            text = syncLabel,
                                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                             color = MaterialTheme.colorScheme.primaryContainer
                                         )

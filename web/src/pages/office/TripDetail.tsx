@@ -33,6 +33,7 @@ import {
 
 import { PassengerTickets } from './PassengerTickets'
 import { CargoTickets } from './CargoTickets'
+import { TripExpenses } from './TripExpenses'
 
 type TabType = 'info' | 'passengers' | 'cargo' | 'expenses'
 
@@ -680,9 +681,7 @@ export function TripDetailPage() {
                 )}
 
                 {activeTab === 'expenses' && (
-                    <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-6 text-center text-text-muted">
-                        Gestion des dépenses en cours de développement
-                    </div>
+                    <TripExpenses tripId={trip.id} />
                 )}
             </div>
             </div>

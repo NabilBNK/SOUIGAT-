@@ -1,6 +1,5 @@
 import client from './client'
 import type { CargoTicket, CargoStatus } from '../types/ticket'
-import { queueCargoTicketDelete, queueCargoTicketUpsert } from '../sync/operationalSync'
 
 interface PaginatedCargoResponse {
     count: number
@@ -52,7 +51,6 @@ export async function createCargoTicket(
     }
 ): Promise<CargoTicket> {
     const response = await client.post<CargoTicket>(`/cargo/`, { ...data, trip: tripId })
-    void queueCargoTicketUpsert(response.data)
     return response.data
 }
 
@@ -65,17 +63,14 @@ export async function transitionCargoStatus(
         new_status: newStatus,
         reason,
     })
-    void queueCargoTicketUpsert(response.data)
     return response.data
 }
 
 export async function deliverCargoTicket(id: number): Promise<CargoTicket> {
     const response = await client.post<CargoTicket>(`/cargo/${id}/deliver/`)
-    void queueCargoTicketUpsert(response.data)
     return response.data
 }
 
 export async function deleteCargoTicket(id: number): Promise<void> {
     await client.delete(`/cargo/${id}/`)
-    void queueCargoTicketDelete(id)
 }

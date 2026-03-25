@@ -16,6 +16,7 @@ import com.souigat.mobile.util.formatCompact
 import com.souigat.mobile.util.formatCurrency
 import com.souigat.mobile.util.toDisplayDateTime
 import com.souigat.mobile.util.toDisplayTime
+import com.souigat.mobile.worker.SyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -106,8 +107,13 @@ class DashboardViewModel @Inject constructor(
     private val cargoTicketDao: CargoTicketDao,
     private val expenseDao: ExpenseDao,
     private val syncQueueDao: SyncQueueDao,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val syncScheduler: SyncScheduler,
 ) : ViewModel() {
+
+    init {
+        syncScheduler.triggerOneTimeSync()
+    }
 
     private val tripStatsFlow: Flow<DashboardTripStats> = tripDao.observeActiveTrip().flatMapLatest { trip ->
         if (trip == null) {

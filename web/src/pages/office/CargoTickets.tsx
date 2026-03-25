@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createCargoTicket, deleteCargoTicket, getTripCargoTickets } from '../../api/cargo'
+import { useMutation } from '@tanstack/react-query'
+import { createCargoTicket, deleteCargoTicket } from '../../api/cargo'
 import { useAuth } from '../../hooks/useAuth'
+import { useTripCargoMirror } from '../../hooks/useTripMirrorData'
 import { Button } from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/formatters'
 import { AlertCircle, Package, Plus, Trash2 } from 'lucide-react'
@@ -14,7 +15,6 @@ interface CargoTicketsProps {
 
 export function CargoTickets({ trip }: CargoTicketsProps) {
     const { user } = useAuth()
-    const queryClient = useQueryClient()
     const [actionError, setActionError] = useState<string | null>(null)
     const [isCreating, setIsCreating] = useState(false)
 
@@ -27,15 +27,11 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
     const [description, setDescription] = useState('')
     const [paymentSource, setPaymentSource] = useState('prepaid')
 
-    const { data: tickets = [], isLoading, error } = useQuery({
-        queryKey: ['cargo', trip.id],
-        queryFn: () => getTripCargoTickets(trip.id),
-    })
-
-    const invalidateTickets = () => {
-        queryClient.invalidateQueries({ queryKey: ['cargo', trip.id] })
-        queryClient.invalidateQueries({ queryKey: ['trip', trip.id] })
-    }
+    const {
+        data: tickets,
+        isLoading,
+        error,
+    } = useTripCargoMirror(trip.id)
 
     const extractErrorMsg = (err: unknown, defaultMsg: string) => {
         if (err && typeof err === 'object' && 'response' in err) {
@@ -56,7 +52,6 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
             payment_source: paymentSource
         }),
         onSuccess: () => {
-            invalidateTickets()
             setIsCreating(false)
             // Reset form
             setSenderName('')
@@ -73,7 +68,7 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
 
     const deleteMutation = useMutation({
         mutationFn: (ticketId: number) => deleteCargoTicket(ticketId),
-        onSuccess: invalidateTickets,
+        onSuccess: () => setActionError(null),
         onError: (err) => setActionError(extractErrorMsg(err, 'Erreur lors de la suppression du colis.')),
     })
 

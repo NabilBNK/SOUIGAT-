@@ -3,7 +3,7 @@ import logging
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from api.models import CargoTicket, PassengerTicket, Settlement, Trip, TripExpense
+from api.models import CargoTicket, PassengerTicket, PricingConfig, Settlement, Trip, TripExpense
 from api.services.firebase_mirror import (
     enqueue_instance_delete,
     enqueue_instance_upsert,
@@ -84,4 +84,14 @@ def queue_settlement_mirror_on_save(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=Settlement)
 def queue_settlement_mirror_on_delete(sender, instance, **kwargs):
+    _queue_delete(instance)
+
+
+@receiver(post_save, sender=PricingConfig)
+def queue_pricing_config_mirror_on_save(sender, instance, **kwargs):
+    _queue_upsert(instance)
+
+
+@receiver(post_delete, sender=PricingConfig)
+def queue_pricing_config_mirror_on_delete(sender, instance, **kwargs):
     _queue_delete(instance)

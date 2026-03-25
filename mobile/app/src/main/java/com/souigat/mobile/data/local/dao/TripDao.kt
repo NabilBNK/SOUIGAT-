@@ -43,6 +43,19 @@ interface TripDao {
     fun observeOperationalTrips(): Flow<List<TripEntity>>
 
     @Query(
+        "SELECT * FROM trips " +
+            "WHERE status IN ('scheduled', 'in_progress') " +
+            "ORDER BY CASE WHEN status = 'in_progress' THEN 0 ELSE 1 END, departureDateTime ASC"
+    )
+    suspend fun getOperationalTripsNow(): List<TripEntity>
+
+    @Query("SELECT MAX(updatedAt) FROM trips WHERE status IN ('scheduled', 'in_progress')")
+    suspend fun getLatestOperationalUpdateAt(): Long?
+
+    @Query("SELECT MAX(updatedAt) FROM trips WHERE status IN ('scheduled', 'in_progress')")
+    fun observeLatestOperationalUpdateAt(): Flow<Long?>
+
+    @Query(
         """
         SELECT
             COALESCE(serverId, id) AS tripId,

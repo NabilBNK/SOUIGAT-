@@ -12,6 +12,7 @@ import com.souigat.mobile.util.Constants
 import com.souigat.mobile.util.formatCurrency
 import com.souigat.mobile.util.isOlderThan
 import com.souigat.mobile.util.toRouteDateTime
+import com.souigat.mobile.worker.SyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,15 +65,22 @@ private data class TripListRefreshState(
 @HiltViewModel
 class TripListViewModel @Inject constructor(
     tripDao: TripDao,
-    private val tripRepository: TripRepository
+    private val tripRepository: TripRepository,
+    private val syncScheduler: SyncScheduler,
 ) : ViewModel() {
 
     private val refreshState = MutableStateFlow(TripListRefreshState())
 
     val uiState = combine(
         tripDao.observeOperationalSummaries(),
+        tripDao.observeLatestOperationalUpdateAt(),
         refreshState
-    ) { trips, refresh ->
+    ) { trips, latestLocalUpdateAt, refresh ->
+        val effectiveLastRefreshAt = maxOf(
+            refresh.lastRefreshAt ?: 0L,
+            latestLocalUpdateAt ?: 0L,
+        ).takeIf { it > 0L }
+
         TripListUiState(
             trips = buildList(trips.size) {
                 trips.forEach { trip ->
@@ -82,7 +90,7 @@ class TripListViewModel @Inject constructor(
             isRefreshing = refresh.isRefreshing,
             isInitialLoading = trips.isEmpty() && refresh.isRefreshing && !refresh.hasAttemptedRefresh,
             errorMessage = refresh.errorMessage,
-            lastRefreshAt = refresh.lastRefreshAt
+            lastRefreshAt = effectiveLastRefreshAt,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -91,10 +99,18 @@ class TripListViewModel @Inject constructor(
     )
 
     init {
+        syncScheduler.triggerOneTimeSync()
+        viewModelScope.launch {
+            tripRepository.startRealtimeTripSync()
+                .onFailure { error ->
+                    Timber.w(error, "TripListViewModel: realtime Firestore listener not started.")
+                }
+        }
         refreshTrips(force = true)
     }
 
     fun onScreenVisible() {
+        syncScheduler.triggerOneTimeSync()
         refreshTrips(force = false)
     }
 

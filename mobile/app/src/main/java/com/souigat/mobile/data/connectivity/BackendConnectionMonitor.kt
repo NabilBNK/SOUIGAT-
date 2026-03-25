@@ -55,18 +55,25 @@ class BackendConnectionMonitor @Inject constructor(
     }
 
     fun markBackendFailure() {
-        if (_state.value != BackendConnectionState.Offline) {
-            _state.value = BackendConnectionState.BackendUnavailable
-        }
-    }
-
-    private fun initialState(): BackendConnectionState {
-        val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-        val hasNetwork = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        return if (hasNetwork) {
+        // Local-first mobile should continue operating from SQLite/Firebase even when
+        // Django API is temporarily unreachable. If internet exists, keep the UX online.
+        _state.value = if (hasInternet()) {
             BackendConnectionState.Online
         } else {
             BackendConnectionState.Offline
         }
+    }
+
+    private fun initialState(): BackendConnectionState {
+        return if (hasInternet()) {
+            BackendConnectionState.Online
+        } else {
+            BackendConnectionState.Offline
+        }
+    }
+
+    private fun hasInternet(): Boolean {
+        val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+        return capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
     }
 }

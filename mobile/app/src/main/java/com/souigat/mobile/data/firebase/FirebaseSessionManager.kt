@@ -20,22 +20,8 @@ class FirebaseSessionManager @Inject constructor(
     private val signInMutex = Mutex()
 
     private fun firebaseEmailForPhone(phone: String): String {
-        val rawDigits = buildString {
-            phone.forEach { ch ->
-                val numeric = Character.getNumericValue(ch)
-                if (numeric in 0..9) {
-                    append(numeric)
-                }
-            }
-        }
-
-        val normalizedDigits = when {
-            rawDigits.startsWith("00213") && rawDigits.length == 14 -> "0${rawDigits.substring(5)}"
-            rawDigits.startsWith("213") && rawDigits.length == 12 -> "0${rawDigits.substring(3)}"
-            else -> rawDigits
-        }
-
-        return "$normalizedDigits@accounts.souigat.local"
+        val digits = phone.filter { it.isDigit() }
+        return "$digits@accounts.souigat.local"
     }
 
     suspend fun signInWithEmployeeCredentials(phone: String, password: String): Result<String> {
@@ -73,6 +59,40 @@ class FirebaseSessionManager @Inject constructor(
             }
 
             if (firebaseAuth.currentUser != null) {
+                val claims = runCatching {
+                    firebaseAuth.currentUser
+                        ?.getIdToken(false)
+                        ?.await()
+                        ?.claims
+                        .orEmpty()
+                }.getOrDefault(emptyMap())
+                val hasScopeClaims = claims["role"] != null && claims["user_id"] != null
+
+                if (hasScopeClaims) {
+                    syncLocalSessionFromFirebase(claims)
+                    return@withLock true
+                }
+
+                val refreshedClaims = runCatching {
+                    firebaseAuth.currentUser
+                        ?.getIdToken(true)
+                        ?.await()
+                        ?.claims
+                        .orEmpty()
+                }.getOrDefault(emptyMap())
+
+                val hasRefreshedScopeClaims =
+                    refreshedClaims["role"] != null && refreshedClaims["user_id"] != null
+
+                if (hasRefreshedScopeClaims) {
+                    syncLocalSessionFromFirebase(refreshedClaims)
+                    return@withLock true
+                }
+
+                Timber.w(
+                    "FirebaseSessionManager: no custom claims available; continuing with Firebase user session fallback.",
+                )
+                syncLocalSessionFromFirebase(emptyMap())
                 return@withLock true
             }
 
@@ -116,5 +136,54 @@ class FirebaseSessionManager @Inject constructor(
         } catch (error: Exception) {
             Timber.w(error, "FirebaseSessionManager: signOut failed.")
         }
+    }
+
+    private fun syncLocalSessionFromFirebase(claims: Map<String, Any>) {
+        val firebaseUser = firebaseAuth.currentUser ?: return
+
+        val userId = extractInt(claims["user_id"]) ?: extractUserIdFromUid(firebaseUser.uid) ?: return
+        val role = (claims["role"] as? String)?.trim().takeUnless { it.isNullOrBlank() }
+            ?: tokenManager.getUserRole()
+            ?: "conductor"
+        val officeId = extractInt(claims["office_id"]) ?: tokenManager.getOfficeId()
+
+        val existingName = tokenManager.getFullName().orEmpty()
+        val sourceName = firebaseUser.displayName?.trim().takeUnless { it.isNullOrBlank() } ?: existingName
+        val nameParts = sourceName.split(' ').filter { it.isNotBlank() }
+        val firstName = nameParts.firstOrNull() ?: tokenManager.getFirstName() ?: "Conducteur"
+        val lastName = nameParts.drop(1).joinToString(" ").ifBlank { tokenManager.getLastName() ?: "Souigat" }
+
+        val currentUserId = tokenManager.getUserId()
+        val currentRole = tokenManager.getUserRole()
+        val currentOfficeId = tokenManager.getOfficeId()
+        if (currentUserId == userId && currentRole == role && currentOfficeId == officeId) {
+            return
+        }
+
+        tokenManager.saveUserProfile(
+            userId = userId,
+            role = role,
+            officeId = officeId,
+            firstName = firstName,
+            lastName = lastName,
+        )
+        Timber.i("FirebaseSessionManager: synced local session profile from Firebase token/uid.")
+    }
+
+    private fun extractInt(raw: Any?): Int? {
+        return when (raw) {
+            is Number -> raw.toInt()
+            is String -> raw.toIntOrNull()
+            else -> null
+        }
+    }
+
+    private fun extractUserIdFromUid(uid: String?): Int? {
+        if (uid.isNullOrBlank()) {
+            return null
+        }
+
+        val digits = uid.substringAfterLast('-').trim()
+        return digits.toIntOrNull()
     }
 }

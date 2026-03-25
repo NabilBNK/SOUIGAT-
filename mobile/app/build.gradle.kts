@@ -54,6 +54,7 @@ android {
             isDebuggable = true
             isMinifyEnabled = false
             buildConfigField("String", "BUILD_TYPE_NAME", "\"debug\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://api.souigat.dz/api/\"")
         }
         create("staging") {
             applicationIdSuffix = ".staging"
@@ -67,6 +68,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "BUILD_TYPE_NAME", "\"staging\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://staging.souigat.dz/api/\"")
         }
         release {
             isDebuggable = false
@@ -78,6 +80,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "BUILD_TYPE_NAME", "\"release\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://api.souigat.dz/api/\"")
         }
     }
 

@@ -3,7 +3,6 @@ import type { AuthState } from '../types/auth'
 import { login as loginApi, logout as logoutApi, getMe } from '../api/auth'
 import { setTokens, clearTokens, getAccessToken, authEvents } from '../api/client'
 import { disconnectFirebaseSession, ensureFirebaseSession } from '../firebase/auth'
-import { requestSyncDrain, startSyncEngine, stopSyncEngine } from '../sync/engine'
 
 interface AuthContextValue extends AuthState {
     login: (phone: string, password: string) => Promise<void>
@@ -28,7 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for 401 unauthorized events from the API client
     useEffect(() => {
         const handler = () => {
-            stopSyncEngine()
             void disconnectFirebaseSession()
             clearTokens()
             bootstrapMeResult = null
@@ -45,30 +43,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     useEffect(() => {
-        let cancelled = false
-
         if (!state.isAuthenticated) {
-            stopSyncEngine()
             void disconnectFirebaseSession()
-            return () => {
-                cancelled = true
-            }
+            return
         }
-
-        startSyncEngine()
 
         const initFirebaseSync = async () => {
             await ensureFirebaseSession()
-            if (!cancelled) {
-                requestSyncDrain(0)
-            }
         }
 
         void initFirebaseSync()
-
-        return () => {
-            cancelled = true
-        }
     }, [state.isAuthenticated])
 
     // Attempt to restore session
@@ -185,7 +169,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
             // Ignore logout errors
         }
-        stopSyncEngine()
         void disconnectFirebaseSession()
         clearTokens()
         bootstrapMeResult = null

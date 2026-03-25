@@ -12,8 +12,11 @@ interface SyncQueueDao {
     @Query("SELECT * FROM sync_queue WHERE status = 'PENDING' ORDER BY createdAt ASC")
     fun observePending(): Flow<List<SyncQueueEntity>>
 
-    /** Reactive count of PENDING items — drives the sync badge on Dashboard. */
-    @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
+    /**
+     * Reactive count of items still waiting for a completed upload.
+     * Includes in-flight rows to avoid false "synced" green states while worker is running.
+     */
+    @Query("SELECT COUNT(*) FROM sync_queue WHERE status IN ('PENDING', 'SYNCING', 'FAILED')")
     fun observePendingCount(): Flow<Int>
 
     /** Reactive count of QUARANTINED items — drives QuarantineWarningBanner. */
@@ -64,6 +67,9 @@ interface SyncQueueDao {
      *  Only resets items that were never processed (syncedAt IS NULL). */
     @Query("UPDATE sync_queue SET status = 'PENDING' WHERE status = 'SYNCING' AND syncedAt IS NULL")
     suspend fun resetStuckSyncing()
+
+    @Query("UPDATE sync_queue SET status = 'PENDING' WHERE status = 'QUARANTINED' AND itemType IN (:itemTypes)")
+    suspend fun requeueQuarantinedByType(itemTypes: List<String>)
 
     @Query("DELETE FROM sync_queue WHERE status = 'SYNCED' AND syncedAt < :beforeMillis")
     suspend fun pruneOldSynced(beforeMillis: Long)

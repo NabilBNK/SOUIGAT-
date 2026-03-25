@@ -1,6 +1,6 @@
 # Firebase Shared-Layer Integration
 
-This repository now keeps the existing backend database as the source of truth and mirrors selected operational data to Firestore.
+This repository uses a hybrid local-first model: backend remains authoritative for admin/web operations, while mobile conductor offline operations are mirrored to Firestore and consumed in realtime.
 
 ## Scope (v1)
 
@@ -10,24 +10,26 @@ This repository now keeps the existing backend database as the source of truth a
   - `CargoTicket`
   - `TripExpense`
   - `Settlement` (summary)
+  - `PricingConfig`
 - Firestore collections:
   - `trip_mirror_v1/{tripId}`
   - `passenger_ticket_mirror_v1/{ticketId}`
   - `cargo_ticket_mirror_v1/{ticketId}`
   - `trip_expense_mirror_v1/{expenseId}`
   - `settlement_mirror_v1/{settlementId}`
+  - `pricing_config_mirror_v1/{pricingId}`
 - Write sources:
-  - backend signal-driven mirror queue (authoritative)
-  - web sync engine for operational writes (trip/ticket/cargo/expense/settlement), non-blocking
-- Read source: mobile app (Firestore-first for trips, backend fallback)
+  - backend signal-driven mirror queue (authoritative for admin/web actions)
+  - mobile local queue -> Firestore direct mirror writes for `passenger_ticket` and `trip_expense` when backend is unreachable
+- Read source: web admin and mobile app via Firestore realtime listeners
 
 ## Local-First Flow
 
-1. User action is saved to local backend (`/api/...`) first.
+1. Admin/web action is saved to local backend (`/api/...`) first.
 2. Backend enqueues a Firebase mirror event on transaction commit.
 3. Celery task processes mirror events with retry/backoff and conflict handling.
-4. Web can enqueue additional operational mirror jobs (IndexedDB queue) without blocking UI.
-5. Mobile reads mirrored data from Firestore and persists to Room.
+4. Mobile conductor actions are saved in Room first, then background worker mirrors ticket/expense docs to Firestore.
+5. Web admin and mobile read mirrored data from Firestore listeners.
 
 ## Backend Mirror Queue
 
@@ -66,14 +68,14 @@ This repository now keeps the existing backend database as the source of truth a
 - Firestore rules:
   - trip reads scoped by role/office/conductor
   - non-trip reads scoped via linked parent trip
-  - writes restricted to `sync_writer == true`
+  - writes restricted to `sync_writer == true` except conductor creation of passenger tickets and trip expenses in strict scope
 
 ## Backfill Existing Local DB
 
 - Management command:
   - `python manage.py backfill_firebase_mirror`
 - Options:
-  - `--entity {all,trip,passenger_ticket,cargo_ticket,trip_expense,settlement}`
+  - `--entity {all,trip,passenger_ticket,cargo_ticket,trip_expense,settlement,pricing_config}`
   - `--batch-size <int>`
   - `--limit <int>`
   - `--enqueue-only`
