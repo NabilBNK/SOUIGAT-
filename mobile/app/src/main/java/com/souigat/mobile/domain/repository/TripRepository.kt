@@ -6,9 +6,9 @@ import com.souigat.mobile.data.remote.dto.TripStatusDto
 
 interface TripRepository {
     suspend fun getTripList(): Result<List<TripListDto>>
-    suspend fun getTripDetail(id: Int): Result<TripDetailDto>
-    suspend fun startTrip(id: Int): Result<TripStatusDto>
-    suspend fun completeTrip(id: Int): Result<TripStatusDto>
+    suspend fun getTripDetail(id: Long): Result<TripDetailDto>
+    suspend fun startTrip(id: Long): Result<TripStatusDto>
+    suspend fun completeTrip(id: Long): Result<TripStatusDto>
 }
 
 // Typed error hierarchy for Trip operations

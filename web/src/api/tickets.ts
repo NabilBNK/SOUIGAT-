@@ -1,5 +1,6 @@
 import client from './client'
 import type { PassengerTicket } from '../types/ticket'
+import { queuePassengerTicketDelete, queuePassengerTicketUpsert } from '../sync/operationalSync'
 
 interface PaginatedTicketsResponse {
     count: number
@@ -36,6 +37,7 @@ export async function createPassengerTicket(
     data: { passenger_name: string; seat_number?: string; payment_source: string }
 ): Promise<PassengerTicket> {
     const response = await client.post<PassengerTicket>(`/tickets/`, { ...data, trip: tripId })
+    void queuePassengerTicketUpsert(response.data)
     return response.data
 }
 
@@ -44,5 +46,11 @@ export async function updatePassengerTicket(
     data: Partial<PassengerTicket>
 ): Promise<PassengerTicket> {
     const response = await client.patch<PassengerTicket>(`/tickets/${id}/`, data)
+    void queuePassengerTicketUpsert(response.data)
     return response.data
+}
+
+export async function deletePassengerTicket(id: number): Promise<void> {
+    await client.delete(`/tickets/${id}/`)
+    void queuePassengerTicketDelete(id)
 }

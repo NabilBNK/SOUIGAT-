@@ -92,7 +92,7 @@ export function SettlementsPage() {
             >
                 <form onSubmit={handleResolveSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Especes recues (DA)
                         </label>
                         <input
@@ -100,11 +100,11 @@ export function SettlementsPage() {
                             min={0}
                             value={resolveForm.actual_cash_received}
                             onChange={(event) => setResolveForm((current) => ({ ...current, actual_cash_received: event.target.value }))}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Depenses remboursees (DA)
                         </label>
                         <input
@@ -112,18 +112,18 @@ export function SettlementsPage() {
                             min={0}
                             value={resolveForm.actual_expenses_reimbursed}
                             onChange={(event) => setResolveForm((current) => ({ ...current, actual_expenses_reimbursed: event.target.value }))}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Note de resolution
                         </label>
                         <textarea
                             value={resolveForm.notes}
                             onChange={(event) => setResolveForm((current) => ({ ...current, notes: event.target.value }))}
                             rows={4}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                             required
                         />
                     </div>
@@ -140,19 +140,19 @@ export function SettlementsPage() {
 
             <div className="space-y-6 animate-fade-in">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Reglements</h1>
-                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                    <h1 className="text-2xl font-bold text-text-primary">Reglements</h1>
+                    <p className="text-sm text-text-muted mt-1">
                         Vue d'ensemble des remises de caisse et des litiges.
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-4">
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Agence</label>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">Agence</label>
                         <select
                             value={officeId}
                             onChange={(event) => setOfficeId(event.target.value)}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         >
                             <option value="all">Toutes</option>
                             {offices.map((office: any) => (
@@ -162,11 +162,11 @@ export function SettlementsPage() {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Conducteur</label>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">Conducteur</label>
                         <select
                             value={conductorId}
                             onChange={(event) => setConductorId(event.target.value)}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         >
                             <option value="all">Tous</option>
                             {conductors.map((conductor: any) => (
@@ -178,11 +178,11 @@ export function SettlementsPage() {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Statut</label>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">Statut</label>
                         <select
                             value={status}
                             onChange={(event) => setStatus(event.target.value)}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         >
                             <option value="all">Tous</option>
                             <option value="pending">En attente</option>
@@ -193,64 +193,64 @@ export function SettlementsPage() {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Du</label>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">Du</label>
                         <input
                             type="date"
                             value={dateFrom}
                             onChange={(event) => setDateFrom(event.target.value)}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Au</label>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">Au</label>
                         <input
                             type="date"
                             value={dateTo}
                             onChange={(event) => setDateTo(event.target.value)}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         />
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Liste des reglements</h2>
-                        <span className="text-xs text-slate-400 dark:text-slate-500">{settlementsData?.count || 0} resultats</span>
+                <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl overflow-hidden">
+                    <div className="px-5 py-4 border-b border-surface-700 flex items-center justify-between">
+                        <h2 className="text-sm font-semibold text-text-primary">Liste des reglements</h2>
+                        <span className="text-xs text-text-muted">{settlementsData?.count || 0} resultats</span>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="border-b border-slate-200 dark:border-slate-700/30">
-                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Voyage</th>
-                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Agence</th>
-                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Conducteur</th>
-                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Statut</th>
-                                    <th className="text-right px-5 py-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Net attendu</th>
-                                    <th className="text-right px-5 py-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Ecart</th>
-                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Cree le</th>
-                                    <th className="text-right px-5 py-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Action</th>
+                                <tr className="border-b border-surface-700/50">
+                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Voyage</th>
+                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Agence</th>
+                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Conducteur</th>
+                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Statut</th>
+                                    <th className="text-right px-5 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Net attendu</th>
+                                    <th className="text-right px-5 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Ecart</th>
+                                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Cree le</th>
+                                    <th className="text-right px-5 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {settlements.map((settlement) => (
-                                    <tr key={settlement.id} className="border-b border-slate-200 dark:border-slate-700/20">
-                                        <td className="px-5 py-3 text-sm text-slate-900 dark:text-slate-100">
+                                    <tr key={settlement.id} className="border-b border-surface-700 dark:border-slate-700/20">
+                                        <td className="px-5 py-3 text-sm text-text-primary">
                                             #{settlement.trip} {settlement.origin_name} &rarr; {settlement.destination_name}
                                         </td>
-                                        <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400">{settlement.office_name}</td>
-                                        <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400">{settlement.conductor_name}</td>
+                                        <td className="px-5 py-3 text-sm text-text-secondary">{settlement.office_name}</td>
+                                        <td className="px-5 py-3 text-sm text-text-secondary">{settlement.conductor_name}</td>
                                         <td className="px-5 py-3">
                                             <StatusBadge status={settlement.status} type="settlement" />
                                         </td>
-                                        <td className="px-5 py-3 text-right text-sm text-slate-900 dark:text-slate-100">
+                                        <td className="px-5 py-3 text-right text-sm text-text-primary">
                                             {formatCurrency(settlement.net_cash_expected)}
                                         </td>
-                                        <td className="px-5 py-3 text-right text-sm text-slate-900 dark:text-slate-100">
+                                        <td className="px-5 py-3 text-right text-sm text-text-primary">
                                             {settlement.discrepancy_amount !== null ? formatCurrency(settlement.discrepancy_amount) : 'En attente'}
                                         </td>
-                                        <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-400">
+                                        <td className="px-5 py-3 text-sm text-text-secondary">
                                             {formatDateTime(settlement.created_at)}
                                         </td>
                                         <td className="px-5 py-3 text-right">
@@ -259,14 +259,14 @@ export function SettlementsPage() {
                                                     Resoudre
                                                 </Button>
                                             ) : (
-                                                <span className="text-xs text-slate-400 dark:text-slate-500">Aucune action</span>
+                                                <span className="text-xs text-text-muted">Aucune action</span>
                                             )}
                                         </td>
                                     </tr>
                                 ))}
                                 {!isLoading && settlements.length === 0 && (
                                     <tr>
-                                        <td colSpan={8} className="px-5 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                                        <td colSpan={8} className="px-5 py-8 text-center text-sm text-text-muted">
                                             Aucun reglement trouve.
                                         </td>
                                     </tr>

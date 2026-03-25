@@ -36,9 +36,11 @@ urlpatterns = [
 
     # Auth
     path('auth/login/', auth.login, name='login'),
+    path('auth/firebase-login/', auth.firebase_login, name='firebase-login'),
     path('auth/logout/', auth.logout, name='logout'),
     path('auth/token/refresh/', auth.PlatformAwareTokenRefreshView.as_view(), name='token_refresh'),
     path('auth/me/', auth.me, name='me'),
+    path('auth/firebase-token/', auth.firebase_token, name='firebase-token'),
 
     # Admin device management
     path('admin/users/<int:pk>/revoke-device/', admin_views.revoke_device, name='revoke_device'),

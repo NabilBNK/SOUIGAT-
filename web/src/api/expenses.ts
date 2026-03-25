@@ -1,4 +1,5 @@
 import client from './client'
+import { queueTripExpenseDelete, queueTripExpenseUpsert } from '../sync/operationalSync'
 
 export interface TripExpense {
     id: number
@@ -6,9 +7,11 @@ export interface TripExpense {
     description: string
     amount: number
     currency: string
-    created_by: number
-    created_by_name: string
+    category?: string
+    created_by?: number
+    created_by_name?: string
     created_at: string
+    updated_at?: string
 }
 
 export async function getTripExpenses(tripId: number): Promise<TripExpense[]> {
@@ -21,5 +24,11 @@ export async function createTripExpense(
     data: { description: string; amount: number }
 ): Promise<TripExpense> {
     const response = await client.post<TripExpense>(`/trips/${tripId}/expenses/`, data)
+    void queueTripExpenseUpsert(response.data)
     return response.data
+}
+
+export async function deleteTripExpense(id: number): Promise<void> {
+    await client.delete(`/expenses/${id}/`)
+    void queueTripExpenseDelete(id)
 }

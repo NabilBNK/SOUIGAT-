@@ -1,19 +1,26 @@
 package com.souigat.mobile.ui.screens.history
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.souigat.mobile.data.local.dao.HistoryTripRow
 import com.souigat.mobile.data.local.dao.TripDao
-import com.souigat.mobile.data.local.entity.TripEntity
 import com.souigat.mobile.util.formatCurrency
 import com.souigat.mobile.util.toDisplayDate
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
+@Immutable
 data class HistoryTripUiModel(
     val id: Long,
+    val monthLabel: String,
     val origin: String,
     val destination: String,
     val dateLabel: String,
@@ -34,12 +41,21 @@ class HistoryViewModel @Inject constructor(
     tripDao: TripDao
 ) : ViewModel() {
 
-    val uiState = tripDao.observeByStatus(listOf("completed", "cancelled"))
+    private val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE)
+    private val deviceZone = ZoneId.systemDefault()
+
+    val uiState = tripDao.observeHistorySummaries()
         .map { trips ->
             if (trips.isEmpty()) {
                 HistoryUiState.Empty
             } else {
-                HistoryUiState.Success(trips.map { it.toHistoryUiModel() })
+                HistoryUiState.Success(
+                    buildList(trips.size) {
+                        trips.forEach { trip ->
+                            add(trip.toHistoryUiModel())
+                        }
+                    }
+                )
             }
         }
         .stateIn(
@@ -48,9 +64,10 @@ class HistoryViewModel @Inject constructor(
             initialValue = HistoryUiState.Loading
         )
 
-    private fun TripEntity.toHistoryUiModel(): HistoryTripUiModel {
+    private fun HistoryTripRow.toHistoryUiModel(): HistoryTripUiModel {
         return HistoryTripUiModel(
-            id = serverId ?: id,
+            id = tripId,
+            monthLabel = departureDateTime.toMonthLabel(),
             origin = originOffice,
             destination = destinationOffice,
             dateLabel = departureDateTime.toDisplayDate(),
@@ -63,5 +80,12 @@ class HistoryViewModel @Inject constructor(
             fareLabel = formatCurrency(passengerBasePrice, currency),
             isCancelled = status == "cancelled"
         )
+    }
+
+    private fun Long.toMonthLabel(): String {
+        return Instant.ofEpochMilli(this)
+            .atZone(deviceZone)
+            .format(monthFormatter)
+            .uppercase(Locale.FRANCE)
     }
 }

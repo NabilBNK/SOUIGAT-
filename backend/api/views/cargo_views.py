@@ -80,9 +80,20 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
         trip_id = serializer.validated_data['trip'].id
         tier = serializer.validated_data['cargo_tier']
 
+        if request.user.role not in ('admin', 'office_staff'):
+            raise PermissionDenied('Only admin or office staff can create cargo tickets.')
+
         with transaction.atomic():
             # Row lock serializes concurrent ticket creation for this trip
-            trip = Trip.objects.select_for_update().get(pk=trip_id)
+            trip = Trip.objects.select_for_update().select_related('origin_office', 'destination_office').get(pk=trip_id)
+
+            if request.user.role == 'office_staff' and request.user.office_id not in (
+                trip.origin_office_id,
+                trip.destination_office_id,
+            ):
+                raise PermissionDenied(
+                    'Office staff can only create cargo tickets for trips linked to their office.'
+                )
 
             valid_tiers = {'small', 'medium', 'large'}
             if tier not in valid_tiers:
@@ -166,6 +177,9 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
     @staticmethod
     def _enforce_destination_office(user, cargo):
         """Only destination office staff can mark cargo as delivered."""
+        if cargo.trip.status != 'completed':
+            raise ValidationError('Cargo can only be delivered after trip completion at destination office.')
+
         if user.role not in ('admin',):
             if user.role != 'office_staff':
                 raise PermissionDenied('Only office staff can mark cargo as delivered.')

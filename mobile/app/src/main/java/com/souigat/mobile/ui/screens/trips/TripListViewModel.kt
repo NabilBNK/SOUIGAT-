@@ -1,9 +1,11 @@
 package com.souigat.mobile.ui.screens.trips
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.souigat.mobile.data.local.dao.OperationalTripRow
 import com.souigat.mobile.data.local.dao.TripDao
-import com.souigat.mobile.data.local.entity.TripEntity
 import com.souigat.mobile.domain.repository.TripException
 import com.souigat.mobile.domain.repository.TripRepository
 import com.souigat.mobile.util.Constants
@@ -28,8 +30,9 @@ enum class TripCardStatusTone {
     Unknown
 }
 
+@Immutable
 data class TripListItemUiModel(
-    val id: Int,
+    val id: Long,
     val origin: String,
     val destination: String,
     val busPlate: String,
@@ -39,6 +42,7 @@ data class TripListItemUiModel(
     val statusTone: TripCardStatusTone
 )
 
+@Stable
 data class TripListUiState(
     val trips: List<TripListItemUiModel> = emptyList(),
     val isRefreshing: Boolean = false,
@@ -66,11 +70,15 @@ class TripListViewModel @Inject constructor(
     private val refreshState = MutableStateFlow(TripListRefreshState())
 
     val uiState = combine(
-        tripDao.observeOperationalTrips(),
+        tripDao.observeOperationalSummaries(),
         refreshState
     ) { trips, refresh ->
         TripListUiState(
-            trips = trips.map { it.toTripListItemUiModel() },
+            trips = buildList(trips.size) {
+                trips.forEach { trip ->
+                    add(trip.toTripListItemUiModel())
+                }
+            },
             isRefreshing = refresh.isRefreshing,
             isInitialLoading = trips.isEmpty() && refresh.isRefreshing && !refresh.hasAttemptedRefresh,
             errorMessage = refresh.errorMessage,
@@ -137,9 +145,9 @@ class TripListViewModel @Inject constructor(
         refreshState.update { it.copy(errorMessage = null) }
     }
 
-    private fun TripEntity.toTripListItemUiModel(): TripListItemUiModel {
+    private fun OperationalTripRow.toTripListItemUiModel(): TripListItemUiModel {
         return TripListItemUiModel(
-            id = (serverId ?: id).toInt(),
+            id = tripId,
             origin = originOffice,
             destination = destinationOffice,
             busPlate = busPlate,

@@ -1,7 +1,9 @@
 from django.contrib.auth.hashers import make_password
+from django.db import transaction
 from rest_framework import serializers
 
 from api.models import AuditLog, Bus, Office, PricingConfig, User
+from api.services.firebase_admin import schedule_firebase_auth_user_sync
 
 
 class UserManagementSerializer(serializers.ModelSerializer):
@@ -22,17 +24,40 @@ class UserManagementSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        password = validated_data.pop('password', None)
-        if not password:
-            raise serializers.ValidationError({'password': 'Required for new users.'})
-        validated_data['password'] = make_password(password)
-        return super().create(validated_data)
+        with transaction.atomic():
+            password = validated_data.pop('password', None)
+            if not password:
+                raise serializers.ValidationError({'password': 'Required for new users.'})
+            validated_data['password'] = make_password(password)
+            user = super().create(validated_data)
+
+            transaction.on_commit(
+                lambda: schedule_firebase_auth_user_sync(
+                    user_id=user.id,
+                    raw_password=password,
+                    allow_create=True,
+                )
+            )
+
+            return user
 
     def update(self, instance, validated_data):
-        password = validated_data.pop('password', None)
-        if password:
-            validated_data['password'] = make_password(password)
-        return super().update(instance, validated_data)
+        with transaction.atomic():
+            password = validated_data.pop('password', None)
+            if password:
+                validated_data['password'] = make_password(password)
+
+            user = super().update(instance, validated_data)
+
+            transaction.on_commit(
+                lambda: schedule_firebase_auth_user_sync(
+                    user_id=user.id,
+                    raw_password=password,
+                    allow_create=True,
+                )
+            )
+
+            return user
 
 
 class BusManagementSerializer(serializers.ModelSerializer):

@@ -47,16 +47,16 @@ export function DataTable<TData, TValue>({
     })
 
     return (
-        <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden flex flex-col">
+        <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 shadow-xl rounded-2xl overflow-hidden flex flex-col">
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-white dark:bg-[#1a2634]/80 border-b border-slate-200 dark:border-slate-700/30">
+                    <thead className="bg-surface-900/50 border-b border-surface-700">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <tr key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => (
                                     <th
                                         key={header.id}
-                                        className="px-5 py-3.5 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider whitespace-nowrap"
+                                        className="px-6 py-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider whitespace-nowrap"
                                     >
                                         {header.isPlaceholder
                                             ? null
@@ -69,14 +69,13 @@ export function DataTable<TData, TValue>({
                             </tr>
                         ))}
                     </thead>
-                    <tbody className="divide-y divide-surface-600/20">
+                    <tbody className="divide-y divide-surface-700/50">
                         {isLoading ? (
-                            // Loading skeletons
                             Array.from({ length: 5 }).map((_, i) => (
                                 <tr key={i} className="animate-pulse">
                                     {columns.map((_, colIdx) => (
-                                        <td key={colIdx} className="px-5 py-4">
-                                            <div className="h-4 bg-slate-200 dark:bg-slate-700/30 rounded w-3/4"></div>
+                                        <td key={colIdx} className="px-6 py-5">
+                                            <div className="h-4 bg-surface-600/50 rounded lg:w-3/4 w-full"></div>
                                         </td>
                                     ))}
                                 </tr>
@@ -86,11 +85,11 @@ export function DataTable<TData, TValue>({
                                 <tr
                                     key={row.id}
                                     onClick={() => onRowClick && onRowClick(row.original)}
-                                    className={`group transition-colors ${onRowClick ? 'cursor-pointer hover:bg-slate-100 dark:bg-[#1e293b]/40' : ''
+                                    className={`group transition-colors duration-200 ${onRowClick ? 'cursor-pointer hover:bg-surface-700/60' : ''
                                         }`}
                                 >
                                     {row.getVisibleCells().map((cell) => (
-                                        <td key={cell.id} className="px-5 py-3 text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                                        <td key={cell.id} className="px-6 py-4 text-text-primary whitespace-nowrap font-medium">
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </td>
                                     ))}
@@ -100,10 +99,10 @@ export function DataTable<TData, TValue>({
                             <tr>
                                 <td
                                     colSpan={columns.length}
-                                    className="px-5 py-12 text-center text-slate-400 dark:text-slate-500"
+                                    className="px-6 py-16 text-center text-text-muted"
                                 >
-                                    <PackageOpen className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                                    <p className="text-[13px]">{emptyMessage}</p>
+                                    <PackageOpen className="w-12 h-12 mx-auto mb-4 opacity-20 text-text-secondary" />
+                                    <p className="text-sm font-medium tracking-wide">{emptyMessage}</p>
                                 </td>
                             </tr>
                         )}
@@ -113,23 +112,23 @@ export function DataTable<TData, TValue>({
 
             {/* Pagination control */}
             {pageCount > 1 && (
-                <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#1a2634]/50">
-                    <p className="text-[12px] text-slate-400 dark:text-slate-500">
-                        Page <span className="font-medium text-slate-900 dark:text-slate-100">{pageIndex + 1}</span> sur{' '}
-                        <span className="font-medium text-slate-900 dark:text-slate-100">{pageCount}</span>
+                <div className="px-6 py-4 border-t border-surface-700 flex items-center justify-between bg-surface-900/40">
+                    <p className="text-xs text-text-secondary font-medium tracking-wide">
+                        Page <span className="text-text-primary px-1">{pageIndex + 1}</span> sur{' '}
+                        <span className="text-text-primary px-1">{pageCount}</span>
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => onPageChange(pageIndex - 1)}
                             disabled={pageIndex <= 0 || isLoading}
-                            className="p-1.5 rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all outline-none focus-visible:ring-2 focus-visible:ring-brand-500 border border-transparent hover:border-surface-600 shadow-sm"
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => onPageChange(pageIndex + 1)}
                             disabled={pageIndex >= pageCount || isLoading}
-                            className="p-1.5 rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all outline-none focus-visible:ring-2 focus-visible:ring-brand-500 border border-transparent hover:border-surface-600 shadow-sm"
                         >
                             <ChevronRight className="w-4 h-4" />
                         </button>

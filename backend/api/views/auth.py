@@ -13,7 +13,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from api.models import User
-from api.serializers.auth import LoginSerializer, UserProfileSerializer
+from api.services.firebase_admin import (
+    FirebaseConfigurationError,
+    create_custom_token_for_user,
+)
+from api.serializers.auth import FirebaseLoginSerializer, LoginSerializer, UserProfileSerializer
 from api.tokens import DeviceBoundRefreshToken
 
 logger = logging.getLogger(__name__)
@@ -46,6 +50,32 @@ def login(request):
     device_id = serializer.validated_data.get('device_id')
     platform = serializer.validated_data.get('platform', 'web')
 
+    return Response(_issue_login_response(user=user, device_id=device_id, platform=platform))
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([LoginThrottle])
+def firebase_login(request):
+    """
+    POST /api/auth/firebase-login/
+
+    Mobile login path:
+    1) Mobile signs in with Firebase email/password.
+    2) Mobile sends Firebase ID token here.
+    3) Backend verifies token and issues local JWT tokens.
+    """
+    serializer = FirebaseLoginSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    user = serializer.validated_data['user']
+    device_id = serializer.validated_data['device_id']
+    platform = serializer.validated_data.get('platform', 'mobile')
+
+    return Response(_issue_login_response(user=user, device_id=device_id, platform=platform))
+
+
+def _issue_login_response(user, device_id, platform):
     with transaction.atomic():
         user = User.objects.select_for_update().get(pk=user.pk)
         old_device_id = user.device_id
@@ -60,7 +90,6 @@ def login(request):
 
         user.save(update_fields=update_fields)
 
-        # Grace period for old device (30 min to sync orphaned data)
         if old_device_id and old_device_id != device_id:
             cache.set(f'grace_device:{old_device_id}', user.id, timeout=1800)
             logger.warning(
@@ -74,13 +103,13 @@ def login(request):
         platform=platform,
     )
 
-    return Response({
+    return {
         'access': str(refresh.access_token),
         'refresh': str(refresh),
         'user': UserProfileSerializer(user).data,
         'device_bound': bool(device_id),
         'token_strategy': 'persistent' if platform == 'mobile' else 'rotating',
-    })
+    }
 
 
 class PlatformAwareTokenRefreshView(TokenRefreshView):
@@ -163,3 +192,37 @@ def logout(request):
         return Response({'detail': 'Logout successful.'})
     except (TokenError, InvalidToken) as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def firebase_token(request):
+    """POST /api/auth/firebase-token/ — Returns Firebase custom auth token."""
+    platform = request.data.get('platform', 'web')
+    if platform not in ('web', 'mobile'):
+        platform = 'web'
+
+    try:
+        token, claims = create_custom_token_for_user(request.user, platform=platform)
+    except FirebaseConfigurationError:
+        logger.warning('Firebase token requested but Firebase Admin SDK is not configured.')
+        return Response(
+            {'detail': 'Firebase integration is not configured on this server.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except Exception:
+        logger.exception(
+            'Failed to create Firebase custom token for user=%s',
+            request.user.id,
+        )
+        return Response(
+            {'detail': 'Failed to issue Firebase token.'},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    return Response({
+        'token': token,
+        'claims': claims,
+        'expires_in': 3600,
+        'issued_at': timezone.now().isoformat(),
+    })

@@ -32,7 +32,9 @@ class BackendConnectionMonitor @Inject constructor(
         connectivityManager.registerDefaultNetworkCallback(
             object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    _state.value = BackendConnectionState.Checking
+                    if (_state.value == BackendConnectionState.Offline) {
+                        _state.value = BackendConnectionState.Online
+                    }
                 }
 
                 override fun onLost(network: Network) {
@@ -62,7 +64,7 @@ class BackendConnectionMonitor @Inject constructor(
         val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
         val hasNetwork = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
         return if (hasNetwork) {
-            BackendConnectionState.Checking
+            BackendConnectionState.Online
         } else {
             BackendConnectionState.Offline
         }

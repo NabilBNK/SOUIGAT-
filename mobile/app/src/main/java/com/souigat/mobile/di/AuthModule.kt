@@ -2,6 +2,8 @@ package com.souigat.mobile.di
 
 import android.content.Context
 import com.souigat.mobile.BuildConfig
+import com.souigat.mobile.data.firebase.FirebaseSessionManager
+import com.souigat.mobile.data.local.SouigatDatabase
 import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.data.remote.api.AuthApi
 import com.souigat.mobile.data.repository.AuthRepositoryImpl
@@ -71,6 +73,13 @@ object AuthModule {
     @Singleton
     fun provideAuthRepository(
         authApi: AuthApi,
-        tokenManager: TokenManager
-    ): AuthRepository = AuthRepositoryImpl(authApi, tokenManager)
+        tokenManager: TokenManager,
+        database: SouigatDatabase,
+        firebaseSessionManager: FirebaseSessionManager
+    ): AuthRepository = AuthRepositoryImpl(
+        authApi,
+        tokenManager,
+        database,
+        firebaseSessionManager,
+    )
 }

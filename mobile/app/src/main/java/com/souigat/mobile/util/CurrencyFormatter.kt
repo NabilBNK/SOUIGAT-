@@ -39,6 +39,7 @@ fun parseCurrencyInput(raw: String): Long? {
         .trim()
         .replace(" ", "")
         .replace("\u00A0", "")
+        .replace("\u202F", "")
         .replace(',', '.')
 
     if (normalized.isBlank()) {

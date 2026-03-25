@@ -43,6 +43,7 @@ celerybeat.pid
 
 # Android — secrets (NEVER commit these)
 google-services.json
+*firebase-adminsdk*.json
 *.jks
 keystore.properties
 local.properties
@@ -62,3 +63,4 @@ replay_pid*.log
 
 # Agent
 .agent/
+.agents/

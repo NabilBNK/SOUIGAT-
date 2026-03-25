@@ -190,7 +190,7 @@ export function TripDetailPage() {
 
     if (error || !trip) {
         return (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-status-error/30 text-red-600 dark:text-red-400 p-4 rounded-lg">
+            <div className="bg-red-500/10 bg-red-500/10 border border-status-error/30 text-red-600 dark:text-red-400 p-4 rounded-lg">
                 Erreur de chargement du voyage.
             </div>
         )
@@ -241,7 +241,7 @@ export function TripDetailPage() {
             >
                 <form onSubmit={handleRecordSettlement} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Especes recues (DA)
                         </label>
                         <input
@@ -249,12 +249,12 @@ export function TripDetailPage() {
                             min={0}
                             value={recordForm.actual_cash_received}
                             onChange={(event) => setRecordForm((current) => ({ ...current, actual_cash_received: event.target.value }))}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Depenses remboursees (DA)
                         </label>
                         <input
@@ -262,18 +262,18 @@ export function TripDetailPage() {
                             min={0}
                             value={recordForm.actual_expenses_reimbursed}
                             onChange={(event) => setRecordForm((current) => ({ ...current, actual_expenses_reimbursed: event.target.value }))}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Notes
                         </label>
                         <textarea
                             value={recordForm.notes}
                             onChange={(event) => setRecordForm((current) => ({ ...current, notes: event.target.value }))}
                             rows={4}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         />
                     </div>
                     <div className="flex justify-end gap-3">
@@ -294,26 +294,26 @@ export function TripDetailPage() {
             >
                 <form onSubmit={handleDisputeSettlement} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Motif du litige
                         </label>
                         <textarea
                             value={disputeForm.dispute_reason}
                             onChange={(event) => setDisputeForm((current) => ({ ...current, dispute_reason: event.target.value }))}
                             rows={4}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        <label className="block text-sm font-medium text-text-secondary mb-1">
                             Notes internes
                         </label>
                         <textarea
                             value={disputeForm.notes}
                             onChange={(event) => setDisputeForm((current) => ({ ...current, notes: event.target.value }))}
                             rows={3}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
                         />
                     </div>
                     <div className="flex justify-end gap-3">
@@ -333,18 +333,18 @@ export function TripDetailPage() {
                 <div className="flex items-center gap-4">
                     <Link
                         to="/office/trips"
-                        className="p-2 -ml-2 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 rounded-lg transition-colors"
+                        className="p-2 -ml-2 text-text-muted hover:text-text-primary hover:bg-slate-200 dark:bg-slate-700/50 rounded-lg transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
                     <div>
                         <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                            <h1 className="text-2xl font-bold text-text-primary">
                                 Voyage #{trip.id}
                             </h1>
                             <StatusBadge status={trip.status} type="trip" />
                         </div>
-                        <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-2">
+                        <p className="text-sm text-text-muted mt-1 flex items-center gap-2">
                             <MapPin className="w-3.5 h-3.5" />
                             {trip.origin_office_name} &rarr; {trip.destination_office_name}
                         </p>
@@ -422,7 +422,7 @@ export function TripDetailPage() {
             </div>
 
             {actionError && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
+                <div className="bg-red-500/10 bg-red-500/10 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                     <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>
                 </div>
@@ -430,26 +430,26 @@ export function TripDetailPage() {
 
             {trip.status === 'in_progress' && (
                 <div className="bg-[#137fec]/10 border border-brand-500/20 rounded-lg p-4 flex items-start gap-3">
-                    <Info className="w-5 h-5 text-[#137fec] dark:text-[#60a5fa] shrink-0 mt-0.5" />
+                    <Info className="w-5 h-5 text-brand-400 shrink-0 mt-0.5" />
                     <div>
-                        <p className="text-sm font-medium text-[#137fec] dark:text-[#60a5fa]">Voyage en cours</p>
-                        <p className="text-sm text-[#137fec] dark:text-[#60a5fa]/80">La vente de billets et de colis est clôturée pour ce voyage. Les données sont en lecture seule.</p>
+                        <p className="text-sm font-medium text-brand-400">Voyage en cours</p>
+                        <p className="text-sm text-brand-400/80">La vente de billets et de colis est clôturée pour ce voyage. Les données sont en lecture seule.</p>
                     </div>
                 </div>
             )}
 
             {trip.status === 'completed' && (
-                <div className="bg-slate-100 dark:bg-[#1e293b]/50 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex items-start gap-3 text-slate-400 dark:text-slate-500">
+                <div className="bg-surface-700/50 border border-surface-700 rounded-lg p-4 flex items-start gap-3 text-text-muted">
                     <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Voyage terminé</p>
+                        <p className="text-sm font-medium text-text-primary">Voyage terminé</p>
                         <p className="text-sm">Ce voyage est archivé. Toutes les informations sont en lecture seule.</p>
                     </div>
                 </div>
             )}
 
             {trip.status === 'cancelled' && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
+                <div className="bg-red-500/10 bg-red-500/10 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
                     <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                     <div>
                         <p className="text-sm font-medium text-red-600 dark:text-red-400">Voyage annulé</p>
@@ -459,7 +459,7 @@ export function TripDetailPage() {
             )}
 
             {/* Navigation Tabs */}
-            <div className="border-b border-slate-200 dark:border-slate-800">
+            <div className="border-b border-surface-700">
                 <nav className="-mb-px flex gap-6">
                     {tabs.map(tab => (
                         <button
@@ -468,8 +468,8 @@ export function TripDetailPage() {
                             className={`
                                 flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors
                                 ${activeTab === tab.id
-                                    ? 'border-brand-500 text-[#137fec] dark:text-[#60a5fa]'
-                                    : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:text-slate-100 hover:border-slate-200 dark:border-slate-700'}
+                                    ? 'border-brand-500 text-brand-400'
+                                    : 'border-transparent text-text-muted hover:text-text-primary hover:border-surface-700 dark:border-slate-700'}
                             `}
                         >
                             {tab.icon}
@@ -485,94 +485,94 @@ export function TripDetailPage() {
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Info details card */}
-                        <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-6">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700/30 pb-2">
+                        <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-6 space-y-6">
+                            <h3 className="text-lg font-semibold text-text-primary border-b border-surface-700/50 pb-2">
                                 Résumé
                             </h3>
 
                             <div className="space-y-4">
                                 <div className="flex items-start gap-3">
-                                    <Info className="w-5 h-5 text-[#137fec] dark:text-[#60a5fa] mt-0.5" />
+                                    <Info className="w-5 h-5 text-brand-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Reference voyage</p>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">TRIP-{trip.id}</p>
-                                        <p className="text-xs text-slate-400 dark:text-slate-500">Cree le {formatDateTime(trip.created_at)}</p>
+                                        <p className="text-sm font-medium text-text-primary">Reference voyage</p>
+                                        <p className="text-sm text-text-secondary">TRIP-{trip.id}</p>
+                                        <p className="text-xs text-text-muted">Cree le {formatDateTime(trip.created_at)}</p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-start gap-3">
-                                    <MapPin className="w-5 h-5 text-[#137fec] dark:text-[#60a5fa] mt-0.5" />
+                                    <MapPin className="w-5 h-5 text-brand-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Itineraire</p>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                                        <p className="text-sm font-medium text-text-primary">Itineraire</p>
+                                        <p className="text-sm text-text-secondary">
                                             {trip.origin_office_name} (#{trip.origin_office}) &rarr; {trip.destination_office_name} (#{trip.destination_office})
                                         </p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-start gap-3">
-                                    <Calendar className="w-5 h-5 text-[#137fec] dark:text-[#60a5fa] mt-0.5" />
+                                    <Calendar className="w-5 h-5 text-brand-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Date de depart</p>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">{formatDateTime(trip.departure_datetime)}</p>
+                                        <p className="text-sm font-medium text-text-primary">Date de depart</p>
+                                        <p className="text-sm text-text-secondary">{formatDateTime(trip.departure_datetime)}</p>
                                     </div>
                                 </div>
 
                                 {trip.arrival_datetime && (
                                     <div className="flex items-start gap-3">
-                                        <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                                        <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5" />
                                         <div>
-                                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Date d'arrivee</p>
-                                            <p className="text-sm text-slate-600 dark:text-slate-400">{formatDateTime(trip.arrival_datetime)}</p>
+                                            <p className="text-sm font-medium text-text-primary">Date d'arrivee</p>
+                                            <p className="text-sm text-text-secondary">{formatDateTime(trip.arrival_datetime)}</p>
                                         </div>
                                     </div>
                                 )}
 
                                 <div className="flex items-start gap-3">
-                                    <Bus className="w-5 h-5 text-[#137fec] dark:text-[#60a5fa] mt-0.5" />
+                                    <Bus className="w-5 h-5 text-brand-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Bus attribue</p>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">{trip.bus_plate} (ID bus #{trip.bus})</p>
+                                        <p className="text-sm font-medium text-text-primary">Bus attribue</p>
+                                        <p className="text-sm text-text-secondary">{trip.bus_plate} (ID bus #{trip.bus})</p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-start gap-3">
-                                    <User className="w-5 h-5 text-[#137fec] dark:text-[#60a5fa] mt-0.5" />
+                                    <User className="w-5 h-5 text-brand-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Conducteur</p>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">{trip.conductor_name} (ID #{trip.conductor})</p>
-                                        <p className="text-xs text-slate-400 dark:text-slate-500">Derniere mise a jour: {formatDateTime(trip.updated_at)}</p>
+                                        <p className="text-sm font-medium text-text-primary">Conducteur</p>
+                                        <p className="text-sm text-text-secondary">{trip.conductor_name} (ID #{trip.conductor})</p>
+                                        <p className="text-xs text-text-muted">Derniere mise a jour: {formatDateTime(trip.updated_at)}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Financial snapshot card */}
-                        <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-6">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700/30 pb-2">
+                        <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-6 space-y-6">
+                            <h3 className="text-lg font-semibold text-text-primary border-b border-surface-700/50 pb-2">
                                 Tarification appliquée
                             </h3>
 
-                            <p className="text-sm text-slate-400 dark:text-slate-500 mb-4">
+                            <p className="text-sm text-text-muted mb-4">
                                 Ces prix ont été figés lors de la création du voyage et ne changeront pas.
                             </p>
 
                             <div className="space-y-3">
-                                <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700/20">
-                                    <span className="text-sm text-slate-600 dark:text-slate-400">Billet Passager</span>
-                                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(trip.passenger_base_price)}</span>
+                                <div className="flex justify-between items-center py-2 border-b border-surface-700 dark:border-slate-700/20">
+                                    <span className="text-sm text-text-secondary">Billet Passager</span>
+                                    <span className="text-sm font-semibold text-text-primary">{formatCurrency(trip.passenger_base_price)}</span>
                                 </div>
-                                <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700/20">
-                                    <span className="text-sm text-slate-600 dark:text-slate-400">Colis Petit</span>
-                                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(trip.cargo_small_price)}</span>
+                                <div className="flex justify-between items-center py-2 border-b border-surface-700 dark:border-slate-700/20">
+                                    <span className="text-sm text-text-secondary">Colis Petit</span>
+                                    <span className="text-sm font-semibold text-text-primary">{formatCurrency(trip.cargo_small_price)}</span>
                                 </div>
-                                <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700/20">
-                                    <span className="text-sm text-slate-600 dark:text-slate-400">Colis Moyen</span>
-                                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(trip.cargo_medium_price)}</span>
+                                <div className="flex justify-between items-center py-2 border-b border-surface-700 dark:border-slate-700/20">
+                                    <span className="text-sm text-text-secondary">Colis Moyen</span>
+                                    <span className="text-sm font-semibold text-text-primary">{formatCurrency(trip.cargo_medium_price)}</span>
                                 </div>
-                                <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700/20">
-                                    <span className="text-sm text-slate-600 dark:text-slate-400">Colis Grand</span>
-                                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(trip.cargo_large_price)}</span>
+                                <div className="flex justify-between items-center py-2 border-b border-surface-700 dark:border-slate-700/20">
+                                    <span className="text-sm text-text-secondary">Colis Grand</span>
+                                    <span className="text-sm font-semibold text-text-primary">{formatCurrency(trip.cargo_large_price)}</span>
                                 </div>
                             </div>
                         </div>
@@ -580,11 +580,11 @@ export function TripDetailPage() {
                         </div>
 
                         {showSettlementSection && (
-                            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-5">
+                            <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-6 space-y-5">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div>
-                                        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Reglement</h3>
-                                        <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                                        <h3 className="text-lg font-semibold text-text-primary">Reglement</h3>
+                                        <p className="text-sm text-text-muted mt-1">
                                             Remise de caisse au bureau de destination.
                                         </p>
                                     </div>
@@ -598,7 +598,7 @@ export function TripDetailPage() {
                                 )}
 
                                 {trip.status === 'completed' && isSettlementLoading && (
-                                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#1e293b]/40 p-4 text-sm text-slate-400 dark:text-slate-500">
+                                    <div className="rounded-lg border border-surface-700 bg-surface-900/40 p-4 text-sm text-text-muted">
                                         Chargement du reglement...
                                     </div>
                                 )}
@@ -623,11 +623,11 @@ export function TripDetailPage() {
 
                                         {(settlement.notes || settlement.dispute_reason) && (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#1e293b]/30 p-4">
-                                                    <p className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Notes</p>
-                                                    <p className="text-sm text-slate-600 dark:text-slate-400">{settlement.notes || 'Aucune note'}</p>
+                                                <div className="rounded-lg border border-surface-700 bg-surface-900/30 p-4">
+                                                    <p className="text-xs uppercase tracking-wide text-text-muted mb-2">Notes</p>
+                                                    <p className="text-sm text-text-secondary">{settlement.notes || 'Aucune note'}</p>
                                                 </div>
-                                                <div className="rounded-lg border border-status-error/20 bg-red-50 dark:bg-red-900/20 p-4">
+                                                <div className="rounded-lg border border-status-error/20 bg-red-500/10 bg-red-500/10 p-4">
                                                     <p className="text-xs uppercase tracking-wide text-red-600 dark:text-red-400 mb-2">Motif du litige</p>
                                                     <p className="text-sm text-red-600 dark:text-red-400">{settlement.dispute_reason || 'Aucun litige enregistre'}</p>
                                                 </div>
@@ -662,7 +662,7 @@ export function TripDetailPage() {
                                 )}
 
                                 {trip.status === 'completed' && !isSettlementLoading && !settlement && !settlementMissing && settlementError && (
-                                    <div className="rounded-lg border border-status-error/20 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-600 dark:text-red-400">
+                                    <div className="rounded-lg border border-status-error/20 bg-red-500/10 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
                                         Impossible de charger le reglement.
                                     </div>
                                 )}
@@ -680,7 +680,7 @@ export function TripDetailPage() {
                 )}
 
                 {activeTab === 'expenses' && (
-                    <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl p-6 text-center text-slate-400 dark:text-slate-500">
+                    <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-6 text-center text-text-muted">
                         Gestion des dépenses en cours de développement
                     </div>
                 )}
@@ -700,14 +700,14 @@ function SettlementValue({
     tone?: 'default' | 'success' | 'warning'
 }) {
     const toneClass = tone === 'success'
-        ? 'text-emerald-600 dark:text-emerald-400'
+        ? 'text-emerald-400'
         : tone === 'warning'
             ? 'text-yellow-600 dark:text-yellow-400'
-            : 'text-slate-900 dark:text-slate-100'
+            : 'text-text-primary'
 
     return (
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700/40 bg-slate-100 dark:bg-[#1e293b]/30 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">{label}</p>
+        <div className="rounded-lg border border-surface-700 dark:border-slate-700/40 bg-surface-900/30 p-4">
+            <p className="text-xs uppercase tracking-wide text-text-muted mb-2">{label}</p>
             <p className={`text-base font-semibold ${toneClass}`}>{value}</p>
         </div>
     )

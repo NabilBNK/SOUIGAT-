@@ -44,17 +44,15 @@ class SouigatApp : Application(), Configuration.Provider {
             Timber.plant(Timber.DebugTree())
         }
 
-        try {
-            FirebaseApp.initializeApp(this)
-        } catch (e: Exception) {
-            Timber.e(e, "Firebase initialization failed.")
-        }
-
-        TripReminderNotifier.createChannels(this)
-
-        // Idempotent schedule (KEEP policy): safe at every app launch.
-        syncScheduler.schedulePeriodicSync()
         applicationScope.launch {
+            try {
+                FirebaseApp.initializeApp(this@SouigatApp)
+            } catch (e: Exception) {
+                Timber.e(e, "Firebase initialization failed.")
+            }
+
+            TripReminderNotifier.createChannels(this@SouigatApp)
+            syncScheduler.schedulePeriodicSync()
             tripReminderScheduler.rescheduleFromDatabase()
         }
     }

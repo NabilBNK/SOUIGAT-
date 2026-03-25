@@ -48,7 +48,7 @@ git config --global core.autocrlf input
 
 - [ ] **T0.2**: Initialize Git repo + first commit
   ```powershell
-  cd C:\Users\Perfetto\Desktop\SOUIGAT
+  cd C:\Users\<your-user>\Desktop\SOUIGAT
   git init
   git add .
   git commit -m "chore: initial project structure"

@@ -1,5 +1,6 @@
 package com.souigat.mobile.ui.screens.profile
 
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.souigat.mobile.data.local.TokenManager
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+@Stable
 data class ProfileUiState(
     val fullName: String = "Conducteur",
     val roleLabel: String = "Conducteur",
@@ -28,18 +30,19 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     syncQueueDao: SyncQueueDao,
     private val syncScheduler: SyncScheduler,
-    private val tokenManager: TokenManager
+    tokenManager: TokenManager
 ) : ViewModel() {
 
     val uiState = combine(
         syncQueueDao.observePendingCount(),
         syncQueueDao.observeSyncedCount(),
         syncQueueDao.observeQuarantinedCount(),
-        syncQueueDao.observeLastSyncedAt()
-    ) { pendingCount, syncedCount, quarantinedCount, lastSyncedAt ->
+        syncQueueDao.observeLastSyncedAt(),
+        tokenManager.session
+    ) { pendingCount, syncedCount, quarantinedCount, lastSyncedAt, session ->
         ProfileUiState(
-            fullName = tokenManager.getFullName()?.ifBlank { null } ?: "Conducteur",
-            roleLabel = tokenManager.getUserRole().toRoleLabel(),
+            fullName = session.fullName?.ifBlank { null } ?: "Conducteur",
+            roleLabel = session.userRole.toRoleLabel(),
             pendingCount = pendingCount,
             syncedCount = syncedCount,
             quarantinedCount = quarantinedCount,

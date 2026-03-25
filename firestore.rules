@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return request.auth.token.role;
+    }
+
+    function userId() {
+      return request.auth.token.user_id;
+    }
+
+    function officeId() {
+      return request.auth.token.office_id;
+    }
+
+    function canReadTrip(data) {
+      return role() == 'admin'
+        || (
+          role() == 'conductor'
+          && data.conductor_id == userId()
+        )
+        || (
+          role() == 'office_staff'
+          && officeId() != null
+          && data.office_scope_ids.hasAny([officeId()])
+        );
+    }
+
+    function canWriteMirror() {
+      return request.auth.token.sync_writer == true;
+    }
+
+    function tripDoc(tripId) {
+      return get(/databases/$(database)/documents/trip_mirror_v1/$(tripId));
+    }
+
+    function canReadTripById(tripId) {
+      let tripSnapshot = tripDoc(tripId);
+      return tripSnapshot != null
+        && tripSnapshot.data != null
+        && canReadTrip(tripSnapshot.data);
+    }
+
+    match /trip_mirror_v1/{tripId} {
+      allow get, list: if isSignedIn() && canReadTrip(resource.data);
+      allow create, update, delete: if isSignedIn() && canWriteMirror();
+    }
+
+    match /passenger_ticket_mirror_v1/{ticketId} {
+      allow get, list: if isSignedIn() && canReadTripById(resource.data.trip_id);
+      allow create, update, delete: if isSignedIn() && canWriteMirror();
+    }
+
+    match /cargo_ticket_mirror_v1/{ticketId} {
+      allow get, list: if isSignedIn() && canReadTripById(resource.data.trip_id);
+      allow create, update, delete: if isSignedIn() && canWriteMirror();
+    }
+
+    match /trip_expense_mirror_v1/{expenseId} {
+      allow get, list: if isSignedIn() && canReadTripById(resource.data.trip_id);
+      allow create, update, delete: if isSignedIn() && canWriteMirror();
+    }
+
+    match /settlement_mirror_v1/{settlementId} {
+      allow get, list: if isSignedIn() && canReadTripById(resource.data.trip_id);
+      allow create, update, delete: if isSignedIn() && canWriteMirror();
+    }
+  }
+}

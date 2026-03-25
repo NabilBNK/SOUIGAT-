@@ -28,16 +28,16 @@ interface TripApi {
 
     @GET("trips/{id}/")
     suspend fun getTripDetail(
-        @Path("id") id: Int
+        @Path("id") id: Long
     ): Response<TripDetailDto>
 
     @POST("trips/{id}/start/")
     suspend fun startTrip(
-        @Path("id") id: Int
+        @Path("id") id: Long
     ): Response<TripStatusDto>
 
     @POST("trips/{id}/complete/")
     suspend fun completeTrip(
-        @Path("id") id: Int
+        @Path("id") id: Long
     ): Response<TripStatusDto>
 }

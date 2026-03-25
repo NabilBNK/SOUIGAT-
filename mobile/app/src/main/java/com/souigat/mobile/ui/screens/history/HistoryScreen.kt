@@ -3,7 +3,18 @@ package com.souigat.mobile.ui.screens.history
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,24 +23,32 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.souigat.mobile.R
-import com.souigat.mobile.ui.components.EmptyStatePanel
+import com.souigat.mobile.ui.components.StitchCard
+import com.souigat.mobile.ui.components.StitchDivider
+import com.souigat.mobile.ui.components.StitchMonoText
+import com.souigat.mobile.ui.components.StitchPill
+import com.souigat.mobile.ui.components.StitchSectionLabel
+import com.souigat.mobile.ui.theme.ErrorRed
+import com.souigat.mobile.ui.theme.Success
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     onNavigateToDetail: (Long) -> Unit = {},
@@ -38,71 +57,87 @@ fun HistoryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("HISTORIQUE", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp), color = Color(0xFF1A56DB)) },
-                navigationIcon = {
-                    IconButton(onClick = { /* Menu */ }) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color(0xFF1A56DB))
-                    }
-                },
-                actions = {
-                    Icon(
-                        painter = painterResource(id = R.drawable.souigat_logo_no_background),
-                        contentDescription = "Logo",
-                        modifier = Modifier.height(32.dp).padding(end = 16.dp),
-                        tint = Color.Unspecified
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFF0F2F5)
-                ),
-                modifier = Modifier.border(1.dp, Color(0xFFE6E8EB))
-            )
-        },
-        containerColor = Color(0xFFF0F2F5) // Background
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
+                    .padding(horizontal = 10.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Menu, contentDescription = null, tint = MaterialTheme.colorScheme.primaryContainer)
+                }
+                Icon(
+                    painter = painterResource(id = R.drawable.souigat_logo_no_background),
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = "HISTORIQUE",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(48.dp))
+            }
+        }
     ) { paddingValues ->
         when (val current = state) {
             HistoryUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primaryContainer)
                 }
             }
+
             HistoryUiState.Empty -> {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp), contentAlignment = Alignment.Center) {
-                    EmptyStatePanel(
-                        icon = Icons.Default.Schedule,
-                        title = "Aucun trajet arché",
-                        message = "Les trajets terminés ou annulés apparaitront ici."
-                    )
-                }
-            }
-            is HistoryUiState.Success -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 120.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    
-                    // Note: Here we'd ideally group the items by Date (Month/Year). As an interim step, we'll just emulate throwing the header.
-                    item(key = "header_mars") {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    StitchCard(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "HISTORIQUE COMPLET",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            text = "Aucun trajet archive",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Les trajets termines ou annules apparaitront ici.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+            }
 
-                    items(
-                        items = current.trips,
-                        key = { it.id },
-                        contentType = { "history_trip" }
-                    ) { trip ->
-                        HistoryTripCard(
-                            trip = trip,
-                            onClick = { onNavigateToDetail(trip.id) }
-                        )
+            is HistoryUiState.Success -> {
+                val groupedTrips = remember(current.trips) { current.trips.groupBy { it.monthLabel } }
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+                    groupedTrips.forEach { (month, trips) ->
+                        item("header_$month") {
+                            StitchSectionLabel(month)
+                        }
+
+                        items(
+                            items = trips,
+                            key = { it.id },
+                            contentType = { if (it.isCancelled) "history_cancelled" else "history_completed" }
+                        ) { trip ->
+                            HistoryTripCard(
+                                trip = trip,
+                                onClick = { onNavigateToDetail(trip.id) }
+                            )
+                        }
                     }
                 }
             }
@@ -111,76 +146,87 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun HistoryTripCard(
-    trip: HistoryTripUiModel,
-    onClick: () -> Unit
-) {
-    val isCancelled = trip.isCancelled
-    val indicatorColor = if (isCancelled) Color(0xFFDC2626) else Color(0xFF6B7280)
-    val alpha = if (isCancelled) 0.8f else 1.0f
+private fun HistoryTripCard(trip: HistoryTripUiModel, onClick: () -> Unit) {
+    val stripeColor = if (trip.isCancelled) ErrorRed else MaterialTheme.colorScheme.onSurfaceVariant
+    val tone = if (trip.isCancelled) ErrorRed else Success
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha=alpha))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+    StitchCard(
+        modifier = Modifier.clickable(onClick = onClick),
+        shadowElevation = 0.dp,
+        contentPadding = PaddingValues(0.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            Box(modifier = Modifier.width(6.dp).fillMaxHeight().background(indicatorColor))
-            Column(modifier = Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Top
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .width(5.dp)
+                    .height(132.dp)
+                    .background(stripeColor)
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = "${trip.origin} → ${trip.destination}",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            text = "${trip.origin} -> ${trip.destination}",
+                            style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurface,
-                            textDecoration = if (isCancelled) TextDecoration.LineThrough else TextDecoration.None
+                            textDecoration = if (trip.isCancelled) TextDecoration.LineThrough else TextDecoration.None
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Schedule, contentDescription = null, tint = if (isCancelled) Color(0xFFDC2626) else MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(16.dp))
-                            Text(
-                                text = trip.dateLabel, // Time frame
-                                style = MaterialTheme.typography.labelMedium.copy(fontFamily = MaterialTheme.typography.bodySmall.fontFamily),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                textDecoration = if (isCancelled) TextDecoration.LineThrough else TextDecoration.None
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                            StitchMonoText(
+                                text = trip.dateLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                    Box(modifier = Modifier.background(if (isCancelled) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 4.dp)) {
-                        Text(
-                            text = trip.statusLabel.uppercase().takeIf { isCancelled } ?: trip.fareLabel,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (isCancelled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+
+                    StitchPill(
+                        text = if (trip.isCancelled) "Annule" else trip.fareLabel,
+                        containerColor = if (trip.isCancelled) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                        contentColor = if (trip.isCancelled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                    )
                 }
-                
-                // Bottom
+
+                StitchDivider()
+
                 Row(
-                    modifier = Modifier.fillMaxWidth().border(0.dp, Color.Transparent).padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Icon(
-                            if (isCancelled) Icons.Default.Warning else Icons.Default.CheckCircle, 
-                            contentDescription = null, 
-                            tint = if (isCancelled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary, 
-                            modifier = Modifier.size(14.dp)
+                            imageVector = if (trip.isCancelled) Icons.Default.Warning else Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = tone,
+                            modifier = Modifier.size(15.dp)
                         )
                         Text(
-                            text = if (isCancelled) "ANNULÉ/REMBOURSÉ" else "CONFIRMÉ",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                            color = if (isCancelled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
+                            text = if (trip.isCancelled) "REMBOURSE" else "CONFIRME",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = tone
                         )
                     }
-                    Text(
-                        text = trip.busPlate, // Emulate ref
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    StitchMonoText(
+                        text = "REF: ${trip.busPlate}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

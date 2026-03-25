@@ -11,7 +11,7 @@ const columnHelper = createColumnHelper<any>()
 const columns = [
     columnHelper.accessor('ticket_number', {
         header: 'N° Billet',
-        cell: info => <span className="font-semibold text-slate-900 dark:text-slate-100">{info.getValue()}</span>,
+        cell: info => <span className="font-semibold text-text-primary">{info.getValue()}</span>,
     }),
     columnHelper.accessor('passenger_name', {
         header: 'Passager',
@@ -21,7 +21,7 @@ const columns = [
         header: 'Trajet',
         cell: info => {
             const tripId = info.getValue()
-            return <span className="text-slate-600 dark:text-slate-400">Vol #{tripId}</span>
+            return <span className="text-text-secondary">Vol #{tripId}</span>
         },
     }),
     columnHelper.accessor('seat_number', {
@@ -49,7 +49,7 @@ const columns = [
             const status = info.getValue()
             const isCancelled = status === 'cancelled'
             return (
-                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${isCancelled ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-status-error/20' : 'bg-status-success/10 text-emerald-600 dark:text-emerald-400 border-status-success/20'}`}>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${isCancelled ? 'bg-red-500/10 bg-red-500/10 text-red-600 dark:text-red-400 border-status-error/20' : 'bg-status-success/10 text-emerald-400 border-status-success/20'}`}>
                     {status === 'active' ? 'Actif' : 'Annulé'}
                 </span>
             )
@@ -72,15 +72,15 @@ export function GlobalTicketList() {
         <div className="space-y-6 animate-fade-in relative">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <TicketIcon className="w-6 h-6 text-[#137fec] dark:text-[#60a5fa]" />
+                    <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+                        <TicketIcon className="w-6 h-6 text-brand-400" />
                         Tous les Billets Passagers
                     </h1>
-                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Consultez et filtrez l'historique complet des tickets vendus.</p>
+                    <p className="text-sm text-text-muted mt-1">Consultez et filtrez l'historique complet des tickets vendus.</p>
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-h-[400px]">
+            <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl overflow-hidden min-h-[400px]">
                 <DataTable
                     data={ticketsData?.results || []}
                     columns={columns}

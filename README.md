@@ -17,6 +17,7 @@ See [souigat-architecture.md](./souigat-architecture.md) for the full v3.1 archi
 | Auth | JWT (simplejwt) — 15min access, 7d refresh |
 | Task Queue | Celery + Redis |
 | Cache | Redis |
+| Shared Layer | Firebase Auth + Firestore |
 | Dev Env | Docker Compose |
 
 ## Quick Start
@@ -70,6 +71,17 @@ SOUIGAT/
 ├── mobile/           # Kotlin Android (Phase 3)
 └── docker-compose.yml
 ```
+
+## Firebase Shared Layer (Local-First)
+
+- Local backend DB remains the source of truth.
+- Web app mirrors selected records to Firestore asynchronously.
+- Mobile app reads mirrored records from Firestore (with backend fallback).
+- Firestore config files live at:
+  - `firebase.json`
+  - `firestore.rules`
+  - `firestore.indexes.json`
+- Integration details: `firebase-sync.md`
 
 ## License
 

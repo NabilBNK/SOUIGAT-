@@ -6,7 +6,12 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "trips",
-    indices = [Index("status"), Index("serverId", unique = true)]
+    indices = [
+        Index("status"),
+        Index("departureDateTime"),
+        Index(value = ["status", "departureDateTime"]),
+        Index("serverId", unique = true)
+    ]
 )
 data class TripEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

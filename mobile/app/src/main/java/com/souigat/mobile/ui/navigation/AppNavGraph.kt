@@ -1,40 +1,43 @@
 package com.souigat.mobile.ui.navigation
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.navArgument
+import androidx.compose.material3.Scaffold
+import com.souigat.mobile.BuildConfig
+import com.souigat.mobile.data.connectivity.BackendConnectionState
 import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.ui.components.ConnectionStatusStrip
 import com.souigat.mobile.ui.screens.boot.BootScreen
 import com.souigat.mobile.ui.screens.dashboard.DashboardScreen
-import com.souigat.mobile.ui.screens.trips.TripListScreen
-import com.souigat.mobile.ui.screens.trips.TripDetailScreen
-import com.souigat.mobile.ui.screens.trips.SettlementSummaryScreen
-import com.souigat.mobile.ui.screens.trips.SettlementPreviewUiModel
+import com.souigat.mobile.ui.screens.expense.CreateExpenseScreen
 import com.souigat.mobile.ui.screens.expense.ExpensesScreen
 import com.souigat.mobile.ui.screens.history.HistoryScreen
 import com.souigat.mobile.ui.screens.login.LoginScreen
 import com.souigat.mobile.ui.screens.profile.ProfileScreen
 import com.souigat.mobile.ui.screens.tickets.CreateTicketScreen
-import com.souigat.mobile.ui.screens.expense.CreateExpenseScreen
+import com.souigat.mobile.ui.screens.trips.SettlementPreviewUiModel
+import com.souigat.mobile.ui.screens.trips.SettlementSummaryScreen
+import com.souigat.mobile.ui.screens.trips.TripDetailScreen
+import com.souigat.mobile.ui.screens.trips.TripListScreen
 
 @Composable
 fun AppNavGraph(
-    tokenManager: TokenManager? = null
+    tokenManager: TokenManager? = null,
+    debugStartRoute: String? = null
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -56,8 +59,12 @@ fun AppNavGraph(
     val showBottomBar = bottomNavItems.any { it.route == currentRoute }
     val showConnectionStrip = currentRoute != NavRoute.Login.route &&
         currentRoute != "boot" &&
-        currentRoute != "office_dashboard" &&
-        currentRoute != "admin_dashboard"
+        connectionState != BackendConnectionState.Online &&
+        connectionState != BackendConnectionState.Checking
+
+    val startDestination = remember(debugStartRoute) {
+        resolveStartDestination(debugStartRoute)
+    }
 
     Scaffold(
         bottomBar = {
@@ -86,7 +93,7 @@ fun AppNavGraph(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "boot",
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("boot") {
@@ -97,12 +104,7 @@ fun AppNavGraph(
                         }
                     },
                     onNavigateToRole = { role ->
-                        val route = when (role) {
-                            "admin" -> "admin_dashboard"
-                            "office_staff" -> "office_dashboard"
-                            else -> NavRoute.Dashboard.route // conductor primary default
-                        }
-                        navController.navigate(route) {
+                        navController.navigate(postAuthRoute(role)) {
                             popUpTo("boot") { inclusive = true }
                         }
                     }
@@ -110,33 +112,32 @@ fun AppNavGraph(
             }
 
             composable(NavRoute.Login.route) {
-                LoginScreen(onNavigateToRole = { role ->
-                    val route = when (role) {
-                        "admin" -> "admin_dashboard"
-                        "office_staff" -> "office_dashboard"
-                        else -> NavRoute.Dashboard.route
+                LoginScreen(
+                    onNavigateToRole = { role ->
+                        navController.navigate(postAuthRoute(role)) {
+                            popUpTo(NavRoute.Login.route) { inclusive = true }
+                        }
                     }
-                    navController.navigate(route) {
-                        popUpTo(NavRoute.Login.route) { inclusive = true }
-                    }
-                })
+                )
             }
 
             composable(NavRoute.Dashboard.route) {
                 DashboardScreen(
                     onNavigateToTrips = {
                         navController.navigate(NavRoute.Trips.route) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }
                     },
                     onNavigateToTripDetail = { tripId ->
                         navController.navigate("trip_detail/$tripId")
-                    },
+                    }
                 )
             }
-            
+
             composable(NavRoute.Trips.route) {
                 TripListScreen(
                     onNavigateToDetail = { tripId ->
@@ -144,7 +145,7 @@ fun AppNavGraph(
                     }
                 )
             }
-            
+
             composable(
                 route = "trip_detail/{tripId}",
                 arguments = listOf(navArgument("tripId") { type = NavType.LongType })
@@ -152,7 +153,10 @@ fun AppNavGraph(
                 TripDetailScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCreateTicket = { tripId ->
-                        navController.navigate("create_ticket/$tripId")
+                        navController.navigate("create_ticket/$tripId?cargo=false")
+                    },
+                    onNavigateToCreateCargo = { tripId ->
+                        navController.navigate("create_ticket/$tripId?cargo=true")
                     },
                     onNavigateToCreateExpense = { tripId ->
                         navController.navigate("create_expense/$tripId")
@@ -187,7 +191,7 @@ fun AppNavGraph(
                         expensesToReimburseLabel = savedStateHandle.get<String>("settlement_preview_expenses").orEmpty(),
                         netCashExpectedLabel = savedStateHandle.get<String>("settlement_preview_net").orEmpty(),
                         agencyPresaleLabel = savedStateHandle.get<String>("settlement_preview_agency").orEmpty(),
-                        outstandingCargoDeliveryLabel = savedStateHandle.get<String>("settlement_preview_outstanding").orEmpty(),
+                        outstandingCargoDeliveryLabel = savedStateHandle.get<String>("settlement_preview_outstanding").orEmpty()
                     )
                 }
 
@@ -202,12 +206,22 @@ fun AppNavGraph(
                     )
                 }
             }
-            
+
             composable(
-                route = "create_ticket/{tripId}",
-                arguments = listOf(navArgument("tripId") { type = NavType.LongType })
-            ) {
-                CreateTicketScreen(onNavigateBack = { navController.popBackStack() })
+                route = "create_ticket/{tripId}?cargo={cargo}",
+                arguments = listOf(
+                    navArgument("tripId") { type = NavType.LongType },
+                    navArgument("cargo") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { backStackEntry ->
+                val startWithCargo = backStackEntry.arguments?.getBoolean("cargo") ?: false
+                CreateTicketScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    startWithCargo = startWithCargo
+                )
             }
 
             composable(
@@ -216,27 +230,21 @@ fun AppNavGraph(
             ) {
                 CreateExpenseScreen(onNavigateBack = { navController.popBackStack() })
             }
+
             composable("office_dashboard") {
-                val role = tokenManager?.getUserRole()
-                if (role == "office_staff" || role == "admin") {
-                    Text("Office Staff Dashboard — Coming Soon")
-                } else {
-                    LaunchedEffect(Unit) {
-                        navController.navigate(NavRoute.Dashboard.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
+                LaunchedEffect(Unit) {
+                    navController.navigate(NavRoute.Dashboard.route) {
+                        popUpTo("office_dashboard") { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             }
+
             composable("admin_dashboard") {
-                val role = tokenManager?.getUserRole()
-                if (role == "admin") {
-                    Text("Admin Dashboard — Coming Soon")
-                } else {
-                    LaunchedEffect(Unit) {
-                        navController.navigate(NavRoute.Dashboard.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
+                LaunchedEffect(Unit) {
+                    navController.navigate(NavRoute.Dashboard.route) {
+                        popUpTo("admin_dashboard") { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             }
@@ -244,17 +252,19 @@ fun AppNavGraph(
             composable(NavRoute.History.route) {
                 HistoryScreen(
                     onNavigateToDetail = { tripId ->
-                        navController.navigate("trip_detail/${tripId}")
+                        navController.navigate("trip_detail/$tripId")
                     }
                 )
             }
+
             composable(NavRoute.Expenses.route) {
                 ExpensesScreen(
                     onNavigateToCreate = { tripId ->
-                        navController.navigate("create_expense/${tripId}")
+                        navController.navigate("create_expense/$tripId")
                     }
                 )
             }
+
             composable(NavRoute.Profile.route) {
                 ProfileScreen(
                     onNavigateToLogin = {
@@ -268,3 +278,35 @@ fun AppNavGraph(
         }
     }
 }
+
+private fun resolveStartDestination(debugStartRoute: String?): String {
+    if (!BuildConfig.DEBUG) {
+        return "boot"
+    }
+
+    return debugStartRoute
+        ?.takeIf { it in debugStartRoutes }
+        ?: "boot"
+}
+
+private fun postAuthRoute(role: String?): String {
+    // The migrated mobile UI currently uses one shared shell across roles.
+    // Route legacy role-specific dashboard entries into the redesigned Compose flow.
+    return when (role) {
+        "admin",
+        "office_staff",
+        "conductor",
+        null -> NavRoute.Dashboard.route
+        else -> NavRoute.Dashboard.route
+    }
+}
+
+private val debugStartRoutes = setOf(
+    "boot",
+    NavRoute.Login.route,
+    NavRoute.Dashboard.route,
+    NavRoute.Trips.route,
+    NavRoute.History.route,
+    NavRoute.Expenses.route,
+    NavRoute.Profile.route
+)

@@ -44,11 +44,11 @@ export function AuditLog() {
 
     const getActionColor = (act: string) => {
         switch (act) {
-            case 'create': return 'text-emerald-600 dark:text-emerald-400 bg-status-success/10 border-status-success/20'
-            case 'update': return 'text-[#137fec] dark:text-[#60a5fa] bg-[#137fec]/10 border-brand-500/20'
-            case 'delete': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-status-error/20'
+            case 'create': return 'text-emerald-400 bg-status-success/10 border-status-success/20'
+            case 'update': return 'text-brand-400 bg-[#137fec]/10 border-brand-500/20'
+            case 'delete': return 'text-red-600 dark:text-red-400 bg-red-500/10 bg-red-500/10 border-status-error/20'
             case 'override': return 'text-yellow-600 dark:text-yellow-400 bg-status-warning/10 border-status-warning/20'
-            default: return 'text-slate-400 dark:text-slate-500 bg-slate-200 dark:bg-slate-700/50 border-slate-200 dark:border-slate-800'
+            default: return 'text-text-muted bg-slate-200 dark:bg-slate-700/50 border-surface-700'
         }
     }
 
@@ -59,7 +59,7 @@ export function AuditLog() {
         }),
         columnHelper.accessor('user_name', {
             header: 'Utilisateur',
-            cell: info => info.getValue() || <span className="italic text-slate-400 dark:text-slate-500">Système</span>,
+            cell: info => info.getValue() || <span className="italic text-text-muted">Système</span>,
         }),
         columnHelper.accessor('action', {
             header: 'Action',
@@ -71,7 +71,7 @@ export function AuditLog() {
         }),
         columnHelper.accessor('table_name', {
             header: 'Table affectée',
-            cell: info => <span className="font-mono text-xs px-2 py-1 bg-slate-100 dark:bg-[#1e293b]/50 rounded">{info.getValue()}</span>,
+            cell: info => <span className="font-mono text-xs px-2 py-1 bg-surface-700/50 rounded">{info.getValue()}</span>,
         }),
         columnHelper.accessor('record_id', {
             header: 'ID Record',
@@ -85,7 +85,7 @@ export function AuditLog() {
             id: 'actions',
             header: 'Détails',
             cell: info => (
-                <Button variant="ghost" className="p-1.5 h-auto text-[#137fec] dark:text-[#60a5fa] hover:bg-[#137fec]/10" onClick={() => setViewingLog(info.row.original)} title="Voir les détails">
+                <Button variant="ghost" className="p-1.5 h-auto text-brand-400 hover:bg-[#137fec]/10" onClick={() => setViewingLog(info.row.original)} title="Voir les détails">
                     <Eye className="w-4 h-4" />
                 </Button>
             ),
@@ -95,42 +95,42 @@ export function AuditLog() {
     return (
         <div className="space-y-6 animate-fade-in">
             <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <Activity className="w-6 h-6 text-[#137fec] dark:text-[#60a5fa]" />
+                <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-brand-400" />
                     Journal d'Audit
                 </h1>
-                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Traçabilité complète des actions critiques sur le système.</p>
+                <p className="text-sm text-text-muted mt-1">Traçabilité complète des actions critiques sur le système.</p>
             </div>
 
-            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 p-4 rounded-xl space-y-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100 mb-2">
+            <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 p-4 rounded-xl space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-text-primary mb-2">
                     <Filter className="w-4 h-4" /> Filtres de recherche
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
-                        <label className="block text-xs text-slate-400 dark:text-slate-500 mb-1">Du</label>
+                        <label className="block text-xs text-text-muted mb-1">Du</label>
                         <input
                             type="date"
                             value={dateFrom}
                             onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary focus:ring-2 focus:ring-brand-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-400 dark:text-slate-500 mb-1">Au</label>
+                        <label className="block text-xs text-text-muted mb-1">Au</label>
                         <input
                             type="date"
                             value={dateTo}
                             onChange={e => { setDateTo(e.target.value); setPage(1); }}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary focus:ring-2 focus:ring-brand-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-400 dark:text-slate-500 mb-1">Utilisateur</label>
+                        <label className="block text-xs text-text-muted mb-1">Utilisateur</label>
                         <select
                             value={selectedUser}
                             onChange={e => { setSelectedUser(e.target.value); setPage(1); }}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary focus:ring-2 focus:ring-brand-500"
                         >
                             <option value="">Tous les utilisateurs</option>
                             {usersData?.results?.map(u => (
@@ -139,21 +139,21 @@ export function AuditLog() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-400 dark:text-slate-500 mb-1">Table</label>
+                        <label className="block text-xs text-text-muted mb-1">Table</label>
                         <input
                             type="text"
                             placeholder="Ex: trip, user, cargo_ticket"
                             value={tableName}
                             onChange={e => { setTableName(e.target.value); setPage(1); }}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary focus:ring-2 focus:ring-brand-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-400 dark:text-slate-500 mb-1">Action</label>
+                        <label className="block text-xs text-text-muted mb-1">Action</label>
                         <select
                             value={action}
                             onChange={e => { setAction(e.target.value); setPage(1); }}
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary focus:ring-2 focus:ring-brand-500"
                         >
                             <option value="">Toutes les actions</option>
                             <option value="create">Création (CREATE)</option>
@@ -165,7 +165,7 @@ export function AuditLog() {
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-h-[400px]">
+            <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl overflow-hidden min-h-[400px]">
                 <DataTable
                     data={logsData?.results || []}
                     columns={columns}
@@ -185,31 +185,31 @@ export function AuditLog() {
             >
                 {viewingLog && (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4 text-sm bg-white dark:bg-[#1a2634] p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <div><span className="text-slate-400 dark:text-slate-500 block mb-1">Date:</span> <span className="font-medium text-slate-900 dark:text-slate-100">{formatDateTime(viewingLog.created_at)}</span></div>
-                            <div><span className="text-slate-400 dark:text-slate-500 block mb-1">Utilisateur:</span> <span className="font-medium text-slate-900 dark:text-slate-100">{viewingLog.user_name || 'Système'}</span></div>
-                            <div><span className="text-slate-400 dark:text-slate-500 block mb-1">Action:</span> <span className={`px-2 py-0.5 rounded text-xs font-medium border uppercase ${getActionColor(viewingLog.action)}`}>{viewingLog.action}</span></div>
-                            <div><span className="text-slate-400 dark:text-slate-500 block mb-1">Table affectée:</span> <span className="font-mono text-xs px-2 py-1 bg-slate-100 dark:bg-[#1e293b]/50 rounded">{viewingLog.table_name} (ID: {viewingLog.record_id})</span></div>
-                            <div><span className="text-slate-400 dark:text-slate-500 block mb-1">IP Source:</span> <span className="font-medium text-slate-900 dark:text-slate-100">{viewingLog.ip_address || '-'}</span></div>
+                        <div className="grid grid-cols-2 gap-4 text-sm bg-surface-800/80 backdrop-blur-md p-4 rounded-lg border border-surface-700">
+                            <div><span className="text-text-muted block mb-1">Date:</span> <span className="font-medium text-text-primary">{formatDateTime(viewingLog.created_at)}</span></div>
+                            <div><span className="text-text-muted block mb-1">Utilisateur:</span> <span className="font-medium text-text-primary">{viewingLog.user_name || 'Système'}</span></div>
+                            <div><span className="text-text-muted block mb-1">Action:</span> <span className={`px-2 py-0.5 rounded text-xs font-medium border uppercase ${getActionColor(viewingLog.action)}`}>{viewingLog.action}</span></div>
+                            <div><span className="text-text-muted block mb-1">Table affectée:</span> <span className="font-mono text-xs px-2 py-1 bg-surface-700/50 rounded">{viewingLog.table_name} (ID: {viewingLog.record_id})</span></div>
+                            <div><span className="text-text-muted block mb-1">IP Source:</span> <span className="font-medium text-text-primary">{viewingLog.ip_address || '-'}</span></div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-status-error"></div> Ancien État
                                 </h3>
-                                <div className="bg-[#101922] rounded-lg p-4 border border-slate-200 dark:border-slate-800 overflow-auto max-h-96">
-                                    <pre className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono">
+                                <div className="bg-surface-900 rounded-lg p-4 border border-surface-700 overflow-auto max-h-96">
+                                    <pre className="text-xs text-text-secondary whitespace-pre-wrap font-mono">
                                         {viewingLog.old_values ? JSON.stringify(viewingLog.old_values, null, 2) : 'Aucun état précédent.'}
                                     </pre>
                                 </div>
                             </div>
                             <div>
-                                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-status-success"></div> Nouvel État
                                 </h3>
-                                <div className="bg-[#101922] rounded-lg p-4 border border-slate-200 dark:border-slate-800 overflow-auto max-h-96">
-                                    <pre className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono">
+                                <div className="bg-surface-900 rounded-lg p-4 border border-surface-700 overflow-auto max-h-96">
+                                    <pre className="text-xs text-text-secondary whitespace-pre-wrap font-mono">
                                         {viewingLog.new_values ? JSON.stringify(viewingLog.new_values, null, 2) : 'Aucun nouvel état.'}
                                     </pre>
                                 </div>

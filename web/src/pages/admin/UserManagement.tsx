@@ -84,7 +84,7 @@ export function UserManagement() {
         columnHelper.accessor(row => `${row.first_name} ${row.last_name}`, {
             id: 'name',
             header: 'Nom',
-            cell: info => <span className="font-medium text-slate-900 dark:text-slate-100 capitalize">{info.getValue()}</span>,
+            cell: info => <span className="font-medium text-text-primary capitalize">{info.getValue()}</span>,
         }),
         columnHelper.accessor('phone', {
             header: 'Téléphone',
@@ -93,7 +93,7 @@ export function UserManagement() {
         columnHelper.accessor('role', {
             header: 'Rôle',
             cell: info => (
-                <span className="capitalize px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-[#1e293b]/50 text-[#137fec] dark:text-[#60a5fa] border border-brand-500/20">
+                <span className="capitalize px-2 py-0.5 rounded text-xs font-medium bg-surface-700/50 text-brand-400 border border-brand-500/20">
                     {info.getValue().replace('_', ' ')}
                 </span>
             ),
@@ -105,17 +105,17 @@ export function UserManagement() {
         columnHelper.accessor('device_id', {
             header: 'Appareil',
             cell: info => info.getValue() ? (
-                <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                <span className="flex items-center gap-1.5 text-xs text-emerald-400">
                     <Smartphone className="w-3.5 h-3.5" /> Lié
                 </span>
             ) : (
-                <span className="text-xs text-slate-400 dark:text-slate-500">Aucun</span>
+                <span className="text-xs text-text-muted">Aucun</span>
             ),
         }),
         columnHelper.accessor('is_active', {
             header: 'Statut',
             cell: info => (
-                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${info.getValue() ? 'bg-status-success/10 text-emerald-600 dark:text-emerald-400 border-status-success/20' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-status-error/20'}`}>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${info.getValue() ? 'bg-status-success/10 text-emerald-400 border-status-success/20' : 'bg-red-500/10 bg-red-500/10 text-red-600 dark:text-red-400 border-status-error/20'}`}>
                     {info.getValue() ? 'Actif' : 'Désactivé'}
                 </span>
             ),
@@ -127,7 +127,7 @@ export function UserManagement() {
                 const user = info.row.original
                 return (
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" className="p-1.5 h-auto text-[#137fec] dark:text-[#60a5fa] hover:bg-[#137fec]/10" onClick={() => openEditModal(user)} title="Modifier">
+                        <Button variant="ghost" className="p-1.5 h-auto text-brand-400 hover:bg-[#137fec]/10" onClick={() => openEditModal(user)} title="Modifier">
                             <Edit className="w-4 h-4" />
                         </Button>
                         {user.device_id && (
@@ -168,8 +168,8 @@ export function UserManagement() {
         <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Employés & Utilisateurs</h1>
-                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Gérez les accès, les agences d'attachement, et les appareils.</p>
+                    <h1 className="text-2xl font-bold text-text-primary">Employés & Utilisateurs</h1>
+                    <p className="text-sm text-text-muted mt-1">Gérez les accès, les agences d'attachement, et les appareils.</p>
                 </div>
                 <Button onClick={openCreateModal} className="shrink-0 flex items-center gap-2">
                     <Plus className="w-4 h-4" />
@@ -177,20 +177,20 @@ export function UserManagement() {
                 </Button>
             </div>
 
-            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4">
+            <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 p-4 rounded-xl flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                     <input
                         type="text"
                         placeholder="Rechercher (Nom, Téléphone)..."
                         value={search}
                         onChange={handleSearch}
-                        className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg pl-10 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                        className="w-full bg-surface-900 border border-surface-700 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-h-[400px]">
+            <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl overflow-hidden min-h-[400px]">
                 <DataTable
                     data={usersData?.results || []}
                     columns={columns}
@@ -209,7 +209,7 @@ export function UserManagement() {
             >
                 <form onSubmit={(e) => { e.preventDefault(); userMutation.mutate(formData) }} className="space-y-4">
                     {userMutation.error && (
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-status-error/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-start gap-2">
+                        <div className="bg-red-500/10 bg-red-500/10 border border-status-error/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-start gap-2">
                             <ShieldAlert className="w-5 h-5 shrink-0" />
                             <p>{(userMutation.error as any)?.response?.data?.detail || (userMutation.error as Error).message || "Une erreur est survenue."}</p>
                         </div>
@@ -217,21 +217,21 @@ export function UserManagement() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Prénom *</label>
+                            <label className="block text-sm font-medium text-text-primary mb-1">Prénom *</label>
                             <input
                                 required
                                 type="text"
-                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                 value={formData.first_name || ''}
                                 onChange={(e) => setFormData(p => ({ ...p, first_name: e.target.value }))}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Nom *</label>
+                            <label className="block text-sm font-medium text-text-primary mb-1">Nom *</label>
                             <input
                                 required
                                 type="text"
-                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                 value={formData.last_name || ''}
                                 onChange={(e) => setFormData(p => ({ ...p, last_name: e.target.value }))}
                             />
@@ -239,12 +239,12 @@ export function UserManagement() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Téléphone *</label>
+                        <label className="block text-sm font-medium text-text-primary mb-1">Téléphone *</label>
                         <input
                             required
                             type="text"
                             placeholder="Ex: 0555001122"
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                             value={formData.phone || ''}
                             onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))}
                         />
@@ -252,12 +252,12 @@ export function UserManagement() {
 
                     {!editingUser && (
                         <div>
-                            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Mot de passe *</label>
+                            <label className="block text-sm font-medium text-text-primary mb-1">Mot de passe *</label>
                             <input
                                 required
                                 type="password"
                                 autoComplete="new-password"
-                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                 value={formData.password || ''}
                                 onChange={(e) => setFormData(p => ({ ...p, password: e.target.value }))}
                             />
@@ -266,10 +266,10 @@ export function UserManagement() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Rôle *</label>
+                            <label className="block text-sm font-medium text-text-primary mb-1">Rôle *</label>
                             <select
                                 required
-                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                 value={formData.role || ''}
                                 onChange={(e) => setFormData(p => ({ ...p, role: e.target.value as Role }))}
                             >
@@ -282,9 +282,9 @@ export function UserManagement() {
 
                         {(formData.role === 'office_staff' || formData.role === 'conductor') && (
                             <div>
-                                <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Agence (Optionnel)</label>
+                                <label className="block text-sm font-medium text-text-primary mb-1">Agence (Optionnel)</label>
                                 <select
-                                    className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                                    className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                     value={formData.office || ''}
                                     onChange={(e) => setFormData(p => ({ ...p, office: e.target.value ? Number(e.target.value) : null }))}
                                 >
@@ -299,9 +299,9 @@ export function UserManagement() {
 
                     {formData.role === 'office_staff' && (
                         <div>
-                            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Département (Guichetier)</label>
+                            <label className="block text-sm font-medium text-text-primary mb-1">Département (Guichetier)</label>
                             <select
-                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                 value={formData.department || ''}
                                 onChange={(e) => setFormData(p => ({ ...p, department: e.target.value ? e.target.value as Department : null }))}
                             >
@@ -313,13 +313,13 @@ export function UserManagement() {
                     )}
 
                     {editingUser && (
-                        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
-                            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Changer le mot de passe</label>
+                        <div className="mt-4 pt-4 border-t border-surface-700">
+                            <label className="block text-sm font-medium text-text-primary mb-1">Changer le mot de passe</label>
                             <input
                                 type="password"
                                 autoComplete="new-password"
                                 placeholder="Laisser vide pour ne pas changer"
-                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                 value={formData.password || ''}
                                 onChange={(e) => setFormData(p => ({ ...p, password: e.target.value }))}
                             />

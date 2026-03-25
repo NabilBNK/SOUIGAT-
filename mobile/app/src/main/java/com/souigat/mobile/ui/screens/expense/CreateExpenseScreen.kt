@@ -1,28 +1,56 @@
 package com.souigat.mobile.ui.screens.expense
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Save
-import           androidx.compose.material.icons.filled.Toll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Toll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -30,11 +58,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.souigat.mobile.ui.components.EmptyStatePanel
+import com.souigat.mobile.ui.components.StitchCard
+import com.souigat.mobile.ui.components.StitchMonoText
+import com.souigat.mobile.ui.components.StitchPrimaryButton
+import com.souigat.mobile.ui.components.StitchSectionLabel
+import kotlinx.coroutines.launch
+import timber.log.Timber
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateExpenseScreen(
     viewModel: CreateExpenseViewModel = hiltViewModel(),
@@ -47,6 +83,32 @@ fun CreateExpenseScreen(
     var amount by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("fuel") }
+    var receiptCaptured by rememberSaveable { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val receiptCameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        Timber.i("Expense camera result: hasBitmap=%s", bitmap != null)
+        receiptCaptured = bitmap != null
+        if (bitmap == null) {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar("Ouverture camera annulee ou indisponible.")
+            }
+        }
+    }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        Timber.i("Expense camera permission granted=%s", granted)
+        if (granted) {
+            receiptCameraLauncher.launch(null)
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar("Permission camera refusee.")
+            }
+        }
+    }
 
     LaunchedEffect(uiState) {
         when (val state = uiState) {
@@ -66,86 +128,132 @@ fun CreateExpenseScreen(
     val isLoading = uiState is CreateExpenseUiState.Loading
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Nouvelle dépense", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                ),
-                modifier = Modifier.border(1.dp, Color(0xFFE2E5EA))
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                }
+                Text(
+                    text = "Nouvelle depense",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                }
+            }
         },
         bottomBar = {
             if (formState is ExpenseFormHeaderState.Ready) {
-                ExpenseFooterBar(
-                    buttonLabel = "Enregistrer la dépense",
-                    isLoading = isLoading,
-                    enabled = amount.isNotBlank() && !isLoading,
-                    onSubmit = { viewModel.createExpense(amount, category, description) }
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(horizontal = 16.dp, vertical = 18.dp)
+                ) {
+                    StitchPrimaryButton(
+                        label = if (isLoading) "ENREGISTREMENT..." else "ENREGISTRER LA DEPENSE",
+                        onClick = { viewModel.createExpense(amount, category, description) },
+                        leadingIcon = Icons.Default.Save,
+                        enabled = amount.isNotBlank() && !isLoading,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background
+        }
     ) { paddingValues ->
         when (val state = formState) {
             ExpenseFormHeaderState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primaryContainer)
                 }
             }
+
             is ExpenseFormHeaderState.Error -> {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp), contentAlignment = Alignment.Center) {
-                    EmptyStatePanel(
-                        icon = Icons.Default.Receipt,
-                        title = "Trajet introuvable",
-                        message = state.message,
-                        primaryActionLabel = "Réessayer",
-                        onPrimaryAction = viewModel::retryLookup,
-                        secondaryActionLabel = "Retour",
-                        onSecondaryAction = onNavigateBack
-                    )
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    StitchCard(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Trajet introuvable",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = state.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        StitchPrimaryButton(
+                            label = "Reessayer",
+                            onClick = viewModel::retryLookup,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
+
             is ExpenseFormHeaderState.Ready -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 120.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentPadding = PaddingValues(start = 16.dp, top = 18.dp, end = 16.dp, bottom = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    // Hero Amount
-                    item(key = "amount") {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "MONTANT DE LA DÉPENSE",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, letterSpacing = 1.sp),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                                TextField(
+                    item("amount") {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            StitchSectionLabel("Montant de la depense")
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                androidx.compose.material3.TextField(
                                     value = amount,
-                                    onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' || ch == ' ' } },
+                                    onValueChange = {
+                                        amount = it.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' || ch == ' ' }
+                                    },
                                     enabled = !isLoading,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
-                                    textStyle = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
-                                    placeholder = { Text("0.00", style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
-                                    colors = TextFieldDefaults.colors(
+                                    textStyle = MaterialTheme.typography.displayMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center
+                                    ),
+                                    placeholder = {
+                                        Text(
+                                            text = "0.00",
+                                            style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    },
+                                    colors = androidx.compose.material3.TextFieldDefaults.colors(
                                         focusedContainerColor = Color.Transparent,
                                         unfocusedContainerColor = Color.Transparent,
                                         disabledContainerColor = Color.Transparent,
                                         focusedIndicatorColor = Color.Transparent,
-                                        unfocusedIndicatorColor = Color.Transparent,
-                                        disabledIndicatorColor = Color.Transparent
+                                        unfocusedIndicatorColor = Color.Transparent
                                     ),
-                                    modifier = Modifier.width(160.dp) // Auto expand logically
+                                    modifier = Modifier.width(170.dp)
                                 )
                                 Text(
                                     text = state.header.currency,
@@ -153,74 +261,123 @@ fun CreateExpenseScreen(
                                     color = MaterialTheme.colorScheme.primaryContainer
                                 )
                             }
-                            Box(modifier = Modifier.width(96.dp).height(4.dp).background(MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.2f), RoundedCornerShape(50)))
+                            Box(
+                                modifier = Modifier
+                                    .width(96.dp)
+                                    .height(4.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f), RoundedCornerShape(999.dp))
+                            )
                         }
                     }
 
-                    // Categories Grid
-                    item(key = "categories") {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "CATÉGORIE",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            )
-                            
+                    item("categories") {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            StitchSectionLabel("Categorie")
                             val categories = listOf(
                                 ExpenseCategoryOption("fuel", "Carburant", Icons.Default.LocalGasStation),
                                 ExpenseCategoryOption("food", "Restaurant", Icons.Default.Restaurant),
                                 ExpenseCategoryOption("maintenance", "Entretien", Icons.Default.Build),
-                                ExpenseCategoryOption("tolls", "Péage", Icons.Default.Toll),
+                                ExpenseCategoryOption("tolls", "Peage", Icons.Default.Toll),
                                 ExpenseCategoryOption("other", "Autres", Icons.Default.MoreHoriz)
                             )
-                            
-                            // Emulating a 3-column grid
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                ExpenseCategoryCard(option = categories[0], selected = category == "fuel", onClick = { category = "fuel" }, modifier = Modifier.weight(1f))
-                                ExpenseCategoryCard(option = categories[1], selected = category == "food", onClick = { category = "food" }, modifier = Modifier.weight(1f))
-                                ExpenseCategoryCard(option = categories[2], selected = category == "maintenance", onClick = { category = "maintenance" }, modifier = Modifier.weight(1f))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                categories.take(3).forEach { option ->
+                                    ExpenseCategoryCard(
+                                        option = option,
+                                        selected = category == option.id,
+                                        onClick = { category = option.id },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             }
-                            Spacer(Modifier.height(12.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                ExpenseCategoryCard(option = categories[3], selected = category == "tolls", onClick = { category = "tolls" }, modifier = Modifier.weight(1f))
-                                ExpenseCategoryCard(option = categories[4], selected = category == "other", onClick = { category = "other" }, modifier = Modifier.weight(1f))
-                                Box(modifier = Modifier.weight(1f)) // empty slot
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                categories.drop(3).forEach { option ->
+                                    ExpenseCategoryCard(
+                                        option = option,
+                                        selected = category == option.id,
+                                        onClick = { category = option.id },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.weight(1f))
                             }
                         }
                     }
 
-                    // Description
-                    item(key = "description") {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    text = "DESCRIPTION",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
+                    item("description") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Bottom
+                            ) {
+                                StitchSectionLabel("Description")
                                 Text(
                                     text = "${description.length}/200",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.outline
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Spacer(Modifier.height(8.dp))
+
                             OutlinedTextField(
                                 value = description,
                                 onValueChange = { if (it.length <= 200) description = it },
-                                placeholder = { Text("Ajouter des détails sur la dépense...") },
-                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                placeholder = { Text("Ajouter des details sur la depense...") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp),
                                 enabled = !isLoading,
                                 maxLines = 4,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = Color.White,
-                                    unfocusedContainerColor = Color.White,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                                     focusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                                 )
                             )
+                        }
+                    }
+
+                    item("receipt") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                .clickable(enabled = !isLoading) {
+                                    val cameraGranted = ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.CAMERA
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    if (cameraGranted) {
+                                        Timber.i("Expense camera launch requested (permission already granted)")
+                                        receiptCameraLauncher.launch(null)
+                                    } else {
+                                        Timber.i("Expense camera permission request launched")
+                                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                    }
+                                }
+                                .padding(vertical = 18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(Icons.Default.CameraAlt, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    text = if (receiptCaptured) "PHOTO CAPTUREE" else "PRENDRE EN PHOTO LE RECU",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -242,68 +399,41 @@ private fun ExpenseCategoryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val containerColor = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerLowest
+    }
+
     Box(
         modifier = modifier
-            .aspectRatio(1f) // Square card
-            .clip(RoundedCornerShape(12.dp))
+            .height(104.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerColor)
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(14.dp)
+            )
             .clickable(onClick = onClick)
-            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.White)
-            .border(1.dp, if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.2f), RoundedCornerShape(12.dp))
-            .shadow(if (selected) 4.dp else 1.dp, RoundedCornerShape(12.dp))
-            .padding(12.dp)
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Icon(
                 imageVector = option.icon,
                 contentDescription = null,
-                tint = if (selected) Color.White else MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(28.dp)
+                tint = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(22.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = option.label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
             )
-        }
-    }
-}
-
-@Composable
-private fun ExpenseFooterBar(
-    buttonLabel: String,
-    isLoading: Boolean,
-    enabled: Boolean,
-    onSubmit: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White.copy(alpha = 0.9f))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.1f))
-            .padding(16.dp)
-            .padding(bottom = 8.dp)
-    ) {
-        Button(
-            onClick = onSubmit,
-            enabled = enabled && !isLoading,
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            modifier = Modifier.fillMaxWidth().height(56.dp).shadow(8.dp, RoundedCornerShape(50))
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                    Text(buttonLabel.uppercase(), fontWeight = FontWeight.Bold, color = Color.White, letterSpacing = 1.5.sp)
-                }
-            }
         }
     }
 }

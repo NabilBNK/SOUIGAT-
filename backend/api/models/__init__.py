@@ -10,9 +10,11 @@ from .pricing_config import PricingConfig
 from .settlement import Settlement
 from .sync_log import SyncLog
 from .quarantined_sync import QuarantinedSync
+from .firebase_mirror_event import FirebaseMirrorEvent
 
 __all__ = [
     'Office', 'User', 'Bus', 'Trip',
     'PassengerTicket', 'CargoTicket', 'TripExpense',
     'AuditLog', 'PricingConfig', 'Settlement', 'SyncLog', 'QuarantinedSync',
+    'FirebaseMirrorEvent',
 ]

@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from celery import shared_task
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -209,3 +210,95 @@ def cleanup_old_synclogs():
     if deleted:
         logger.info('Cleaned up %d old sync logs', deleted)
     return f'Deleted {deleted} sync logs'
+
+
+@shared_task(bind=True)
+def process_firebase_mirror_event(self, event_id):
+    """Process a single Firebase mirror event with retry/backoff tracking."""
+    from api.models import FirebaseMirrorEvent
+    from api.services.firebase_admin import FirebaseConfigurationError
+    from api.services.firebase_mirror import (
+        NonRetryableMirrorError,
+        StaleMirrorConflictError,
+        apply_mirror_event,
+        compute_retry_delay,
+    )
+
+    event = FirebaseMirrorEvent.objects.filter(pk=event_id).first()
+    if not event:
+        return {'status': 'missing', 'event_id': event_id}
+
+    if event.status in (FirebaseMirrorEvent.STATUS_SYNCED, FirebaseMirrorEvent.STATUS_CONFLICT):
+        return {'status': event.status, 'event_id': event_id}
+
+    event.status = FirebaseMirrorEvent.STATUS_IN_PROGRESS
+    event.attempts += 1
+    event.last_error = ''
+    event.save(update_fields=['status', 'attempts', 'last_error', 'updated_at'])
+
+    try:
+        changed, reason = apply_mirror_event(event)
+    except StaleMirrorConflictError as exc:
+        event.status = FirebaseMirrorEvent.STATUS_CONFLICT
+        event.last_error = str(exc)
+        event.synced_at = timezone.now()
+        event.next_retry_at = None
+        event.save(update_fields=['status', 'last_error', 'synced_at', 'next_retry_at', 'updated_at'])
+        return {'status': 'conflict', 'event_id': event_id}
+    except (FirebaseConfigurationError, NonRetryableMirrorError) as exc:
+        event.status = FirebaseMirrorEvent.STATUS_FAILED
+        event.last_error = str(exc)
+        event.next_retry_at = None
+        event.save(update_fields=['status', 'last_error', 'next_retry_at', 'updated_at'])
+        return {'status': 'failed_terminal', 'event_id': event_id, 'error': str(exc)}
+    except Exception as exc:
+        if event.attempts >= event.max_attempts:
+            event.status = FirebaseMirrorEvent.STATUS_FAILED
+            event.last_error = str(exc)
+            event.next_retry_at = None
+            event.save(update_fields=['status', 'last_error', 'next_retry_at', 'updated_at'])
+            return {'status': 'failed_max_retries', 'event_id': event_id, 'error': str(exc)}
+
+        delay = compute_retry_delay(event.attempts)
+        event.status = FirebaseMirrorEvent.STATUS_FAILED
+        event.last_error = str(exc)
+        event.next_retry_at = timezone.now() + delay
+        event.save(update_fields=['status', 'last_error', 'next_retry_at', 'updated_at'])
+
+        process_firebase_mirror_event.apply_async(args=[event.id], countdown=int(delay.total_seconds()))
+        return {
+            'status': 'failed_retry_scheduled',
+            'event_id': event_id,
+            'retry_in_seconds': int(delay.total_seconds()),
+        }
+
+    event.status = FirebaseMirrorEvent.STATUS_SYNCED
+    event.last_error = ''
+    event.synced_at = timezone.now()
+    event.next_retry_at = None
+    event.save(update_fields=['status', 'last_error', 'synced_at', 'next_retry_at', 'updated_at'])
+    return {
+        'status': 'synced',
+        'event_id': event_id,
+        'changed_remote': changed,
+        'reason': reason,
+    }
+
+
+@shared_task
+def drain_firebase_mirror_events(limit=100):
+    """Dispatch due Firebase mirror events (pending or retryable failed)."""
+    from api.models import FirebaseMirrorEvent
+
+    now = timezone.now()
+    events = FirebaseMirrorEvent.objects.filter(
+        Q(status=FirebaseMirrorEvent.STATUS_PENDING)
+        | Q(status=FirebaseMirrorEvent.STATUS_FAILED, next_retry_at__lte=now),
+    ).order_by('created_at')[:limit]
+
+    dispatched = 0
+    for event in events:
+        process_firebase_mirror_event.delay(event.id)
+        dispatched += 1
+
+    return {'dispatched': dispatched, 'limit': limit}

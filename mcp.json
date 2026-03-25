@@ -5,6 +5,14 @@
       "headers": {
         "X-Goog-Api-Key": "AQ.Ab8RN6Kk__0TD-N8xQvRwxDU3KII9zY9T0GzfzmwyoRjXsDuhw"
       }
+    },
+    "firebase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "firebase-tools@latest",
+        "mcp"
+      ]
     }
   }
 }

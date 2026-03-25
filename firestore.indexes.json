@@ -1,0 +1,113 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "trip_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "conductor_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "departure_ts",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "trip_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "office_scope_ids",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "departure_ts",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "passenger_ticket_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "trip_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source_created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "cargo_ticket_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "trip_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source_created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "trip_expense_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "trip_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "is_deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source_created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "settlement_mirror_v1",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "trip_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source_updated_at",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

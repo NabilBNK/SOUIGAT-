@@ -7,3 +7,4 @@ class ApiConfig(AppConfig):
 
     def ready(self):
         import api.signals  # noqa: F401 — register signal handlers
+        import api.firebase_signals  # noqa: F401 — register Firebase mirror signal handlers

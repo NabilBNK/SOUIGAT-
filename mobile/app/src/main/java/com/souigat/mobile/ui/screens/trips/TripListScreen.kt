@@ -3,95 +3,116 @@ package com.souigat.mobile.ui.screens.trips
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
-import com.souigat.mobile.ui.components.EmptyStatePanel
+import com.souigat.mobile.R
+import com.souigat.mobile.ui.components.StitchCard
+import com.souigat.mobile.ui.components.StitchMonoText
+import com.souigat.mobile.ui.components.StitchPill
+import com.souigat.mobile.ui.components.StitchSectionLabel
 import com.souigat.mobile.ui.theme.ErrorRed
+import com.souigat.mobile.ui.theme.Success
+import com.souigat.mobile.ui.theme.SuccessSoft
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun TripListScreen(
     viewModel: TripListViewModel = hiltViewModel(),
-    onNavigateToDetail: (Int) -> Unit
+    onNavigateToDetail: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val pullToRefreshState = rememberPullToRefreshState()
-    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.onScreenVisible()
-        }
+    LaunchedEffect(Unit) {
+        viewModel.onScreenVisible()
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
+                        .padding(horizontal = 10.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier.size(48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Menu, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    Icon(
+                        painter = painterResource(id = R.drawable.souigat_logo_no_background),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(34.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Mes trajets",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF0D1117)
-                        )
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { /* TODO Handle Menu Drawer */ }) {
-                        Icon(Icons.Default.Menu, contentDescription = null, tint = Color(0xFF0D1117))
+                    Spacer(modifier = Modifier.weight(1f))
+                    IconButton(onClick = { viewModel.refreshTrips(force = true) }) {
+                        if (uiState.isRefreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Sync,
+                                contentDescription = "Rafraichir",
+                                tint = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        }
                     }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.refreshTrips(force = true) },
-                        enabled = !uiState.isRefreshing
-                    ) {
-                        Icon(Icons.Default.Sync, contentDescription = "Rafraichir", tint = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                ),
-                modifier = Modifier.border(
-                    width = 1.dp,
-                    color = Color(0xFFE2E5EA),
-                    shape = RoundedCornerShape(0.dp)
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
+                }
+            }
+        }
     ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = { viewModel.refreshTrips(force = true) },
-            state = pullToRefreshState,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -99,44 +120,23 @@ fun TripListScreen(
             when {
                 uiState.isInitialLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                }
-
-                uiState.trips.isEmpty() -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        EmptyStatePanel(
-                            icon = Icons.Default.CloudOff,
-                            title = "Aucun trajet assigne",
-                            message = uiState.errorMessage
-                                ?: "Les trajets synchronises apparaitront ici. Tirez vers le bas ou utilisez le bouton de rafraichissement.",
-                            primaryActionLabel = "Rafraichir",
-                            onPrimaryAction = { viewModel.refreshTrips(force = true) }
-                        )
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primaryContainer)
                     }
                 }
 
                 else -> {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 96.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        item(key = "sync_status") {
-                            // Sync Status Bar from Stitch
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                                    .padding(12.dp)
+                        item("sync_status") {
+                            StitchCard(
+                                shape = RoundedCornerShape(14.dp),
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                borderColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                shadowElevation = 0.dp,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -145,49 +145,64 @@ fun TripListScreen(
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
                                         Icon(
                                             Icons.Default.CloudDone,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
+                                            tint = MaterialTheme.colorScheme.primaryContainer,
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Text(
-                                            text = "ÉTAT DE SYNCHRONISATION",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, letterSpacing = 1.sp),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        StitchSectionLabel("Etat de synchronisation")
                                     }
+
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
-                                            text = uiState.lastRefreshAt?.let { "Dernier sync" } ?: "En attente",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.primary
+                                            text = if (uiState.lastRefreshAt == null) "En attente" else "Dernier sync",
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primaryContainer
                                         )
                                         Box(
                                             modifier = Modifier
                                                 .size(8.dp)
                                                 .clip(CircleShape)
-                                                .background(if (uiState.isStale || uiState.errorMessage != null) ErrorRed else Color(0xFF34D399))
+                                                .background(if (uiState.isStale || uiState.errorMessage != null) ErrorRed else Success)
                                         )
                                     }
                                 }
                             }
                         }
 
-                        items(
-                            items = uiState.trips,
-                            key = { it.id },
-                            contentType = { "trip_card" }
-                        ) { trip ->
-                            TripListCard(
-                                trip = trip,
-                                onClick = { onNavigateToDetail(trip.id) }
-                            )
+                        if (uiState.trips.isEmpty()) {
+                            item("empty_state") {
+                                StitchCard {
+                                    Text(
+                                        text = "Aucun trajet assigne",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = uiState.errorMessage
+                                            ?: "Les trajets synchronises apparaitront ici apres le prochain rafraichissement.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            items(
+                                items = uiState.trips,
+                                key = { it.id },
+                                contentType = { "trip_card" }
+                            ) { trip ->
+                                TripListCard(
+                                    trip = trip,
+                                    onClick = { onNavigateToDetail(trip.id) }
+                                )
+                            }
                         }
                     }
                 }
@@ -201,32 +216,41 @@ private fun TripListCard(
     trip: TripListItemUiModel,
     onClick: () -> Unit
 ) {
-    val leftBorderColor = trip.statusTone.leftBorderColor()
-    val pillBgColor = trip.statusTone.pillBackgroundColor()
-    val pillTextColor = trip.statusTone.pillTextColor()
-    val opacity = if (trip.statusTone == TripCardStatusTone.Completed) 0.8f else 1f
+    val borderColor = trip.statusTone.leftBorderColor()
+    val statusContainer = trip.statusTone.pillBackgroundColor()
+    val statusColor = trip.statusTone.pillTextColor()
+    val amountContainer = when (trip.statusTone) {
+        TripCardStatusTone.InProgress -> MaterialTheme.colorScheme.primaryContainer
+        TripCardStatusTone.Scheduled -> MaterialTheme.colorScheme.primaryContainer
+        TripCardStatusTone.Completed -> MaterialTheme.colorScheme.surfaceContainerHigh
+        TripCardStatusTone.Cancelled -> MaterialTheme.colorScheme.errorContainer
+        TripCardStatusTone.Unknown -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val amountColor = when (trip.statusTone) {
+        TripCardStatusTone.InProgress,
+        TripCardStatusTone.Scheduled -> MaterialTheme.colorScheme.onPrimaryContainer
+        TripCardStatusTone.Cancelled -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = opacity))
-            .border(1.dp, Color(0xFFC3C5D7).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-            .shadow(1.dp, RoundedCornerShape(12.dp))
+    StitchCard(
+        modifier = Modifier.clickable(onClick = onClick),
+        shadowElevation = 0.dp,
+        contentPadding = PaddingValues(0.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(
                 modifier = Modifier
                     .width(4.dp)
-                    .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
-                    .background(leftBorderColor)
+                    .height(110.dp)
+                    .background(borderColor)
             )
 
             Column(
                 modifier = Modifier
-                    .padding(16.dp)
                     .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -234,54 +258,41 @@ private fun TripListCard(
                     verticalAlignment = Alignment.Top
                 ) {
                     Text(
-                        text = "${trip.origin} → ${trip.destination}",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
-                        color = if (trip.statusTone == TripCardStatusTone.Cancelled) ErrorRed else MaterialTheme.colorScheme.onSurface 
+                        text = "${trip.origin} -> ${trip.destination}",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (trip.statusTone == TripCardStatusTone.Cancelled) ErrorRed else MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
+                    StitchPill(
                         text = trip.statusLabel.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp),
-                        color = pillTextColor,
-                        modifier = Modifier
-                            .background(pillBgColor, RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                        containerColor = statusContainer,
+                        contentColor = statusColor
                     )
                 }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = trip.departureLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (trip.statusTone == TripCardStatusTone.Completed) 0.6f else 1f)
-                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                StitchMonoText(
+                    text = trip.departureLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
+                    StitchPill(
                         text = trip.busPlate,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 4.dp)
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    
-                    val priceBgColor = if (trip.statusTone == TripCardStatusTone.Cancelled) MaterialTheme.colorScheme.surfaceContainerHighest else if (trip.statusTone == TripCardStatusTone.Completed) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.primaryContainer
-                    val priceTextColor = if (trip.statusTone == TripCardStatusTone.Cancelled) ErrorRed.copy(alpha=0.5f) else if (trip.statusTone == TripCardStatusTone.Completed) MaterialTheme.colorScheme.onSurface else Color.White
-                    
-                    Text(
+                    StitchPill(
                         text = trip.priceLabel,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = priceTextColor,
-                        modifier = Modifier
-                            .background(priceBgColor, RoundedCornerShape(16.dp))
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                        containerColor = amountContainer,
+                        contentColor = amountColor,
+                        textStyle = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = com.souigat.mobile.ui.theme.BrandMono
+                        )
                     )
                 }
             }
@@ -291,27 +302,27 @@ private fun TripListCard(
 
 @Composable
 private fun TripCardStatusTone.leftBorderColor(): Color = when (this) {
-    TripCardStatusTone.Scheduled -> Color(0xFF003FB1) // Primary
-    TripCardStatusTone.InProgress -> Color(0xFF34D399) // Green
-    TripCardStatusTone.Completed -> Color(0xFF555F6D) // Secondary
-    TripCardStatusTone.Cancelled -> ErrorRed // Red
-    TripCardStatusTone.Unknown -> Color(0xFFC3C5D7)
+    TripCardStatusTone.Scheduled -> MaterialTheme.colorScheme.primary
+    TripCardStatusTone.InProgress -> Success
+    TripCardStatusTone.Completed -> MaterialTheme.colorScheme.onSurfaceVariant
+    TripCardStatusTone.Cancelled -> ErrorRed
+    TripCardStatusTone.Unknown -> MaterialTheme.colorScheme.outlineVariant
 }
 
 @Composable
 private fun TripCardStatusTone.pillBackgroundColor(): Color = when (this) {
-    TripCardStatusTone.Scheduled -> Color(0xFFDBE1FF)
-    TripCardStatusTone.InProgress -> Color(0xFFDCFCE7)
-    TripCardStatusTone.Completed -> Color(0xFFE0E3E6)
-    TripCardStatusTone.Cancelled -> Color(0xFFFFDAD6)
-    TripCardStatusTone.Unknown -> Color(0xFFF2F4F7)
+    TripCardStatusTone.Scheduled -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    TripCardStatusTone.InProgress -> SuccessSoft
+    TripCardStatusTone.Completed -> MaterialTheme.colorScheme.surfaceContainerHigh
+    TripCardStatusTone.Cancelled -> MaterialTheme.colorScheme.errorContainer
+    TripCardStatusTone.Unknown -> MaterialTheme.colorScheme.surfaceContainerHigh
 }
 
 @Composable
 private fun TripCardStatusTone.pillTextColor(): Color = when (this) {
-    TripCardStatusTone.Scheduled -> Color(0xFF003FB1)
-    TripCardStatusTone.InProgress -> Color(0xFF166534)
-    TripCardStatusTone.Completed -> Color(0xFF555F6D)
-    TripCardStatusTone.Cancelled -> ErrorRed
-    TripCardStatusTone.Unknown -> Color(0xFF596372)
+    TripCardStatusTone.Scheduled -> MaterialTheme.colorScheme.primary
+    TripCardStatusTone.InProgress -> Success
+    TripCardStatusTone.Completed -> MaterialTheme.colorScheme.onSurfaceVariant
+    TripCardStatusTone.Cancelled -> MaterialTheme.colorScheme.error
+    TripCardStatusTone.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
 }

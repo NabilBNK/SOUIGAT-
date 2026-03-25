@@ -27,6 +27,13 @@ export interface TokenPair {
     refresh: string
 }
 
+export interface FirebaseCustomTokenResponse {
+    token: string
+    claims: Record<string, unknown>
+    expires_in: number
+    issued_at: string
+}
+
 export interface AuthState {
     user: User | null
     accessToken: string | null

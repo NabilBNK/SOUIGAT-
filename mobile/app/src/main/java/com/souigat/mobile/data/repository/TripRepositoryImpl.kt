@@ -2,6 +2,7 @@ package com.souigat.mobile.data.repository
 
 import com.souigat.mobile.data.local.dao.TripDao
 import com.souigat.mobile.data.local.entity.TripEntity
+import com.souigat.mobile.data.firebase.FirebaseTripDataSource
 import com.souigat.mobile.notification.TripReminderScheduler
 import com.souigat.mobile.data.remote.api.TripApi
 import com.souigat.mobile.data.remote.dto.TripDetailDto
@@ -21,18 +22,50 @@ import javax.inject.Singleton
 class TripRepositoryImpl @Inject constructor(
     private val tripApi: TripApi,
     private val tripDao: TripDao,
-    private val tripReminderScheduler: TripReminderScheduler
+    private val tripReminderScheduler: TripReminderScheduler,
+    private val firebaseTripDataSource: FirebaseTripDataSource
 ) : TripRepository {
 
     override suspend fun getTripList(): Result<List<TripListDto>> {
-        val result = safeApiCall { tripApi.getTripList() }
-        return result.mapCatching { page ->
+        val firebaseResult = firebaseTripDataSource.fetchTripList()
+        if (firebaseResult.isSuccess) {
+            val mirroredTrips = firebaseResult.getOrNull().orEmpty()
+            if (mirroredTrips.isNotEmpty()) {
+                persistTripListLocally(mirroredTrips)
+                return Result.success(mirroredTrips)
+            }
+
+            Timber.i("TripRepositoryImpl: Firestore returned no trips, fallback to backend API.")
+        } else {
+            Timber.w(
+                firebaseResult.exceptionOrNull(),
+                "TripRepositoryImpl: Firestore list read failed, fallback to backend API.",
+            )
+        }
+
+        val backendResult = safeApiCall { tripApi.getTripList() }
+        return backendResult.mapCatching { page ->
             persistTripListLocally(page.results)
             page.results
         }
     }
 
-    override suspend fun getTripDetail(id: Int): Result<TripDetailDto> {
+    override suspend fun getTripDetail(id: Long): Result<TripDetailDto> {
+        val firebaseResult = firebaseTripDataSource.fetchTripDetail(id)
+        if (firebaseResult.isSuccess) {
+            val mirroredDetail = firebaseResult.getOrNull()
+            if (mirroredDetail != null) {
+                persistTripDetailLocally(mirroredDetail)
+                return Result.success(mirroredDetail)
+            }
+        } else {
+            Timber.w(
+                firebaseResult.exceptionOrNull(),
+                "TripRepositoryImpl: Firestore detail read failed for trip=%s, fallback to backend API.",
+                id,
+            )
+        }
+
         return safeApiCall { tripApi.getTripDetail(id) }
             .mapCatching { detail ->
                 persistTripDetailLocally(detail)
@@ -40,18 +73,18 @@ class TripRepositoryImpl @Inject constructor(
             }
     }
 
-    override suspend fun startTrip(id: Int): Result<TripStatusDto> {
+    override suspend fun startTrip(id: Long): Result<TripStatusDto> {
         return safeApiCall { tripApi.startTrip(id) }
             .mapCatching { status ->
-                updateLocalTripStatus(id.toLong(), status.status)
+                updateLocalTripStatus(id, status.status)
                 status
             }
     }
 
-    override suspend fun completeTrip(id: Int): Result<TripStatusDto> {
+    override suspend fun completeTrip(id: Long): Result<TripStatusDto> {
         return safeApiCall { tripApi.completeTrip(id) }
             .mapCatching { status ->
-                updateLocalTripStatus(id.toLong(), status.status)
+                updateLocalTripStatus(id, status.status)
                 status
             }
     }
@@ -116,16 +149,22 @@ class TripRepositoryImpl @Inject constructor(
     }
 
     private suspend fun persistTripListLocally(trips: List<TripListDto>) {
-        if (trips.isEmpty()) {
+        val serverIds = trips.map { it.id }
+        if (serverIds.isEmpty()) {
+            tripDao.clearOperationalServerTrips()
+            tripReminderScheduler.syncTrips(emptyList())
             return
         }
 
-        val existingByServerId = tripDao.getByServerIds(trips.map { it.id.toLong() })
+        // Keep local operational list aligned with server scope (per logged-in user).
+        tripDao.pruneOperationalServerTrips(serverIds)
+
+        val existingByServerId = tripDao.getByServerIds(serverIds)
             .associateBy { it.serverId }
         val updatedAt = System.currentTimeMillis()
 
         val entities = trips.map { dto ->
-            val serverTripId = dto.id.toLong()
+            val serverTripId = dto.id
             val existing = existingByServerId[serverTripId]
 
             TripEntity(
@@ -151,7 +190,7 @@ class TripRepositoryImpl @Inject constructor(
     }
 
     private suspend fun persistTripDetailLocally(detail: TripDetailDto) {
-        val serverTripId = detail.id.toLong()
+        val serverTripId = detail.id
         val existing = tripDao.getByLocalOrServerId(serverTripId)
 
         val entity = TripEntity(

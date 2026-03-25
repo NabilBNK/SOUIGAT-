@@ -2,15 +2,15 @@ import type { ReactNode } from 'react'
 
 export function Badge({ children, variant = 'default' }: { children: ReactNode; variant?: 'default' | 'success' | 'warning' | 'error' | 'brand' }) {
     const variants = {
-        default: 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400',
-        success: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
-        warning: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
-        error: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
-        brand: 'bg-[#137fec]/15 dark:bg-[#137fec]/20 text-[#137fec] dark:text-[#60a5fa]',
+        default: 'bg-surface-700 text-text-secondary border border-surface-600 shadow-inner',
+        success: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+        warning: 'bg-accent-500/10 text-accent-400 border border-accent-500/20',
+        error: 'bg-red-500/10 text-red-400 border border-red-500/20',
+        brand: 'bg-brand-500/15 text-brand-400 border border-brand-500/20 shadow-sm',
     }
 
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[11px] font-semibold tracking-wide uppercase ${variants[variant]}`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${variants[variant]}`}>
             {children}
         </span>
     )

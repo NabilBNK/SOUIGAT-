@@ -1,5 +1,6 @@
 import logging
 
+from django.db import transaction
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
@@ -7,6 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from api.filters.admin_filters import AuditLogFilter
 from api.models import AuditLog, Bus, Office, PricingConfig, User
 from api.permissions import RBACPermission
+from api.services.firebase_admin import schedule_firebase_auth_user_sync
 from api.serializers.admin_serializers import (
     AuditLogSerializer,
     BusManagementSerializer,
@@ -41,6 +43,15 @@ class UserManagementViewSet(AdminViewSetMixin, viewsets.ModelViewSet):
         """Soft deactivate instead of hard delete."""
         instance.is_active = False
         instance.save(update_fields=['is_active'])
+
+        transaction.on_commit(
+            lambda: schedule_firebase_auth_user_sync(
+                user_id=instance.id,
+                raw_password=None,
+                allow_create=False,
+            )
+        )
+
         logger.info('User deactivated: %s by admin %s', instance.id, self.request.user.id)
 
 

@@ -73,7 +73,7 @@ export function BusManagement() {
     const columns = [
         columnHelper.accessor('plate_number', {
             header: 'Immatriculation',
-            cell: info => <span className="font-mono font-medium text-slate-900 dark:text-slate-100">{info.getValue()}</span>,
+            cell: info => <span className="font-mono font-medium text-text-primary">{info.getValue()}</span>,
         }),
         columnHelper.accessor('model', {
             header: 'Modèle',
@@ -82,19 +82,19 @@ export function BusManagement() {
         columnHelper.accessor('capacity', {
             header: 'Capacité',
             cell: info => (
-                <span className="flex items-center gap-1.5 text-sm text-slate-900 dark:text-slate-100">
-                    <Users className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> {info.getValue()} places
+                <span className="flex items-center gap-1.5 text-sm text-text-primary">
+                    <Users className="w-3.5 h-3.5 text-text-muted" /> {info.getValue()} places
                 </span>
             ),
         }),
         columnHelper.accessor('office_name', {
             header: 'Agence d\'attachement',
-            cell: info => info.getValue() || <span className="text-slate-400 dark:text-slate-500 italic">Non assigné</span>,
+            cell: info => info.getValue() || <span className="text-text-muted italic">Non assigné</span>,
         }),
         columnHelper.accessor('is_active', {
             header: 'Statut',
             cell: info => (
-                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${info.getValue() ? 'bg-status-success/10 text-emerald-600 dark:text-emerald-400 border-status-success/20' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-status-error/20'}`}>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium border ${info.getValue() ? 'bg-status-success/10 text-emerald-400 border-status-success/20' : 'bg-red-500/10 bg-red-500/10 text-red-600 dark:text-red-400 border-status-error/20'}`}>
                     {info.getValue() ? 'En service' : 'Hors service'}
                 </span>
             ),
@@ -106,7 +106,7 @@ export function BusManagement() {
                 const bus = info.row.original
                 return (
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" className="p-1.5 h-auto text-[#137fec] dark:text-[#60a5fa] hover:bg-[#137fec]/10" onClick={() => openEditModal(bus)} title="Modifier">
+                        <Button variant="ghost" className="p-1.5 h-auto text-brand-400 hover:bg-[#137fec]/10" onClick={() => openEditModal(bus)} title="Modifier">
                             <Edit className="w-4 h-4" />
                         </Button>
                         <Button
@@ -132,8 +132,8 @@ export function BusManagement() {
         <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Flotte de Bus</h1>
-                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Gérez l'inventaire des bus et leur affectation aux agences.</p>
+                    <h1 className="text-2xl font-bold text-text-primary">Flotte de Bus</h1>
+                    <p className="text-sm text-text-muted mt-1">Gérez l'inventaire des bus et leur affectation aux agences.</p>
                 </div>
                 <Button onClick={openCreateModal} className="shrink-0 flex items-center gap-2">
                     <Plus className="w-4 h-4" />
@@ -141,20 +141,20 @@ export function BusManagement() {
                 </Button>
             </div>
 
-            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4">
+            <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 p-4 rounded-xl flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                     <input
                         type="text"
                         placeholder="Rechercher (Immatriculation, Modèle)..."
                         value={search}
                         onChange={handleSearch}
-                        className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg pl-10 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                        className="w-full bg-surface-900 border border-surface-700 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden min-h-[400px]">
+            <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl overflow-hidden min-h-[400px]">
                 <DataTable
                     data={busesData?.results || []}
                     columns={columns}
@@ -173,7 +173,7 @@ export function BusManagement() {
             >
                 <form onSubmit={(e) => { e.preventDefault(); busMutation.mutate(formData) }} className="space-y-4">
                     {busMutation.error && (
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-status-error/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-start gap-2">
+                        <div className="bg-red-500/10 bg-red-500/10 border border-status-error/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm flex items-start gap-2">
                             <ShieldAlert className="w-5 h-5 shrink-0" />
                             <p>{(busMutation.error as any)?.response?.data?.detail || (busMutation.error as Error).message || "Une erreur est survenue."}</p>
                         </div>
@@ -181,23 +181,23 @@ export function BusManagement() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Immatriculation *</label>
+                            <label className="block text-sm font-medium text-text-primary mb-1">Immatriculation *</label>
                             <input
                                 required
                                 type="text"
                                 placeholder="12345 124 16"
-                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:ring-2 focus:ring-brand-500"
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary font-mono focus:ring-2 focus:ring-brand-500"
                                 value={formData.plate_number || ''}
                                 onChange={(e) => setFormData(p => ({ ...p, plate_number: e.target.value }))}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Capacité *</label>
+                            <label className="block text-sm font-medium text-text-primary mb-1">Capacité *</label>
                             <input
                                 required
                                 type="number"
                                 min="1"
-                                className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                 value={formData.capacity || ''}
                                 onChange={(e) => setFormData(p => ({ ...p, capacity: Number(e.target.value) }))}
                             />
@@ -205,21 +205,21 @@ export function BusManagement() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Modèle de bus</label>
+                        <label className="block text-sm font-medium text-text-primary mb-1">Modèle de bus</label>
                         <input
                             type="text"
                             placeholder="Ex: Higer 55"
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                             value={formData.model || ''}
                             onChange={(e) => setFormData(p => ({ ...p, model: e.target.value }))}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Agence d'attachement *</label>
+                        <label className="block text-sm font-medium text-text-primary mb-1">Agence d'attachement *</label>
                         <select
                             required
-                            className="w-full bg-slate-100 dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                             value={formData.office || ''}
                             onChange={(e) => setFormData(p => ({ ...p, office: Number(e.target.value) }))}
                         >

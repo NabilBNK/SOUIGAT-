@@ -1,11 +1,14 @@
 package com.souigat.mobile.ui.screens.trips
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.souigat.mobile.data.local.entity.CargoTicketEntity
 import com.souigat.mobile.data.local.entity.ExpenseEntity
 import com.souigat.mobile.data.local.entity.PassengerTicketEntity
+import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.data.remote.dto.SettlementPreviewDto
 import com.souigat.mobile.data.remote.dto.TripDetailDto
 import com.souigat.mobile.data.remote.dto.TripStatusDto
@@ -26,6 +29,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+@Immutable
 data class TripPriceLineUiModel(
     val label: String,
     val value: String
@@ -37,6 +41,7 @@ enum class OfflineActivityKind {
     Expense
 }
 
+@Immutable
 data class OfflineActivityUiModel(
     val id: String,
     val title: String,
@@ -46,8 +51,9 @@ data class OfflineActivityUiModel(
     val kind: OfflineActivityKind
 )
 
+@Stable
 data class TripDetailUiModel(
-    val id: Int,
+    val id: Long,
     val origin: String,
     val destination: String,
     val status: String,
@@ -64,9 +70,11 @@ data class TripDetailUiModel(
     val priceLines: List<TripPriceLineUiModel>,
     val canStartTrip: Boolean,
     val canCompleteTrip: Boolean,
-    val canCreateOfflineItems: Boolean
+    val canCreateOfflineItems: Boolean,
+    val canCreateCargoItems: Boolean
 )
 
+@Immutable
 data class SettlementPreviewUiModel(
     val settlementId: Int,
     val status: String,
@@ -89,10 +97,14 @@ class TripDetailViewModel @Inject constructor(
     private val tripRepository: TripRepository,
     expenseRepository: ExpenseRepository,
     ticketRepository: TicketRepository,
+    private val tokenManager: TokenManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val tripId: Int = checkNotNull(savedStateHandle["tripId"])
+    private val tripId: Long = savedStateHandle.get<Any>("tripId")
+        ?.toString()
+        ?.toLongOrNull()
+        ?: error("tripId argument is required")
 
     private val _uiState = MutableStateFlow<TripDetailUiState>(TripDetailUiState.Loading)
     val uiState: StateFlow<TripDetailUiState> = _uiState.asStateFlow()
@@ -100,15 +112,18 @@ class TripDetailViewModel @Inject constructor(
     private val _actionState = MutableStateFlow<ActionState>(ActionState.Idle)
     val actionState: StateFlow<ActionState> = _actionState.asStateFlow()
 
-    val passengerTickets = ticketRepository.observePassengerTickets(tripId.toLong())
+    val passengerTicketCount = ticketRepository.observePassengerTicketCount(tripId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    val passengerTickets = ticketRepository.observePassengerTickets(tripId)
         .map { tickets -> tickets.map { it.toOfflinePassengerUiModel() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val cargoTickets = ticketRepository.observeCargoTickets(tripId.toLong())
+    val cargoTickets = ticketRepository.observeCargoTickets(tripId)
         .map { tickets -> tickets.map { it.toOfflineCargoUiModel() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val expenses = expenseRepository.observeExpensesByTrip(tripId.toLong())
+    val expenses = expenseRepository.observeExpensesByTrip(tripId)
         .map { expenses -> expenses.map { it.toOfflineExpenseUiModel() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -185,6 +200,9 @@ class TripDetailViewModel @Inject constructor(
     }
 
     private fun TripDetailDto.toTripDetailUiModel(): TripDetailUiModel {
+        val userRole = tokenManager.getUserRole().orEmpty()
+        val canCreateCargoItems = status in setOf("scheduled", "in_progress") && userRole in setOf("admin", "office_staff")
+
         val statusLabel = when (status) {
             "scheduled" -> "Planifie"
             "in_progress" -> "En cours"
@@ -216,7 +234,8 @@ class TripDetailViewModel @Inject constructor(
             ),
             canStartTrip = status == "scheduled",
             canCompleteTrip = status == "in_progress",
-            canCreateOfflineItems = status == "in_progress"
+            canCreateOfflineItems = status == "in_progress",
+            canCreateCargoItems = canCreateCargoItems
         )
     }
 

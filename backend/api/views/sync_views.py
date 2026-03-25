@@ -356,6 +356,12 @@ def _create_passenger_ticket(payload, trip, user, trip_state):
 
 def _create_cargo_ticket(payload, trip, user, trip_state):
     """Create cargo ticket from sync payload."""
+    if user.role not in ('admin', 'office_staff'):
+        raise ValidationError('Only admin or office staff can create cargo tickets.')
+
+    if user.role == 'office_staff' and user.office_id not in (trip.origin_office_id, trip.destination_office_id):
+        raise ValidationError('Office staff can only create cargo tickets for trips linked to their office.')
+
     tier = payload.get('cargo_tier', 'small')
 
     # Bug #3 fix: validate tier instead of silent fallback to 0

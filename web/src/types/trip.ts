@@ -42,6 +42,7 @@ export interface TripFilters {
     date_from?: string
     date_to?: string
     page?: number
+    page_size?: number
 }
 
 export interface TripActionResponse {

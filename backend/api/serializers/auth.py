@@ -3,8 +3,14 @@ import logging
 from django.contrib.auth import authenticate
 from django.core.validators import RegexValidator
 from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
 
 from api.models import User
+from api.services.firebase_admin import (
+    FirebaseConfigurationError,
+    extract_phone_from_firebase_email,
+    verify_firebase_id_token,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +47,6 @@ class LoginSerializer(serializers.Serializer):
                 'device_id': 'Required for mobile platform.',
             })
 
-        from rest_framework.exceptions import AuthenticationFailed
-
         # Same error for wrong phone or password (prevent enumeration)
         try:
             user = User.objects.get(phone=phone)
@@ -56,6 +60,45 @@ class LoginSerializer(serializers.Serializer):
             raise AuthenticationFailed('Invalid credentials.')
 
         attrs['user'] = user
+        return attrs
+
+
+class FirebaseLoginSerializer(serializers.Serializer):
+    id_token = serializers.CharField(write_only=True)
+    device_id = serializers.CharField(max_length=64)
+    platform = serializers.ChoiceField(choices=['mobile'], default='mobile')
+
+    def validate(self, attrs):
+        id_token = attrs['id_token']
+
+        try:
+            decoded = verify_firebase_id_token(id_token)
+        except FirebaseConfigurationError as exc:
+            raise serializers.ValidationError({'detail': str(exc)}) from exc
+        except Exception:
+            raise AuthenticationFailed('Invalid Firebase credentials.')
+
+        uid = decoded.get('uid')
+        user = None
+
+        if isinstance(uid, str) and uid.startswith('souigat-user-'):
+            try:
+                user_id = int(uid.rsplit('-', 1)[-1])
+                user = User.objects.filter(id=user_id).first()
+            except ValueError:
+                user = None
+
+        if user is None:
+            email = decoded.get('email')
+            phone = extract_phone_from_firebase_email(email)
+            if phone:
+                user = User.objects.filter(phone=phone).first()
+
+        if user is None or not user.is_active:
+            raise AuthenticationFailed('Invalid credentials.')
+
+        attrs['user'] = user
+        attrs['firebase_claims'] = decoded
         return attrs
 
 

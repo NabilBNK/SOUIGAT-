@@ -282,14 +282,6 @@ class TripViewSet(viewsets.ModelViewSet):
             # MatrixPermission handles blocking office_staff from this action.
             # Admin role handles cross-office scoping seamlessly here.
 
-            now = timezone.now()
-            # Enforce start-time constraint: cannot start trip more than 30 mins before departure
-            if trip.departure_datetime > now + timedelta(minutes=30):
-                raise ValidationError({
-                    'error_code': 'TOO_EARLY',
-                    'detail': f'Cannot start trip more than 30 minutes before scheduled departure ({trip.departure_datetime}).'
-                })
-
             if trip.status != 'scheduled':
                 raise ValidationError(
                     f'Only scheduled trips can be started. Current status: {trip.status}'

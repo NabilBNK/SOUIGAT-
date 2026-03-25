@@ -58,7 +58,7 @@ class SyncScheduler @Inject constructor(
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME_ONETIME,
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             oneTimeWorkRequest
         )
     }

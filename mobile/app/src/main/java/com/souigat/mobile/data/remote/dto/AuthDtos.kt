@@ -25,6 +25,20 @@ data class LogoutRequest(
     val refresh: String
 )
 
+@Serializable
+data class FirebaseCustomTokenRequest(
+    val platform: String = "mobile"
+)
+
+@Serializable
+data class FirebaseLoginRequest(
+    @SerialName("id_token")
+    val idToken: String,
+    @SerialName("device_id")
+    val deviceId: String,
+    val platform: String = "mobile"
+)
+
 // RESPONSE DTOs
 @Serializable
 data class LoginResponse(
@@ -45,7 +59,7 @@ data class UserProfileDto(
     val last_name: String,
     val role: String,
     val department: String?,
-    val office: Int,
+    val office: Int?,
     val office_name: String?,
     val office_city: String?,
     val is_active: Boolean,
@@ -61,4 +75,11 @@ data class RefreshResponse(
     val access: String,
     val refresh: String? = null, // Backend may send new refresh, may not
     val strategy: String? = null
+)
+
+@Serializable
+data class FirebaseCustomTokenResponse(
+    val token: String,
+    @SerialName("expires_in")
+    val expiresIn: Int
 )

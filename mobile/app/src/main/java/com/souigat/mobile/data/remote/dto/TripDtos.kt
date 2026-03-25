@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class TripListDto(
-    val id: Int,
+    val id: Long,
     val origin: String,
     val destination: String,
     val conductor: String,
@@ -20,7 +20,7 @@ data class TripListDto(
 
 @Serializable
 data class TripDetailDto(
-    val id: Int,
+    val id: Long,
     @SerialName("origin_office")
     val originOffice: Int,
     @SerialName("destination_office")

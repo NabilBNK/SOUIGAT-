@@ -1,5 +1,5 @@
 import client, { getRefreshToken } from './client'
-import type { LoginRequest, TokenPair, User } from '../types/auth'
+import type { FirebaseCustomTokenResponse, LoginRequest, TokenPair, User } from '../types/auth'
 
 export async function login(data: LoginRequest): Promise<TokenPair> {
     const response = await client.post<TokenPair>('/auth/login/', data)
@@ -20,5 +20,10 @@ export async function refreshTokenApi(refresh: string): Promise<TokenPair> {
         refresh,
         platform: 'web',
     })
+    return response.data
+}
+
+export async function getFirebaseCustomToken(platform: 'web' | 'mobile' = 'web'): Promise<FirebaseCustomTokenResponse> {
+    const response = await client.post<FirebaseCustomTokenResponse>('/auth/firebase-token/', { platform })
     return response.data
 }

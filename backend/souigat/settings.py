@@ -79,7 +79,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'souigat.wsgi.application'
 
 # Database (PostgreSQL via python-decouple, fallback to SQLite for local testing)
-_db_host = config('DB_HOST', default='db')
+_db_host = config('DB_HOST', default='db').strip()
 if _db_host == 'sqlite':
     DATABASES = {
         'default': {
@@ -193,6 +193,10 @@ CELERY_BEAT_SCHEDULE = {
     'cleanup-old-synclogs': {
         'task': 'api.tasks.cleanup_old_synclogs',
         'schedule': crontab(hour=5, minute=0, day_of_week=0),  # Sunday 5 AM
+    },
+    'drain-firebase-mirror-events': {
+        'task': 'api.tasks.drain_firebase_mirror_events',
+        'schedule': crontab(minute='*/1'),
     },
 }
 

@@ -1,0 +1,12 @@
+{
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "anonymous": false
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

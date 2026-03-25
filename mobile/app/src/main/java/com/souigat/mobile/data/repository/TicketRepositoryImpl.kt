@@ -2,6 +2,7 @@ package com.souigat.mobile.data.repository
 
 import androidx.room.withTransaction
 import com.souigat.mobile.data.local.SouigatDatabase
+import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.data.local.dao.CargoTicketDao
 import com.souigat.mobile.data.local.dao.PassengerTicketDao
 import com.souigat.mobile.data.local.dao.SyncQueueDao
@@ -30,7 +31,8 @@ class TicketRepositoryImpl @Inject constructor(
     private val passengerDao: PassengerTicketDao,
     private val cargoDao: CargoTicketDao,
     private val syncQueueDao: SyncQueueDao,
-    private val syncScheduler: SyncScheduler
+    private val syncScheduler: SyncScheduler,
+    private val tokenManager: TokenManager
 ) : TicketRepository {
 
     override suspend fun createPassengerTicket(
@@ -252,6 +254,13 @@ class TicketRepositoryImpl @Inject constructor(
         currency: String,
         paymentSource: String
     ): Result<CargoTicketEntity> = withContext(Dispatchers.IO) {
+        val role = tokenManager.getUserRole().orEmpty()
+        if (role !in setOf("admin", "office_staff")) {
+            return@withContext Result.failure(
+                IllegalStateException("Seuls les admins et agents de bureau peuvent creer des colis.")
+            )
+        }
+
         val localTripId = resolveLocalTripId(tripId)
             ?: run {
                 Timber.w("createCargoTicket aborted: trip not found locally. requestedTripId=%d", tripId)
@@ -342,6 +351,10 @@ class TicketRepositoryImpl @Inject constructor(
                 lastException
             )
         )
+    }
+
+    override fun observePassengerTicketCount(tripId: Long): Flow<Int> {
+        return passengerDao.observeCountByTripOrServerId(tripId)
     }
 
     override fun observePassengerTickets(tripId: Long): Flow<List<PassengerTicketEntity>> {

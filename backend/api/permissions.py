@@ -38,7 +38,7 @@ PERMISSION_MATRIX = {
     },
     'conductor': [
         'start_trip', 'complete_trip', 'create_passenger_ticket',
-        'create_cargo_ticket', 'transition_cargo_status', 'create_expense', 'view_own_trip',
+        'create_expense', 'view_own_trip',
         'sync_batch',
     ],
     'driver': ['view_own_trip'],
