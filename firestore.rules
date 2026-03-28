@@ -18,17 +18,12 @@ service cloud.firestore {
         && request.auth.uid == ('souigat-user-' + candidateUserId);
     }
 
-    function isSouigatUserUid() {
-      return request.auth.uid.matches('^souigat-user-[0-9]+$');
-    }
-
     function officeId() {
       return request.auth.token.office_id;
     }
 
     function canReadTrip(data) {
       return role() == 'admin'
-        || isSouigatUserUid()
         || (
           role() == 'conductor'
           && data.conductor_id == userId()
@@ -84,6 +79,21 @@ service cloud.firestore {
         && canReadTripById(request.resource.data.trip_id);
     }
 
+    function canConductorCreateCargoTicket() {
+      return (role() == 'conductor' || uidMatchesUserId(request.resource.data.created_by_id))
+        && request.resource.data.entity == 'cargo_ticket'
+        && (
+          request.resource.data.created_by_id == userId()
+          || uidMatchesUserId(request.resource.data.created_by_id)
+        )
+        && (
+          request.resource.data.conductor_id == userId()
+          || uidMatchesUserId(request.resource.data.conductor_id)
+        )
+        && request.resource.data.is_deleted == false
+        && canReadTripById(request.resource.data.trip_id);
+    }
+
     function canReadMirrorByScope(data) {
       return role() == 'admin'
         || (
@@ -99,14 +109,14 @@ service cloud.firestore {
     }
 
     function canConductorUpdateTripStatus() {
-      return (role() == 'conductor' || uidMatchesUserId(resource.data.conductor_id))
-        && (
-          resource.data.conductor_id == userId()
-          || uidMatchesUserId(resource.data.conductor_id)
-        )
+      let fromStatus = resource.data.status;
+      let toStatus = request.resource.data.status;
+      return canReadTrip(resource.data)
         && resource.data.is_deleted == false
-        && request.resource.data.status in ['in_progress', 'completed']
-        && resource.data.status in ['scheduled', 'in_progress']
+        && (
+          (fromStatus == 'scheduled' && toStatus == 'in_progress')
+          || (fromStatus == 'in_progress' && toStatus == 'completed')
+        )
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
           'source_updated_at',
@@ -127,30 +137,31 @@ service cloud.firestore {
     }
 
     match /trip_mirror_v1/{tripId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if isSignedIn() && canReadTrip(resource.data);
       allow create, delete: if isSignedIn() && canWriteMirror();
-      allow update: if isSignedIn() && (canWriteMirror() || canConductorUpdateTripStatus() || isSouigatUserUid());
+      allow update: if isSignedIn() && (canWriteMirror() || canConductorUpdateTripStatus());
     }
 
     match /passenger_ticket_mirror_v1/{ticketId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && (canWriteMirror() || isSouigatUserUid());
+      allow get, list: if isSignedIn() && canReadMirrorByScope(resource.data);
+      allow create: if isSignedIn() && (canWriteMirror() || canConductorCreatePassengerTicket());
       allow update, delete: if isSignedIn() && canWriteMirror();
     }
 
     match /cargo_ticket_mirror_v1/{ticketId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn() && canWriteMirror();
+      allow get, list: if isSignedIn() && canReadMirrorByScope(resource.data);
+      allow create: if isSignedIn() && (canWriteMirror() || canConductorCreateCargoTicket());
+      allow update, delete: if isSignedIn() && canWriteMirror();
     }
 
     match /trip_expense_mirror_v1/{expenseId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && (canWriteMirror() || isSouigatUserUid());
+      allow get, list: if isSignedIn() && canReadMirrorByScope(resource.data);
+      allow create: if isSignedIn() && (canWriteMirror() || canConductorCreateTripExpense());
       allow update, delete: if isSignedIn() && canWriteMirror();
     }
 
     match /settlement_mirror_v1/{settlementId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if isSignedIn() && canReadMirrorByScope(resource.data);
       allow create, update, delete: if isSignedIn() && canWriteMirror();
     }
 

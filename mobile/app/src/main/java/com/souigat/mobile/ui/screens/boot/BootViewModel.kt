@@ -1,8 +1,8 @@
 package com.souigat.mobile.ui.screens.boot
 
-import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.souigat.mobile.data.firebase.FirebaseSessionManager
 import com.souigat.mobile.data.local.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -22,7 +21,8 @@ sealed class BootState {
 
 @HiltViewModel
 class BootViewModel @Inject constructor(
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val firebaseSessionManager: FirebaseSessionManager,
 ) : ViewModel() {
 
     private val _bootState = MutableStateFlow<BootState>(BootState.Loading)
@@ -34,49 +34,21 @@ class BootViewModel @Inject constructor(
 
     private fun checkAuthStatus() {
         viewModelScope.launch(Dispatchers.Default) {
-            val session = tokenManager.ensureSessionLoaded()
-            val accessToken = session.accessToken
-            val refreshToken = session.refreshToken
-            val role = session.userRole ?: "conductor"
-
-            if (accessToken == null || refreshToken == null) {
+            tokenManager.ensureSessionLoaded()
+            if (!firebaseSessionManager.hasActiveFirebaseUser()) {
                 _bootState.value = BootState.RequireLogin
                 return@launch
             }
 
-            if (isTokenValid(accessToken)) {
-                Timber.i("Boot: Valid access token found. Logging in offline as $role.")
-                _bootState.value = BootState.Authenticated(role)
-            } else if (isTokenValid(refreshToken)) {
-                // Access expired, but refresh is valid. We can proceed to dashboard and let OkHttp interceptors
-                // handle the silent refresh on the very first API call, ensuring true offline launch capability!
-                Timber.i("Boot: Access expired, valid refresh token found. Silent refresh deferred. Logging in offline as $role.")
-                _bootState.value = BootState.Authenticated(role)
-            } else {
-                Timber.w("Boot: Both tokens expired. Forcing relogin.")
-                tokenManager.clearAll()
+            val firebaseReady = firebaseSessionManager.ensureSignedIn(forceRefresh = false)
+            if (!firebaseReady) {
                 _bootState.value = BootState.RequireLogin
+                return@launch
             }
-        }
-    }
 
-    private fun isTokenValid(token: String): Boolean {
-        return try {
-            val parts = token.split(".")
-            if (parts.size != 3) return false
-
-            val payloadBytes = Base64.decode(parts[1], Base64.URL_SAFE)
-            val jsonObject = JSONObject(String(payloadBytes, Charsets.UTF_8))
-
-            if (!jsonObject.has("exp")) return false
-
-            val expTimestamp = jsonObject.getLong("exp")
-            val currentTimestamp = System.currentTimeMillis() / 1000L
-
-            // Valid if it expires in more than 60 seconds
-            expTimestamp - currentTimestamp > 60
-        } catch (e: Exception) {
-            false
+            val role = tokenManager.getUserRole() ?: "conductor"
+            Timber.i("Boot: Firebase session found. Logging in as $role.")
+            _bootState.value = BootState.Authenticated(role)
         }
     }
 }

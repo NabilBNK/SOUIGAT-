@@ -8,7 +8,6 @@ import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.data.local.SouigatDatabase
 import com.souigat.mobile.data.firebase.FirebaseSessionManager
 import com.souigat.mobile.data.remote.api.AuthApi
-import com.souigat.mobile.data.remote.dto.FirebaseLoginRequest
 import com.souigat.mobile.data.remote.dto.LogoutRequest
 import com.souigat.mobile.data.remote.dto.UserProfileDto
 import com.souigat.mobile.domain.repository.AuthRepository
@@ -60,82 +59,40 @@ class AuthRepositoryImpl @Inject constructor(
             val firebaseSignInDurationMs = System.currentTimeMillis() - firebaseSignInStartMs
             Timber.i("[AUTH] Firebase sign-in completed in ${firebaseSignInDurationMs}ms")
 
+            val firebaseUser = buildOfflineFirebaseProfile(firebaseIdToken, phone.trim())
+                ?: return Result.failure(AuthException.SchemaMismatch)
+
             val previousUserId = tokenManager.getUserId()
-            
-            val backendLoginStartMs = System.currentTimeMillis()
-            val response = try {
-                authApi.firebaseLogin(
-                    FirebaseLoginRequest(
-                        idToken = firebaseIdToken,
-                        deviceId = tokenManager.getDeviceId(),
-                    )
-                )
-            } catch (networkError: IOException) {
-                val offlineUser = buildOfflineFirebaseProfile(firebaseIdToken, phone.trim())
-                if (offlineUser != null) {
-                    if (previousUserId != null && previousUserId != offlineUser.id) {
-                        clearLocalOperationalData()
-                    }
-
-                    tokenManager.saveTokens(firebaseIdToken, firebaseIdToken)
-                    tokenManager.saveUserProfile(
-                        userId = offlineUser.id,
-                        role = offlineUser.role,
-                        officeId = offlineUser.office,
-                        firstName = offlineUser.first_name,
-                        lastName = offlineUser.last_name,
-                    )
-
-                    return Result.success(offlineUser)
-                }
-
-                return Result.failure(AuthException.NetworkUnavailable)
+            if (previousUserId == null || previousUserId != firebaseUser.id) {
+                clearLocalOperationalData()
             }
 
-            if (response.isSuccessful) {
-                val body = response.body()!!
-                val backendLoginDurationMs = System.currentTimeMillis() - backendLoginStartMs
-                Timber.i("[AUTH] Backend login completed in ${backendLoginDurationMs}ms")
-                
-                val incomingUserId = body.user.id
-                if (previousUserId != null && previousUserId != incomingUserId) {
-                    clearLocalOperationalData()
+            // Firebase is the source of authentication for mobile login.
+            // Backend JWT exchange is no longer required for login success.
+            tokenManager.clearBackendTokens()
+            tokenManager.saveUserProfile(
+                userId = firebaseUser.id,
+                role = firebaseUser.role,
+                officeId = firebaseUser.office,
+                firstName = firebaseUser.first_name,
+                lastName = firebaseUser.last_name,
+            )
+
+            val totalLoginDurationMs = System.currentTimeMillis() - loginStartMs
+            Timber.i("[AUTH] Firebase-only login successful in ${totalLoginDurationMs}ms")
+
+            firebaseWarmupJob = authWarmupScope.launch {
+                val warmupStartMs = System.currentTimeMillis()
+                val signedIn = firebaseSessionManager.ensureSignedIn(forceRefresh = false)
+                val warmupDurationMs = System.currentTimeMillis() - warmupStartMs
+                if (!signedIn) {
+                    Timber.w("[AUTH] Async Firebase session warmup was not completed after ${warmupDurationMs}ms.")
+                } else {
+                    Timber.i("[AUTH] Async Firebase session warmup completed in ${warmupDurationMs}ms")
                 }
-                tokenManager.saveTokens(body.access, body.refresh)
-                tokenManager.saveUserProfile(
-                    userId = incomingUserId,
-                    role = body.user.role,
-                    officeId = body.user.office,
-                    firstName = body.user.first_name,
-                    lastName = body.user.last_name
-                )
-                
-                val loginCompletedBeforeWarmupMs = System.currentTimeMillis()
-                val totalLoginDurationMs = loginCompletedBeforeWarmupMs - loginStartMs
-                Timber.i("[AUTH] Login successful in ${totalLoginDurationMs}ms, about to start async Firebase warmup")
-                
-                firebaseWarmupJob = authWarmupScope.launch {
-                    val warmupStartMs = System.currentTimeMillis()
-                    val signedIn = firebaseSessionManager.ensureSignedIn(forceRefresh = false)
-                    val warmupDurationMs = System.currentTimeMillis() - warmupStartMs
-                    if (!signedIn) {
-                        Timber.w("[AUTH] Async Firebase session warmup was not completed after ${warmupDurationMs}ms.")
-                    } else {
-                        Timber.i("[AUTH] Async Firebase session warmup completed in ${warmupDurationMs}ms")
-                    }
-                }
-                Result.success(body.user)
-            } else {
-                val errorCode = response.code()
-                Result.failure(
-                    when (errorCode) {
-                        401 -> AuthException.InvalidCredentials
-                        403 -> AuthException.AccountDisabled
-                        429 -> AuthException.TooManyAttempts
-                        else -> AuthException.ServerError(errorCode)
-                    }
-                )
             }
+
+            Result.success(firebaseUser)
         } catch (e: IOException) {
             Result.failure(AuthException.NetworkUnavailable)
         } catch (e: Exception) {
@@ -152,6 +109,7 @@ class AuthRepositoryImpl @Inject constructor(
         Timber.i("[AUTH] Logout started at ${System.currentTimeMillis()}")
 
         val refreshToken = tokenManager.getRefreshToken()
+        clearLocalOperationalData()
         firebaseSessionManager.signOut()
         tokenManager.clearAll()
 
@@ -204,8 +162,7 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override fun isLoggedIn(): Boolean {
-        return tokenManager.getAccessToken() != null
-                && tokenManager.getRefreshToken() != null
+        return firebaseSessionManager.hasActiveFirebaseUser() && tokenManager.getUserId() != null
     }
 
     private fun buildOfflineFirebaseProfile(idToken: String, phone: String): UserProfileDto? {

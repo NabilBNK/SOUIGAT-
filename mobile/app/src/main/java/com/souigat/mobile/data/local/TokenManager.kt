@@ -158,6 +158,20 @@ class TokenManager @Inject constructor(
         persistSession(currentSession.copy(accessToken = accessToken, refreshToken = refreshToken))
     }
 
+    fun clearBackendTokens() {
+        val currentSession = ensureSessionLoadedSync()
+        if (currentSession.accessToken == null && currentSession.refreshToken == null) {
+            return
+        }
+
+        sharedPreferences.edit()
+            .remove(KEY_ACCESS_TOKEN)
+            .remove(KEY_REFRESH_TOKEN)
+            .apply()
+
+        persistSession(currentSession.copy(accessToken = null, refreshToken = null))
+    }
+
     fun saveUserProfile(
         userId: Int,
         role: String,

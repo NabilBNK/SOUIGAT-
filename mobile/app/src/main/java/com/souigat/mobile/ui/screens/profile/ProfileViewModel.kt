@@ -28,7 +28,7 @@ data class ProfileUiState(
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    syncQueueDao: SyncQueueDao,
+    private val syncQueueDao: SyncQueueDao,
     private val syncScheduler: SyncScheduler,
     tokenManager: TokenManager
 ) : ViewModel() {
@@ -55,7 +55,12 @@ class ProfileViewModel @Inject constructor(
     )
 
     fun triggerSync() {
-        syncScheduler.triggerOneTimeSync()
+        viewModelScope.launch {
+            syncQueueDao.retryAllOperationalQuarantined()
+            syncQueueDao.retryRecoverableQuarantined()
+            syncQueueDao.expediteFailed()
+            syncScheduler.triggerOneTimeSync()
+        }
     }
 
     fun logout(onComplete: () -> Unit) {

@@ -13,15 +13,21 @@ import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.data.local.dao.TripDao
 import com.souigat.mobile.data.local.dao.SyncQueueDao
 import com.souigat.mobile.data.local.entity.SyncQueueEntity
+import com.souigat.mobile.data.remote.api.SyncApi
+import com.souigat.mobile.data.remote.dto.SyncBatchRequest
+import com.souigat.mobile.data.remote.dto.SyncItemDto
 import com.souigat.mobile.util.Constants
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import org.json.JSONObject
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-import org.json.JSONObject
+import java.io.IOException
+import kotlin.random.Random
 
 @HiltWorker
 class SyncDataWorker @AssistedInject constructor(
@@ -32,13 +38,28 @@ class SyncDataWorker @AssistedInject constructor(
     private val tripDao: TripDao,
     private val firebaseSessionManager: FirebaseSessionManager,
     private val firestore: FirebaseFirestore,
+    private val syncApi: SyncApi,
 ) : CoroutineWorker(appContext, workerParams) {
 
-    private enum class ItemSyncResult {
+    private enum class SyncAction {
         SYNCED,
         RETRY,
         QUARANTINED,
     }
+
+    private data class ItemSyncResult(
+        val action: SyncAction,
+        val errorCode: String? = null,
+        val errorMessage: String? = null,
+        val deadLetterReason: String? = null,
+    )
+
+    private data class QuarantineRecord(
+        val localId: Long,
+        val reason: String,
+        val errorCode: String?,
+        val errorMessage: String?,
+    )
 
     private data class TripScope(
         val serverTripId: Long,
@@ -47,6 +68,7 @@ class SyncDataWorker @AssistedInject constructor(
     )
 
     private val tripScopeCache = mutableMapOf<Long, TripScope>()
+    private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun doWork(): Result {
         Timber.i("SyncDataWorker started.")
@@ -56,17 +78,37 @@ class SyncDataWorker @AssistedInject constructor(
             return Result.success()
         }
 
-        if (!firebaseSessionManager.ensureSignedIn()) {
-            Timber.w("Firebase session is not ready. Retry later.")
-            return Result.retry()
+        val firebaseReady = firebaseSessionManager.ensureSignedIn()
+        if (!firebaseReady) {
+            Timber.w("Firebase session is not ready. Continuing with backend-first sync only.")
         }
 
-        syncQueueDao.resetStuckSyncing()
-        syncQueueDao.requeueQuarantinedByType(listOf("passenger_ticket", "expense"))
+        val now = System.currentTimeMillis()
+        val stuckCount = syncQueueDao.countStuckSyncing()
+        if (stuckCount > 0) {
+            val oldestCreatedAt = syncQueueDao.oldestStuckSyncingCreatedAt()
+            val oldestAgeMs = oldestCreatedAt?.let { now - it }
+            val typeBreakdown = syncQueueDao.stuckSyncingTypeCounts()
+                .joinToString(separator = ",") { "${it.itemType}:${it.count}" }
+
+            Timber.w(
+                "SyncDataWorker: resetting %d stuck syncing rows. oldestAgeMs=%s types=%s",
+                stuckCount,
+                oldestAgeMs?.toString() ?: "n/a",
+                typeBreakdown.ifBlank { "n/a" },
+            )
+        }
+        val resetCount = syncQueueDao.resetStuckSyncing()
+        if (resetCount > 0) {
+            Timber.i("SyncDataWorker: reset %d stuck syncing row(s) to pending.", resetCount)
+        }
         var round = 0
 
         while (round < Constants.MAX_SYNC_DRAIN_ROUNDS) {
-            val pendingItems = syncQueueDao.getPendingBatch(limit = Constants.SYNC_BATCH_SIZE)
+            val pendingItems = syncQueueDao.getPendingBatch(
+                nowMillis = System.currentTimeMillis(),
+                limit = Constants.SYNC_BATCH_SIZE,
+            )
             if (pendingItems.isEmpty()) {
                 Timber.i("Sync queue is empty after %d round(s).", round)
                 syncQueueDao.pruneOldSynced(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7))
@@ -74,32 +116,67 @@ class SyncDataWorker @AssistedInject constructor(
             }
 
             round++
+            val typeBreakdown = pendingItems.groupingBy { it.itemType }.eachCount()
             Timber.i(
-                "Sync round %d/%d processing %d pending item(s).",
+                "Sync round %d/%d processing %d pending item(s). breakdown=%s",
                 round,
                 Constants.MAX_SYNC_DRAIN_ROUNDS,
-                pendingItems.size
+                pendingItems.size,
+                typeBreakdown,
             )
 
             syncQueueDao.markSyncing(pendingItems.map { it.id })
 
             val syncedIds = mutableListOf<Long>()
-            val quarantinedIds = mutableListOf<Long>()
+            val quarantineRecords = mutableListOf<QuarantineRecord>()
             var shouldRetry = false
 
             for (item in pendingItems) {
-                when (syncItemToFirebase(item)) {
-                    ItemSyncResult.SYNCED -> syncedIds += item.id
-                    ItemSyncResult.QUARANTINED -> quarantinedIds += item.id
-                    ItemSyncResult.RETRY -> shouldRetry = true
+                val result = syncItemToFirebase(item, firebaseReady)
+                when (result.action) {
+                    SyncAction.SYNCED -> syncedIds += item.id
+                    SyncAction.QUARANTINED -> {
+                        quarantineRecords += QuarantineRecord(
+                            localId = item.id,
+                            reason = result.deadLetterReason ?: "invalid_payload",
+                            errorCode = result.errorCode,
+                            errorMessage = result.errorMessage,
+                        )
+                    }
+                    SyncAction.RETRY -> {
+                        val nextRetryCount = item.retryCount + 1
+                        if (nextRetryCount >= Constants.SYNC_MAX_ATTEMPTS) {
+                            quarantineRecords += QuarantineRecord(
+                                localId = item.id,
+                                reason = "retry_limit_exceeded",
+                                errorCode = result.errorCode,
+                                errorMessage = result.errorMessage,
+                            )
+                        } else {
+                            syncQueueDao.markFailed(
+                                localId = item.id,
+                                nextAttemptAt = nextAttemptAtMillis(nextRetryCount),
+                                errorCode = result.errorCode,
+                                errorMessage = result.errorMessage,
+                            )
+                            shouldRetry = true
+                        }
+                    }
                 }
             }
 
             if (syncedIds.isNotEmpty()) {
                 syncQueueDao.markSyncedByLocalId(syncedIds)
             }
-            if (quarantinedIds.isNotEmpty()) {
-                syncQueueDao.markQuarantinedByLocalId(quarantinedIds)
+            if (quarantineRecords.isNotEmpty()) {
+                quarantineRecords.forEach { record ->
+                    syncQueueDao.markQuarantinedByLocalId(
+                        localIds = listOf(record.localId),
+                        reason = record.reason,
+                        errorCode = record.errorCode,
+                        errorMessage = record.errorMessage,
+                    )
+                }
             }
 
             if (shouldRetry) {
@@ -116,51 +193,279 @@ class SyncDataWorker @AssistedInject constructor(
         return Result.success()
     }
 
-    private suspend fun syncItemToFirebase(item: SyncQueueEntity): ItemSyncResult {
+    private suspend fun syncItemToFirebase(item: SyncQueueEntity, firebaseReady: Boolean): ItemSyncResult {
         return try {
             val payload = JSONObject(item.payload)
-            val tripScope = resolveTripScope(item.tripId)
-                ?: return ItemSyncResult.RETRY
 
             when (item.itemType) {
                 "passenger_ticket" -> {
-                    writePassengerTicketMirror(item, payload, tripScope)
-                    ItemSyncResult.SYNCED
+                    if (!firebaseReady) {
+                        return syncItemToBackend(item, itemType = "passenger_ticket")
+                    }
+
+                    val tripScope = resolveTripScope(item.tripId)
+                    if (tripScope == null) {
+                        Timber.w(
+                            "SyncDataWorker: backend passenger ticket synced but trip scope missing for tripRefId=%d",
+                            item.tripId,
+                        )
+                        return ItemSyncResult(
+                            action = SyncAction.RETRY,
+                            errorCode = "passenger_ticket_missing_trip_scope",
+                            errorMessage = "Missing trip scope for passenger ticket mirror write.",
+                        )
+                    }
+
+                    return runCatching {
+                        writePassengerTicketMirror(item, payload, tripScope)
+                        ItemSyncResult(action = SyncAction.SYNCED)
+                    }.getOrElse { mirrorError ->
+                        Timber.w(
+                            mirrorError,
+                            "SyncDataWorker: passenger ticket mirror write failed. localId=%d",
+                            item.id,
+                        )
+                        ItemSyncResult(
+                            action = SyncAction.RETRY,
+                            errorCode = "passenger_ticket_mirror_write_failed",
+                            errorMessage = mirrorError.message,
+                        )
+                    }
                 }
 
                 "expense" -> {
-                    writeTripExpenseMirror(item, payload, tripScope)
-                    ItemSyncResult.SYNCED
+                    if (!firebaseReady) {
+                        return syncItemToBackend(item, itemType = "expense")
+                    }
+
+                    val tripScope = resolveTripScope(item.tripId)
+                    if (tripScope == null) {
+                        Timber.w(
+                            "SyncDataWorker: backend expense synced but trip scope missing for tripRefId=%d",
+                            item.tripId,
+                        )
+                        return ItemSyncResult(
+                            action = SyncAction.RETRY,
+                            errorCode = "expense_missing_trip_scope",
+                            errorMessage = "Missing trip scope for expense mirror write.",
+                        )
+                    }
+
+                    return runCatching {
+                        writeTripExpenseMirror(item, payload, tripScope)
+                        ItemSyncResult(action = SyncAction.SYNCED)
+                    }.getOrElse { mirrorError ->
+                        Timber.w(
+                            mirrorError,
+                            "SyncDataWorker: expense mirror write failed. localId=%d",
+                            item.id,
+                        )
+                        ItemSyncResult(
+                            action = SyncAction.RETRY,
+                            errorCode = "expense_mirror_write_failed",
+                            errorMessage = mirrorError.message,
+                        )
+                    }
+                }
+
+                "trip_status" -> {
+                    val backendResult = syncItemToBackend(item, itemType = "trip_status")
+                    if (backendResult.action != SyncAction.SYNCED) {
+                        return backendResult
+                    }
+
+                    if (!firebaseReady) {
+                        return ItemSyncResult(action = SyncAction.SYNCED)
+                    }
+
+                    val tripScope = resolveTripScope(item.tripId)
+                    if (tripScope == null) {
+                        Timber.w(
+                            "SyncDataWorker: backend trip status synced but trip scope missing for mirror tripRefId=%d",
+                            item.tripId,
+                        )
+                        return ItemSyncResult(action = SyncAction.SYNCED)
+                    }
+
+                    runCatching {
+                        writeTripStatusMirror(item, payload, tripScope)
+                    }.onFailure { mirrorError ->
+                        Timber.w(
+                            mirrorError,
+                            "SyncDataWorker: trip status mirror patch failed after backend sync. localId=%d",
+                            item.id,
+                        )
+                    }
+
+                    ItemSyncResult(action = SyncAction.SYNCED)
                 }
 
                 "cargo_ticket" -> {
-                    val role = tokenManager.getUserRole().orEmpty()
-                    if (role == "conductor") {
-                        Timber.w("Conductor cannot create cargo mirror entries directly. localId=%d", item.id)
-                        ItemSyncResult.QUARANTINED
-                    } else {
+                    if (!firebaseReady) {
+                        return syncItemToBackend(item, itemType = "cargo_ticket")
+                    }
+
+                    val tripScope = resolveTripScope(item.tripId)
+                    if (tripScope == null) {
+                        Timber.w(
+                            "SyncDataWorker: backend cargo ticket synced but trip scope missing for tripRefId=%d",
+                            item.tripId,
+                        )
+                        return ItemSyncResult(
+                            action = SyncAction.RETRY,
+                            errorCode = "cargo_ticket_missing_trip_scope",
+                            errorMessage = "Missing trip scope for cargo mirror write.",
+                        )
+                    }
+
+                    return runCatching {
                         writeCargoTicketMirror(item, payload, tripScope)
-                        ItemSyncResult.SYNCED
+                        ItemSyncResult(action = SyncAction.SYNCED)
+                    }.getOrElse { mirrorError ->
+                        Timber.w(
+                            mirrorError,
+                            "SyncDataWorker: cargo mirror write failed. localId=%d",
+                            item.id,
+                        )
+                        ItemSyncResult(
+                            action = SyncAction.RETRY,
+                            errorCode = "cargo_ticket_mirror_write_failed",
+                            errorMessage = mirrorError.message,
+                        )
                     }
                 }
 
                 else -> {
                     Timber.w("Unsupported sync item type=%s localId=%d", item.itemType, item.id)
-                    ItemSyncResult.QUARANTINED
+                    ItemSyncResult(
+                        action = SyncAction.QUARANTINED,
+                        errorCode = "unsupported_item_type",
+                        errorMessage = "Unsupported sync item type=${item.itemType}",
+                        deadLetterReason = "invalid_payload",
+                    )
                 }
             }
         } catch (error: FirebaseFirestoreException) {
             if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                 Timber.w(error, "Firestore permission denied for localId=%d", item.id)
-                ItemSyncResult.QUARANTINED
+                ItemSyncResult(
+                    action = SyncAction.RETRY,
+                    errorCode = "permission_denied",
+                    errorMessage = error.message,
+                )
             } else {
                 Timber.e(error, "Firestore sync retry needed for localId=%d", item.id)
-                ItemSyncResult.RETRY
+                ItemSyncResult(
+                    action = SyncAction.RETRY,
+                    errorCode = "firestore_${error.code.name.lowercase()}",
+                    errorMessage = error.message,
+                )
             }
+        } catch (error: IllegalStateException) {
+            Timber.w(error, "Permanent sync validation error for localId=%d", item.id)
+            ItemSyncResult(
+                action = SyncAction.QUARANTINED,
+                errorCode = "invalid_state",
+                errorMessage = error.message,
+                deadLetterReason = "invalid_transition",
+            )
         } catch (error: Exception) {
             Timber.e(error, "Exception during Firebase sync for localId=%d", item.id)
-            ItemSyncResult.RETRY
+            ItemSyncResult(
+                action = SyncAction.RETRY,
+                errorCode = "unexpected_exception",
+                errorMessage = error.message,
+            )
         }
+    }
+
+    private suspend fun syncItemToBackend(item: SyncQueueEntity, itemType: String): ItemSyncResult {
+        return try {
+            val payloadElement = json.parseToJsonElement(item.payload)
+            val request = SyncBatchRequest(
+                tripId = item.tripId,
+                resumeFrom = 0,
+                items = listOf(
+                    SyncItemDto(
+                        type = itemType,
+                        idempotencyKey = item.idempotencyKey,
+                        localId = item.id,
+                        payload = payloadElement,
+                    )
+                )
+            )
+
+            val response = syncApi.syncBatch(request)
+            if (!response.isSuccessful) {
+                val code = response.code()
+                val errorBody = response.errorBody()?.string()
+                return when {
+                    code >= 500 || code == 408 || code == 429 -> ItemSyncResult(
+                        action = SyncAction.RETRY,
+                        errorCode = "${itemType}_backend_http_$code",
+                        errorMessage = errorBody,
+                    )
+
+                    else -> ItemSyncResult(
+                        action = SyncAction.QUARANTINED,
+                        errorCode = "${itemType}_backend_http_$code",
+                        errorMessage = errorBody,
+                        deadLetterReason = "backend_rejected",
+                    )
+                }
+            }
+
+            val body = response.body()
+                ?: return ItemSyncResult(
+                    action = SyncAction.RETRY,
+                    errorCode = "${itemType}_backend_empty_body",
+                    errorMessage = "Backend sync response body is null.",
+                )
+
+            val itemResult = body.items.firstOrNull { it.localId == item.id }
+                ?: body.items.firstOrNull()
+                ?: return ItemSyncResult(
+                    action = SyncAction.RETRY,
+                    errorCode = "${itemType}_backend_missing_item_result",
+                    errorMessage = "Backend sync response does not include item status.",
+                )
+
+            when (itemResult.status) {
+                "accepted", "duplicate" -> ItemSyncResult(action = SyncAction.SYNCED)
+                "quarantined" -> ItemSyncResult(
+                    action = SyncAction.QUARANTINED,
+                    errorCode = "${itemType}_backend_quarantined",
+                    errorMessage = "Backend quarantined $itemType item.",
+                    deadLetterReason = "backend_quarantined",
+                )
+
+                else -> ItemSyncResult(
+                    action = SyncAction.RETRY,
+                    errorCode = "${itemType}_backend_unknown_status",
+                    errorMessage = "Unknown backend sync status=${itemResult.status}",
+                )
+            }
+        } catch (error: IOException) {
+            ItemSyncResult(
+                action = SyncAction.RETRY,
+                errorCode = "${itemType}_backend_io_exception",
+                errorMessage = error.message,
+            )
+        } catch (error: Exception) {
+            ItemSyncResult(
+                action = SyncAction.RETRY,
+                errorCode = "${itemType}_backend_sync_exception",
+                errorMessage = error.message,
+            )
+        }
+    }
+
+    private fun nextAttemptAtMillis(nextRetryCount: Int): Long {
+        val exponential = Constants.SYNC_BASE_BACKOFF_MS * (1L shl minOf(nextRetryCount, 16))
+        val clamped = minOf(exponential, Constants.SYNC_MAX_BACKOFF_MS)
+        val jitterWindow = (clamped * 0.2).toLong()
+        val jitter = if (jitterWindow > 0) Random.nextLong(-jitterWindow, jitterWindow + 1) else 0L
+        return System.currentTimeMillis() + clamped + jitter
     }
 
     private suspend fun resolveTripScope(tripRefId: Long): TripScope? {
@@ -243,10 +548,12 @@ class SyncDataWorker @AssistedInject constructor(
             "idempotency_key" to item.idempotencyKey,
         )
 
-        firestore.collection("passenger_ticket_mirror_v1")
-            .document("pt_${item.idempotencyKey}")
-            .set(documentData, SetOptions.merge())
-            .await()
+        createMirrorDocumentIdempotent(
+            collection = "passenger_ticket_mirror_v1",
+            documentId = "pt_${item.idempotencyKey}",
+            documentData = documentData,
+            _idempotencyKey = item.idempotencyKey,
+        )
     }
 
     private suspend fun writeTripExpenseMirror(
@@ -280,10 +587,12 @@ class SyncDataWorker @AssistedInject constructor(
             "idempotency_key" to item.idempotencyKey,
         )
 
-        firestore.collection("trip_expense_mirror_v1")
-            .document("exp_${item.idempotencyKey}")
-            .set(documentData, SetOptions.merge())
-            .await()
+        createMirrorDocumentIdempotent(
+            collection = "trip_expense_mirror_v1",
+            documentId = "exp_${item.idempotencyKey}",
+            documentData = documentData,
+            _idempotencyKey = item.idempotencyKey,
+        )
     }
 
     private suspend fun writeCargoTicketMirror(
@@ -324,10 +633,70 @@ class SyncDataWorker @AssistedInject constructor(
             "idempotency_key" to item.idempotencyKey,
         )
 
-        firestore.collection("cargo_ticket_mirror_v1")
-            .document("ct_${item.idempotencyKey}")
-            .set(documentData, SetOptions.merge())
-            .await()
+        createMirrorDocumentIdempotent(
+            collection = "cargo_ticket_mirror_v1",
+            documentId = "ct_${item.idempotencyKey}",
+            documentData = documentData,
+            _idempotencyKey = item.idempotencyKey,
+        )
+    }
+
+    private suspend fun createMirrorDocumentIdempotent(
+        collection: String,
+        documentId: String,
+        documentData: Map<String, Any>,
+        _idempotencyKey: String,
+    ) {
+        val ref = firestore.collection(collection).document(documentId)
+        val existing = ref.get().await()
+        if (existing.exists()) {
+            return
+        }
+
+        ref.set(documentData).await()
+    }
+
+    private suspend fun writeTripStatusMirror(
+        item: SyncQueueEntity,
+        payload: JSONObject,
+        tripScope: TripScope,
+    ) {
+        val newStatus = payload.optString("status", "").trim()
+        if (newStatus != "in_progress" && newStatus != "completed") {
+            throw IllegalStateException("Unsupported trip_status payload status=$newStatus")
+        }
+
+        val transitionAt = payload.optLong("transition_at", System.currentTimeMillis())
+        val transitionIso = Instant.ofEpochMilli(transitionAt).toString()
+
+        val tripDocRef = firestore.collection("trip_mirror_v1").document(tripScope.serverTripId.toString())
+        val snapshot = tripDocRef.get().await()
+        val currentStatus = snapshot.getString("status")
+
+        if (currentStatus == newStatus) {
+            return
+        }
+
+        val validTransition = when (currentStatus) {
+            "scheduled" -> newStatus == "in_progress"
+            "in_progress" -> newStatus == "completed"
+            else -> false
+        }
+
+        if (!validTransition) {
+            throw IllegalStateException("Invalid trip status transition $currentStatus -> $newStatus")
+        }
+
+        val updateData = mutableMapOf<String, Any>(
+            "status" to newStatus,
+            "source_updated_at" to transitionIso,
+        )
+        if (newStatus == "completed") {
+            updateData["arrival_ts"] = transitionAt
+            updateData["arrival_datetime"] = transitionIso
+        }
+
+        tripDocRef.set(updateData, SetOptions.merge()).await()
     }
 
     private fun syntheticMirrorId(prefix: String, key: String): Long {

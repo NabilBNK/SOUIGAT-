@@ -2,8 +2,6 @@ package com.souigat.mobile.data.firebase
 
 import com.google.firebase.auth.FirebaseAuth
 import com.souigat.mobile.data.local.TokenManager
-import com.souigat.mobile.data.remote.api.AuthApi
-import com.souigat.mobile.data.remote.dto.FirebaseCustomTokenRequest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
@@ -14,7 +12,6 @@ import timber.log.Timber
 @Singleton
 class FirebaseSessionManager @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
-    private val authApi: AuthApi,
     private val tokenManager: TokenManager
 ) {
     private val signInMutex = Mutex()
@@ -159,58 +156,13 @@ class FirebaseSessionManager @Inject constructor(
                 return@withLock true
             }
 
-            Timber.i("[FIREBASE] User not signed in, attempting custom token exchange...")
-            val accessToken = tokenManager.getAccessToken()
-            if (accessToken.isNullOrBlank()) {
-                Timber.w("FirebaseSessionManager: no access token available for custom-token exchange.")
-                val totalDurationMs = System.currentTimeMillis() - ensureStartMs
-                Timber.i("[FIREBASE] ensureSignedIn completed with no token in ${totalDurationMs}ms")
-                return@withLock false
-            }
-
-            return@withLock try {
-                val customTokenStartMs = System.currentTimeMillis()
-                val response = authApi.getFirebaseCustomToken(
-                    "Bearer $accessToken",
-                    FirebaseCustomTokenRequest(platform = "mobile"),
-                )
-                val customTokenDurationMs = System.currentTimeMillis() - customTokenStartMs
-                Timber.i("[FIREBASE] Custom token API call took ${customTokenDurationMs}ms")
-                
-                if (!response.isSuccessful) {
-                    Timber.w(
-                        "FirebaseSessionManager: custom-token exchange failed with code=%s",
-                        response.code(),
-                    )
-                    val totalDurationMs = System.currentTimeMillis() - ensureStartMs
-                    Timber.i("[FIREBASE] ensureSignedIn failed in ${totalDurationMs}ms")
-                    false
-                } else {
-                    val customToken = response.body()?.token
-                    if (customToken.isNullOrBlank()) {
-                        Timber.w("FirebaseSessionManager: custom-token response body is empty.")
-                        val totalDurationMs = System.currentTimeMillis() - ensureStartMs
-                        Timber.i("[FIREBASE] ensureSignedIn failed (empty token) in ${totalDurationMs}ms")
-                        false
-                    } else {
-                        val signInStartMs = System.currentTimeMillis()
-                        firebaseAuth.signInWithCustomToken(customToken).await()
-                        val signInDurationMs = System.currentTimeMillis() - signInStartMs
-                        Timber.i("[FIREBASE] Custom token sign-in took ${signInDurationMs}ms")
-                        
-                        val totalDurationMs = System.currentTimeMillis() - ensureStartMs
-                        Timber.i("[FIREBASE] ensureSignedIn completed with custom token in ${totalDurationMs}ms")
-                        true
-                    }
-                }
-            } catch (error: Exception) {
-                Timber.e(error, "FirebaseSessionManager: sign-in with custom token failed.")
-                val totalDurationMs = System.currentTimeMillis() - ensureStartMs
-                Timber.i("[FIREBASE] ensureSignedIn failed with exception in ${totalDurationMs}ms")
-                false
-            }
+            val totalDurationMs = System.currentTimeMillis() - ensureStartMs
+            Timber.i("[FIREBASE] ensureSignedIn completed with no active Firebase user in ${totalDurationMs}ms")
+            return@withLock false
         }
     }
+
+    fun hasActiveFirebaseUser(): Boolean = firebaseAuth.currentUser != null
 
     fun signOut() {
         try {
