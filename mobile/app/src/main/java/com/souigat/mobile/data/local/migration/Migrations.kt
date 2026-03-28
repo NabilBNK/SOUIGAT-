@@ -80,5 +80,20 @@ object Migrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE sync_queue ADD COLUMN lastAttemptAt INTEGER")
+            db.execSQL("ALTER TABLE sync_queue ADD COLUMN lastErrorCode TEXT")
+            db.execSQL("ALTER TABLE sync_queue ADD COLUMN lastErrorMessage TEXT")
+            db.execSQL("ALTER TABLE sync_queue ADD COLUMN deadLetterReason TEXT")
+
+            db.execSQL("UPDATE sync_queue SET nextAttemptAt = createdAt WHERE nextAttemptAt = 0")
+
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_queue_status_nextAttemptAt ON sync_queue (status, nextAttemptAt)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_queue_tripId_createdAt ON sync_queue (tripId, createdAt)")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 }

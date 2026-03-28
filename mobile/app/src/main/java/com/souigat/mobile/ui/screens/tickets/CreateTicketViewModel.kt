@@ -3,6 +3,8 @@ package com.souigat.mobile.ui.screens.tickets
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.souigat.mobile.data.local.FormDraftStore
+import com.souigat.mobile.data.local.TicketFormDraft
 import com.souigat.mobile.data.local.dao.TripDao
 import com.souigat.mobile.data.local.entity.TripEntity
 import com.souigat.mobile.domain.repository.TicketRepository
@@ -45,6 +47,7 @@ sealed class TicketFormHeaderState {
 @HiltViewModel
 class CreateTicketViewModel @Inject constructor(
     private val ticketRepository: TicketRepository,
+    private val formDraftStore: FormDraftStore,
     tripDao: TripDao,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -74,6 +77,9 @@ class CreateTicketViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<CreateTicketUiState>(CreateTicketUiState.Idle)
     val uiState: StateFlow<CreateTicketUiState> = _uiState.asStateFlow()
+
+    private val _draftState = MutableStateFlow(formDraftStore.getTicketDraft(tripId))
+    val draftState: StateFlow<TicketFormDraft> = _draftState.asStateFlow()
 
     fun createPassengerTicketBatch(
         count: Int,
@@ -124,6 +130,7 @@ class CreateTicketViewModel @Inject constructor(
                 boardingPoint = boarding,
                 alightingPoint = alighting
             ).onSuccess { savedCount ->
+                clearDraft()
                 _uiState.value = CreateTicketUiState.Success(
                     "$savedCount billet(s) crees hors ligne avec succes."
                 )
@@ -189,6 +196,7 @@ class CreateTicketViewModel @Inject constructor(
                 currency = form.header.currency,
                 paymentSource = paymentSource
             ).onSuccess { ticket ->
+                clearDraft()
                 _uiState.value = CreateTicketUiState.Success(
                     "Billet colis ${ticket.ticketNumber} cree hors ligne avec succes."
                 )
@@ -206,6 +214,17 @@ class CreateTicketViewModel @Inject constructor(
 
     fun retryLookup() {
         lookupRequests.value += 1
+    }
+
+    fun persistDraft(draft: TicketFormDraft) {
+        _draftState.value = draft
+        formDraftStore.saveTicketDraft(tripId, draft)
+    }
+
+    private fun clearDraft() {
+        val cleared = TicketFormDraft()
+        _draftState.value = cleared
+        formDraftStore.clearTicketDraft(tripId)
     }
 
     private fun TripEntity.toTicketFormHeaderState(): TicketFormHeaderState.Ready {

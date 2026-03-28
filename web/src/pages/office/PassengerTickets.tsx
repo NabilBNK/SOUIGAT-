@@ -30,7 +30,9 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
         data: tickets,
         isLoading,
         error,
-    } = useTripPassengerMirror(trip.id)
+    } = useTripPassengerMirror(trip.id, {
+        enableRealtime: true,
+    })
 
     const extractErrorMsg = (err: unknown, defaultMsg: string) => {
         if (err && typeof err === 'object' && 'response' in err) {

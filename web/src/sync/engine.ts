@@ -11,7 +11,6 @@ import { COLLECTION_BY_ENTITY, mapEntityDeleteDocument, mapEntityUpsertDocument 
 import {
     getReadySyncRecords,
     hasPendingSyncWork,
-    markSyncRecordConflict,
     markSyncRecordFailed,
     markSyncRecordInProgress,
     markSyncRecordSynced,
@@ -207,7 +206,7 @@ async function processRecord(record: SyncRecord, db: Firestore): Promise<void> {
         await markSyncRecordSynced(record.id)
     } catch (error) {
         if (error instanceof StaleRecordConflictError) {
-            await markSyncRecordConflict(record.id, error.message)
+            await markSyncRecordSynced(record.id)
             return
         }
 

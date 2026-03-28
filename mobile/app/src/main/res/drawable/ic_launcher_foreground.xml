@@ -3,11 +3,19 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- SOUIGAT "S" letter mark on white circle — placeholder launcher icon -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,28C39.64,28 28,39.64 28,54C28,68.36 39.64,80 54,80C68.36,80 80,68.36 80,54C80,39.64 68.36,28 54,28Z" />
+        android:pathData="M20,64 L88,64 L84,74 L24,74 Z" />
     <path
-        android:fillColor="#2563EB"
-        android:pathData="M62,44H50C47.8,44 46,45.8 46,48C46,50.2 47.8,52 50,52H58C60.2,52 62,53.8 62,56C62,58.2 60.2,60 58,60H46L46,64H58C62.4,64 66,60.4 66,56C66,53.1 64.4,50.6 62,49.3C63.2,48.2 64,46.7 64,45C64,42.8 63.1,44 62,44Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,40 C30,35 34,31 39,31 L69,31 C74,31 78,35 78,40 L78,62 L30,62 Z" />
+    <path
+        android:fillColor="#0B3D91"
+        android:pathData="M36,42 L72,42 L72,52 L36,52 Z" />
+    <path
+        android:fillColor="#0B3D91"
+        android:pathData="M40,68 A5,5 0 1,1 39.9,68 Z" />
+    <path
+        android:fillColor="#0B3D91"
+        android:pathData="M68,68 A5,5 0 1,1 67.9,68 Z" />
 </vector>

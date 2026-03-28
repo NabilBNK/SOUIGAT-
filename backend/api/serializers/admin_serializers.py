@@ -25,6 +25,9 @@ class UserManagementSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
+            if validated_data.get('role') == 'conductor':
+                validated_data['office'] = None
+
             password = validated_data.pop('password', None)
             if not password:
                 raise serializers.ValidationError({'password': 'Required for new users.'})
@@ -43,6 +46,10 @@ class UserManagementSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         with transaction.atomic():
+            next_role = validated_data.get('role', instance.role)
+            if next_role == 'conductor':
+                validated_data['office'] = None
+
             password = validated_data.pop('password', None)
             if password:
                 validated_data['password'] = make_password(password)
@@ -61,7 +68,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
 
 
 class BusManagementSerializer(serializers.ModelSerializer):
-    office_name = serializers.CharField(source='office.name', read_only=True)
+    office_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Bus
@@ -69,6 +76,17 @@ class BusManagementSerializer(serializers.ModelSerializer):
             'id', 'plate_number', 'office', 'office_name',
             'capacity', 'is_active',
         ]
+
+    def get_office_name(self, obj):
+        return obj.office.name if obj.office_id and obj.office else None
+
+    def create(self, validated_data):
+        validated_data['office'] = None
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data['office'] = None
+        return super().update(instance, validated_data)
 
 
 class OfficeManagementSerializer(serializers.ModelSerializer):

@@ -61,10 +61,8 @@ export async function createTrip(data: TripCreate): Promise<Trip> {
     return response.data
 }
 
-export async function getTripReferenceData(currentOfficeId?: number): Promise<TripReferenceData> {
-    const response = await client.get<TripReferenceData>('/trips/reference-data/', {
-        params: currentOfficeId ? { current_office_id: currentOfficeId } : undefined,
-    })
+export async function getTripReferenceData(): Promise<TripReferenceData> {
+    const response = await client.get<TripReferenceData>('/trips/reference-data/')
     return response.data
 }
 

@@ -1,67 +1,22 @@
 import { useAuth } from '../../hooks/useAuth'
 import { LogOut, User as UserIcon } from 'lucide-react'
 import { ROLE_LABELS, DEPARTMENT_LABELS } from '../../utils/constants'
-import { useSyncStatus } from '../../hooks/useSyncStatus'
 
 export function Header() {
     const { user, logout } = useAuth()
-    const syncStatus = useSyncStatus()
     if (!user) return null
 
     const roleBadge = ROLE_LABELS[user.role]
     const deptBadge = user.department ? DEPARTMENT_LABELS[user.department] : null
-    const queuedRecords = syncStatus.summary.pending + syncStatus.summary.inProgress
-    const syncProblems = syncStatus.summary.failed + syncStatus.summary.conflict
-
-    const syncLabel = syncProblems > 0
-        ? `${syncProblems} sync issue${syncProblems > 1 ? 's' : ''}`
-        : queuedRecords > 0
-            ? `${queuedRecords} pending sync`
-            : 'sync healthy'
-
-    const syncClassName = syncProblems > 0
-        ? 'text-red-400 border-red-500/30 bg-red-500/10'
-        : queuedRecords > 0
-            ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10'
-            : 'text-emerald-400 border-emerald-500/25 bg-emerald-500/10'
-
-    const perEntityLabel = [
-        {
-            key: 'TR',
-            counts: syncStatus.byEntity.trip,
-        },
-        {
-            key: 'PT',
-            counts: syncStatus.byEntity.passenger_ticket,
-        },
-        {
-            key: 'CG',
-            counts: syncStatus.byEntity.cargo_ticket,
-        },
-        {
-            key: 'EX',
-            counts: syncStatus.byEntity.trip_expense,
-        },
-        {
-            key: 'ST',
-            counts: syncStatus.byEntity.settlement,
-        },
-    ]
-        .map(({ key, counts }) => {
-            const queued = counts.pending + counts.inProgress
-            const issues = counts.failed + counts.conflict
-            return `${key}:${queued}/${issues}`
-        })
-        .join(' ')
 
     return (
         <header className="h-20 bg-surface-900/80 backdrop-blur-xl border-b border-surface-700 shadow-md flex items-center justify-between px-8 sticky top-0 z-20">
             <div className="flex flex-col gap-1">
-                <div className={`px-3 py-1 rounded-md border text-xs font-semibold tracking-wide uppercase ${syncClassName}`}>
-                    {syncLabel}
+                <div className="px-3 py-1 rounded-md border text-xs font-semibold tracking-wide uppercase text-blue-300 border-blue-500/30 bg-blue-500/10">
+                    backend sync source
                 </div>
-                <div className="text-[10px] text-text-muted font-mono tracking-wide">
-                    {perEntityLabel}
+                <div className="text-[10px] text-text-muted tracking-wide">
+                    Client queue status hidden (legacy path)
                 </div>
             </div>
             <div className="flex items-center gap-5">

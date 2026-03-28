@@ -64,3 +64,15 @@ replay_pid*.log
 # Agent
 .agent/
 .agents/
+
+# Local debug outputs and temporary artifacts
+output/
+*.log
+backend/media/exports/
+.claude/
+.windsurf/
+new-design-mobile/
+old-backup-mobile-app/
+stitch_design/
+skills-lock.json
+nul

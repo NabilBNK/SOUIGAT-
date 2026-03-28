@@ -34,6 +34,8 @@ import {
 import { PassengerTickets } from './PassengerTickets'
 import { CargoTickets } from './CargoTickets'
 import { TripExpenses } from './TripExpenses'
+import { useTripStatusMirror } from '../../hooks/useTripMirrorData'
+import { shouldPreferMirrorStatus } from '../../utils/tripStatusSource'
 
 type TabType = 'info' | 'passengers' | 'cargo' | 'expenses'
 
@@ -61,6 +63,24 @@ export function TripDetailPage() {
         queryFn: () => getTrip(Number(id)),
         enabled: !!id,
     })
+    const {
+        status: mirrorStatus,
+        arrivalDatetime: mirrorArrivalDatetime,
+        sourceUpdatedAt: mirrorSourceUpdatedAt,
+    } = useTripStatusMirror(trip?.id ?? 0, {
+        enabled: Boolean(trip && (trip.status === 'scheduled' || trip.status === 'in_progress')),
+    })
+
+    const shouldUseMirror = trip
+        ? shouldPreferMirrorStatus(trip, {
+            status: mirrorStatus,
+            sourceUpdatedAt: mirrorSourceUpdatedAt,
+        })
+        : false
+    const effectiveStatus = shouldUseMirror ? mirrorStatus : trip?.status
+    const effectiveArrivalDatetime = shouldUseMirror ? (mirrorArrivalDatetime ?? trip?.arrival_datetime) : trip?.arrival_datetime
+    const backendCompleted = trip?.status === 'completed'
+    const mirrorCompletedPendingBackend = effectiveStatus === 'completed' && trip?.status !== 'completed'
     const canAccessSettlementSection = !!trip && (
         user?.role === 'admin' || (
             user?.role === 'office_staff'
@@ -75,7 +95,7 @@ export function TripDetailPage() {
     } = useQuery({
         queryKey: ['settlement', id],
         queryFn: () => getSettlement(Number(id)),
-        enabled: !!id && !!trip && trip.status === 'completed' && canAccessSettlementSection,
+        enabled: !!id && !!trip && backendCompleted && canAccessSettlementSection,
         retry: false,
     })
 
@@ -197,16 +217,24 @@ export function TripDetailPage() {
         )
     }
 
+    const effectiveTripStatus = effectiveStatus ?? trip.status
+    const effectiveTripArrivalDatetime = effectiveArrivalDatetime ?? trip.arrival_datetime
+    const effectiveTrip = {
+        ...trip,
+        status: effectiveTripStatus,
+        arrival_datetime: effectiveTripArrivalDatetime,
+    }
+
     const isOfficeStaff = user?.role === 'office_staff' || user?.role === 'admin'
     const isAdmin = user?.role === 'admin'
     const isOriginOffice = user?.office === trip.origin_office || user?.role === 'admin'
 
     // Action Permissions
-    const canStart = trip.status === 'scheduled' && isAdmin
-    const canCancel = trip.status === 'scheduled' && isOfficeStaff && isOriginOffice
-    const canComplete = trip.status === 'in_progress' && isAdmin
-    const canForceComplete = trip.status === 'in_progress' && isAdmin
-    const canDelete = isAdmin && (trip.status === 'scheduled' || trip.status === 'cancelled')
+    const canStart = effectiveTripStatus === 'scheduled' && isAdmin
+    const canCancel = effectiveTripStatus === 'scheduled' && isOfficeStaff && isOriginOffice
+    const canComplete = effectiveTripStatus === 'in_progress' && isAdmin
+    const canForceComplete = effectiveTripStatus === 'in_progress' && isAdmin
+    const canDelete = isAdmin && (effectiveTripStatus === 'scheduled' || effectiveTripStatus === 'cancelled')
     const showSettlementSection = canAccessSettlementSection
 
     const handleRecordSettlement = (event: React.FormEvent) => {
@@ -343,7 +371,12 @@ export function TripDetailPage() {
                             <h1 className="text-2xl font-bold text-text-primary">
                                 Voyage #{trip.id}
                             </h1>
-                            <StatusBadge status={trip.status} type="trip" />
+                            <StatusBadge status={effectiveTripStatus} type="trip" />
+                            {shouldUseMirror && (
+                                <span className="inline-flex items-center rounded border border-brand-500/30 bg-[#137fec]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-300">
+                                    Statut terrain (Firebase)
+                                </span>
+                            )}
                         </div>
                         <p className="text-sm text-text-muted mt-1 flex items-center gap-2">
                             <MapPin className="w-3.5 h-3.5" />
@@ -429,7 +462,7 @@ export function TripDetailPage() {
                 </div>
             )}
 
-            {trip.status === 'in_progress' && (
+            {effectiveTripStatus === 'in_progress' && (
                 <div className="bg-[#137fec]/10 border border-brand-500/20 rounded-lg p-4 flex items-start gap-3">
                     <Info className="w-5 h-5 text-brand-400 shrink-0 mt-0.5" />
                     <div>
@@ -439,7 +472,13 @@ export function TripDetailPage() {
                 </div>
             )}
 
-            {trip.status === 'completed' && (
+            {shouldUseMirror && (
+                <div className="bg-[#137fec]/10 border border-brand-500/20 rounded-lg p-4 text-sm text-brand-300">
+                    Affichage du statut temps reel depuis Firebase. Le backend continue la synchronisation en arriere-plan.
+                </div>
+            )}
+
+            {effectiveTripStatus === 'completed' && (
                 <div className="bg-surface-700/50 border border-surface-700 rounded-lg p-4 flex items-start gap-3 text-text-muted">
                     <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
@@ -449,7 +488,7 @@ export function TripDetailPage() {
                 </div>
             )}
 
-            {trip.status === 'cancelled' && (
+            {effectiveTripStatus === 'cancelled' && (
                 <div className="bg-red-500/10 bg-red-500/10 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
                     <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                     <div>
@@ -519,12 +558,12 @@ export function TripDetailPage() {
                                     </div>
                                 </div>
 
-                                {trip.arrival_datetime && (
+                                {effectiveTripArrivalDatetime && (
                                     <div className="flex items-start gap-3">
                                         <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5" />
                                         <div>
                                             <p className="text-sm font-medium text-text-primary">Date d'arrivee</p>
-                                            <p className="text-sm text-text-secondary">{formatDateTime(trip.arrival_datetime)}</p>
+                                            <p className="text-sm text-text-secondary">{formatDateTime(effectiveTripArrivalDatetime)}</p>
                                         </div>
                                     </div>
                                 )}
@@ -592,19 +631,25 @@ export function TripDetailPage() {
                                     {settlement && <StatusBadge status={settlement.status} type="settlement" />}
                                 </div>
 
-                                {trip.status !== 'completed' && (
+                                {mirrorCompletedPendingBackend && (
+                                    <div className="rounded-lg border border-brand-500/20 bg-[#137fec]/10 p-4 text-sm text-brand-300">
+                                        Cloture detectee cote terrain. Synchronisation en cours vers le backend avant ouverture du reglement.
+                                    </div>
+                                )}
+
+                                {!backendCompleted && !mirrorCompletedPendingBackend && (
                                     <div className="rounded-lg border border-brand-500/20 bg-[#137fec]/10 p-4 text-sm text-brand-300">
                                         Le reglement sera disponible une fois le voyage cloture.
                                     </div>
                                 )}
 
-                                {trip.status === 'completed' && isSettlementLoading && (
+                                {backendCompleted && isSettlementLoading && (
                                     <div className="rounded-lg border border-surface-700 bg-surface-900/40 p-4 text-sm text-text-muted">
                                         Chargement du reglement...
                                     </div>
                                 )}
 
-                                {trip.status === 'completed' && !isSettlementLoading && settlement && (
+                                {backendCompleted && !isSettlementLoading && settlement && (
                                     <>
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                             <SettlementValue label="Especes attendues" value={formatCurrency(settlement.expected_total_cash)} />
@@ -648,7 +693,7 @@ export function TripDetailPage() {
                                     </>
                                 )}
 
-                                {trip.status === 'completed' && !isSettlementLoading && settlementMissing && (
+                                {backendCompleted && !isSettlementLoading && settlementMissing && (
                                     <div className="rounded-lg border border-status-warning/20 bg-status-warning/10 p-4 space-y-3">
                                         <p className="text-sm text-yellow-600 dark:text-yellow-400">
                                             Aucun reglement n'a encore ete cree pour ce voyage.
@@ -662,7 +707,7 @@ export function TripDetailPage() {
                                     </div>
                                 )}
 
-                                {trip.status === 'completed' && !isSettlementLoading && !settlement && !settlementMissing && settlementError && (
+                                {backendCompleted && !isSettlementLoading && !settlement && !settlementMissing && settlementError && (
                                     <div className="rounded-lg border border-status-error/20 bg-red-500/10 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
                                         Impossible de charger le reglement.
                                     </div>
@@ -673,11 +718,11 @@ export function TripDetailPage() {
                 )}
 
                 {activeTab === 'passengers' && (
-                    <PassengerTickets trip={trip} />
+                    <PassengerTickets trip={effectiveTrip} />
                 )}
 
                 {activeTab === 'cargo' && (
-                    <CargoTickets trip={trip} />
+                    <CargoTickets trip={effectiveTrip} />
                 )}
 
                 {activeTab === 'expenses' && (

@@ -161,6 +161,11 @@ class TripListViewModel @Inject constructor(
         refreshState.update { it.copy(errorMessage = null) }
     }
 
+    override fun onCleared() {
+        tripRepository.stopRealtimeTripSync()
+        super.onCleared()
+    }
+
     private fun OperationalTripRow.toTripListItemUiModel(): TripListItemUiModel {
         return TripListItemUiModel(
             id = tripId,

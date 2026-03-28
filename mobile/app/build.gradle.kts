@@ -19,6 +19,20 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+fun normalizeApiBaseUrl(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) {
+        return "http://10.0.2.2:8013/api/"
+    }
+    return if (trimmed.endsWith('/')) trimmed else "$trimmed/"
+}
+
+val debugApiBaseUrl = normalizeApiBaseUrl(
+    providers.gradleProperty("DEBUG_API_BASE_URL").orNull
+        ?: providers.environmentVariable("DEBUG_API_BASE_URL").orNull
+        ?: "http://10.0.2.2:8013/api/"
+)
+
 android {
     namespace = "com.souigat.mobile"
     compileSdk = 35
@@ -54,7 +68,7 @@ android {
             isDebuggable = true
             isMinifyEnabled = false
             buildConfigField("String", "BUILD_TYPE_NAME", "\"debug\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://api.souigat.dz/api/\"")
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }
         create("staging") {
             applicationIdSuffix = ".staging"

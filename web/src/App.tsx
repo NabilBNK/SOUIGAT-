@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './hooks/useAuth'
 import { ProtectedRoute } from './components/guards/ProtectedRoute'
@@ -23,6 +24,7 @@ import { PricingManagement } from './pages/admin/PricingManagement'
 import { AuditLog } from './pages/admin/AuditLog'
 import { QuarantineReview } from './pages/admin/QuarantineReview'
 import { SettlementsPage } from './pages/admin/Settlements'
+import { startSyncEngine, stopSyncEngine } from './sync/engine'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +58,13 @@ function RootRedirect() {
 }
 
 export default function App() {
+  useEffect(() => {
+    startSyncEngine()
+    return () => {
+      stopSyncEngine()
+    }
+  }, [])
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

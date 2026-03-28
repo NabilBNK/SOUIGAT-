@@ -43,6 +43,16 @@ data class CargoTicketMirrorDto(
     val createdAtIso: String,
 )
 
+data class TripExpenseMirrorDto(
+    val id: Long,
+    val tripId: Long,
+    val description: String,
+    val amount: Long,
+    val currency: String,
+    val category: String,
+    val createdAtIso: String,
+)
+
 @Singleton
 class FirebaseTripDataSource @Inject constructor(
     private val firestore: FirebaseFirestore,
@@ -52,6 +62,7 @@ class FirebaseTripDataSource @Inject constructor(
     private val collection = firestore.collection("trip_mirror_v1")
     private val passengerCollection = firestore.collection("passenger_ticket_mirror_v1")
     private val cargoCollection = firestore.collection("cargo_ticket_mirror_v1")
+    private val expenseCollection = firestore.collection("trip_expense_mirror_v1")
 
     suspend fun fetchTripList(limit: Long = 100): Result<List<TripListDto>> {
         if (!firebaseSessionManager.ensureSignedIn()) {
@@ -65,6 +76,9 @@ class FirebaseTripDataSource @Inject constructor(
             val snapshot = query.get().await()
             snapshot.documents.mapNotNull { document ->
                 val data = document.data ?: return@mapNotNull null
+                if (!isScopedForCurrentUser(data)) {
+                    return@mapNotNull null
+                }
                 mapToTripListDto(data)
             }
         }.onFailure { error ->
@@ -98,18 +112,35 @@ class FirebaseTripDataSource @Inject constructor(
             return Result.failure(IllegalStateException("Firebase session is not ready."))
         }
 
-        val payload = mutableMapOf<String, Any>(
-            "status" to newStatus,
-            "source_updated_at" to Instant.now().toString(),
-        )
-
-        if (newStatus == "completed") {
-            val nowEpoch = System.currentTimeMillis()
-            payload["arrival_ts"] = nowEpoch
-            payload["arrival_datetime"] = Instant.ofEpochMilli(nowEpoch).toString()
-        }
-
         return runCatching {
+            val snapshot = collection.document(tripId.toString()).get().await()
+            val currentStatus = snapshot.getString("status")
+
+            if (currentStatus == newStatus) {
+                return@runCatching Unit
+            }
+
+            val validTransition = when (currentStatus) {
+                "scheduled" -> newStatus == "in_progress"
+                "in_progress" -> newStatus == "completed"
+                else -> false
+            }
+
+            if (!validTransition) {
+                throw IllegalStateException("Invalid trip status transition $currentStatus -> $newStatus")
+            }
+
+            val payload = mutableMapOf<String, Any>(
+                "status" to newStatus,
+                "source_updated_at" to Instant.now().toString(),
+            )
+
+            if (newStatus == "completed") {
+                val nowEpoch = System.currentTimeMillis()
+                payload["arrival_ts"] = nowEpoch
+                payload["arrival_datetime"] = Instant.ofEpochMilli(nowEpoch).toString()
+            }
+
             collection.document(tripId.toString())
                 .set(payload, SetOptions.merge())
                 .await()
@@ -144,6 +175,9 @@ class FirebaseTripDataSource @Inject constructor(
 
                 val trips = snapshot.documents.mapNotNull { document ->
                     val data = document.data ?: return@mapNotNull null
+                    if (!isScopedForCurrentUser(data)) {
+                        return@mapNotNull null
+                    }
                     mapToTripListDto(data)
                 }
                 onUpdate(trips)
@@ -176,6 +210,9 @@ class FirebaseTripDataSource @Inject constructor(
 
                 val tickets = snapshot.documents.mapNotNull { document ->
                     val data = document.data ?: return@mapNotNull null
+                    if (!isScopedForCurrentUser(data)) {
+                        return@mapNotNull null
+                    }
                     mapToPassengerTicketMirrorDto(data)
                 }
                 onUpdate(tickets)
@@ -208,6 +245,9 @@ class FirebaseTripDataSource @Inject constructor(
 
                 val tickets = snapshot.documents.mapNotNull { document ->
                     val data = document.data ?: return@mapNotNull null
+                    if (!isScopedForCurrentUser(data)) {
+                        return@mapNotNull null
+                    }
                     mapToCargoTicketMirrorDto(data)
                 }
                 onUpdate(tickets)
@@ -215,8 +255,115 @@ class FirebaseTripDataSource @Inject constructor(
         }
     }
 
+    suspend fun listenTripExpenses(
+        limit: Long = 500,
+        onUpdate: (List<TripExpenseMirrorDto>) -> Unit,
+        onError: (Throwable) -> Unit,
+    ): Result<ListenerRegistration> {
+        if (!firebaseSessionManager.ensureSignedIn()) {
+            return Result.failure(IllegalStateException("Firebase session is not ready."))
+        }
+
+        val query = scopedMirrorQuery(expenseCollection, limit)
+            ?: return Result.failure(IllegalStateException("Current user scope is not eligible for Firebase expense reads."))
+
+        return runCatching {
+            query.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    onError(error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot == null) {
+                    return@addSnapshotListener
+                }
+
+                val expenses = snapshot.documents.mapNotNull { document ->
+                    val data = document.data ?: return@mapNotNull null
+                    if (!isScopedForCurrentUser(data)) {
+                        return@mapNotNull null
+                    }
+                    mapToTripExpenseMirrorDto(data)
+                }
+                onUpdate(expenses)
+            }
+        }
+    }
+
+    suspend fun fetchPassengerTicketsForTrip(
+        tripId: Long,
+        limit: Long = 500,
+    ): Result<List<PassengerTicketMirrorDto>> {
+        if (!firebaseSessionManager.ensureSignedIn()) {
+            return Result.failure(IllegalStateException("Firebase session is not ready."))
+        }
+
+        val query = scopedMirrorQuery(passengerCollection, limit)
+            ?.whereEqualTo("trip_id", tripId)
+            ?: return Result.failure(IllegalStateException("Current user scope is not eligible for Firebase passenger ticket reads."))
+
+        return runCatching {
+            val snapshot = query.get().await()
+            snapshot.documents.mapNotNull { document ->
+                val data = document.data ?: return@mapNotNull null
+                if (!isScopedForCurrentUser(data)) {
+                    return@mapNotNull null
+                }
+                mapToPassengerTicketMirrorDto(data)
+            }
+        }
+    }
+
+    suspend fun fetchCargoTicketsForTrip(
+        tripId: Long,
+        limit: Long = 500,
+    ): Result<List<CargoTicketMirrorDto>> {
+        if (!firebaseSessionManager.ensureSignedIn()) {
+            return Result.failure(IllegalStateException("Firebase session is not ready."))
+        }
+
+        val query = scopedMirrorQuery(cargoCollection, limit)
+            ?.whereEqualTo("trip_id", tripId)
+            ?: return Result.failure(IllegalStateException("Current user scope is not eligible for Firebase cargo ticket reads."))
+
+        return runCatching {
+            val snapshot = query.get().await()
+            snapshot.documents.mapNotNull { document ->
+                val data = document.data ?: return@mapNotNull null
+                if (!isScopedForCurrentUser(data)) {
+                    return@mapNotNull null
+                }
+                mapToCargoTicketMirrorDto(data)
+            }
+        }
+    }
+
+    suspend fun fetchTripExpensesForTrip(
+        tripId: Long,
+        limit: Long = 500,
+    ): Result<List<TripExpenseMirrorDto>> {
+        if (!firebaseSessionManager.ensureSignedIn()) {
+            return Result.failure(IllegalStateException("Firebase session is not ready."))
+        }
+
+        val query = scopedMirrorQuery(expenseCollection, limit)
+            ?.whereEqualTo("trip_id", tripId)
+            ?: return Result.failure(IllegalStateException("Current user scope is not eligible for Firebase expense reads."))
+
+        return runCatching {
+            val snapshot = query.get().await()
+            snapshot.documents.mapNotNull { document ->
+                val data = document.data ?: return@mapNotNull null
+                if (!isScopedForCurrentUser(data)) {
+                    return@mapNotNull null
+                }
+                mapToTripExpenseMirrorDto(data)
+            }
+        }
+    }
+
     private fun scopedTripQuery(limit: Long): Query? {
-        val role = tokenManager.getUserRole() ?: return null
+        val role = tokenManager.getUserRole()
         val officeId = tokenManager.getOfficeId()
         val userId = tokenManager.getUserId()
 
@@ -225,18 +372,24 @@ class FirebaseTripDataSource @Inject constructor(
                 collection.whereEqualTo("is_deleted", false)
             }
             "office_staff" -> {
-                if (officeId == null) return null
-                collection
-                    .whereArrayContains("office_scope_ids", officeId)
-                    .whereEqualTo("is_deleted", false)
+                if (officeId == null) {
+                    collection.whereEqualTo("is_deleted", false)
+                } else {
+                    collection
+                        .whereArrayContains("office_scope_ids", officeId)
+                        .whereEqualTo("is_deleted", false)
+                }
             }
             "conductor" -> {
-                if (userId == null) return null
-                collection
-                    .whereEqualTo("conductor_id", userId)
-                    .whereEqualTo("is_deleted", false)
+                if (userId == null) {
+                    collection.whereEqualTo("is_deleted", false)
+                } else {
+                    collection
+                        .whereEqualTo("conductor_id", userId)
+                        .whereEqualTo("is_deleted", false)
+                }
             }
-            else -> return null
+            else -> collection.whereEqualTo("is_deleted", false)
         }
 
         return base.orderBy("departure_ts", Query.Direction.DESCENDING).limit(limit)
@@ -246,7 +399,7 @@ class FirebaseTripDataSource @Inject constructor(
         mirrorCollection: com.google.firebase.firestore.CollectionReference,
         limit: Long,
     ): Query? {
-        val role = tokenManager.getUserRole() ?: return null
+        val role = tokenManager.getUserRole()
         val officeId = tokenManager.getOfficeId()
         val userId = tokenManager.getUserId()
 
@@ -256,20 +409,26 @@ class FirebaseTripDataSource @Inject constructor(
             }
 
             "office_staff" -> {
-                if (officeId == null) return null
-                mirrorCollection
-                    .whereArrayContains("office_scope_ids", officeId)
-                    .whereEqualTo("is_deleted", false)
+                if (officeId == null) {
+                    mirrorCollection.whereEqualTo("is_deleted", false)
+                } else {
+                    mirrorCollection
+                        .whereArrayContains("office_scope_ids", officeId)
+                        .whereEqualTo("is_deleted", false)
+                }
             }
 
             "conductor" -> {
-                if (userId == null) return null
-                mirrorCollection
-                    .whereEqualTo("conductor_id", userId)
-                    .whereEqualTo("is_deleted", false)
+                if (userId == null) {
+                    mirrorCollection.whereEqualTo("is_deleted", false)
+                } else {
+                    mirrorCollection
+                        .whereEqualTo("conductor_id", userId)
+                        .whereEqualTo("is_deleted", false)
+                }
             }
 
-            else -> return null
+            else -> mirrorCollection.whereEqualTo("is_deleted", false)
         }
 
         return base.orderBy("source_created_at", Query.Direction.DESCENDING).limit(limit)
@@ -321,6 +480,9 @@ class FirebaseTripDataSource @Inject constructor(
             departureDatetime = departureDatetime,
             status = data.stringValue("status") ?: "scheduled",
             passengerBasePrice = data.longValue("passenger_base_price") ?: 0L,
+            cargoSmallPrice = data.longValue("cargo_small_price"),
+            cargoMediumPrice = data.longValue("cargo_medium_price"),
+            cargoLargePrice = data.longValue("cargo_large_price"),
             currency = data.stringValue("currency") ?: "DZD"
         )
     }
@@ -408,6 +570,28 @@ class FirebaseTripDataSource @Inject constructor(
             currency = data.stringValue("currency") ?: "DZD",
             paymentSource = data.stringValue("payment_source") ?: "prepaid",
             status = data.stringValue("status") ?: "created",
+            createdAtIso = sourceCreatedAt,
+        )
+    }
+
+    private fun mapToTripExpenseMirrorDto(data: Map<String, Any>): TripExpenseMirrorDto? {
+        if (data.booleanValue("is_deleted") == true) {
+            return null
+        }
+
+        val id = data.longValue("id") ?: return null
+        val tripId = data.longValue("trip_id") ?: return null
+        val sourceCreatedAt = data.stringValue("source_created_at")
+            ?: data.stringValue("source_updated_at")
+            ?: return null
+
+        return TripExpenseMirrorDto(
+            id = id,
+            tripId = tripId,
+            description = data.stringValue("description") ?: "",
+            amount = data.longValue("amount") ?: 0L,
+            currency = data.stringValue("currency") ?: "DZD",
+            category = data.stringValue("category") ?: "other",
             createdAtIso = sourceCreatedAt,
         )
     }

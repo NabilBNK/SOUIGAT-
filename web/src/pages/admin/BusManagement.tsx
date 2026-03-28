@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getBuses, createBus, updateBus, getOffices } from '../../api/admin'
+import { getBuses, createBus, updateBus } from '../../api/admin'
 import { DataTable } from '../../components/ui/DataTable'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
@@ -28,11 +28,6 @@ export function BusManagement() {
     const { data: busesData, isLoading: isBusesLoading } = useQuery({
         queryKey: ['buses', page, search],
         queryFn: () => getBuses({ page, search: search || undefined }),
-    })
-
-    const { data: officesData } = useQuery({
-        queryKey: ['offices_list'],
-        queryFn: () => getOffices({ limit: 100 }),
     })
 
     const invalidateBuses = () => {
@@ -87,10 +82,6 @@ export function BusManagement() {
                 </span>
             ),
         }),
-        columnHelper.accessor('office_name', {
-            header: 'Agence d\'attachement',
-            cell: info => info.getValue() || <span className="text-text-muted italic">Non assigné</span>,
-        }),
         columnHelper.accessor('is_active', {
             header: 'Statut',
             cell: info => (
@@ -133,7 +124,7 @@ export function BusManagement() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-text-primary">Flotte de Bus</h1>
-                    <p className="text-sm text-text-muted mt-1">Gérez l'inventaire des bus et leur affectation aux agences.</p>
+                    <p className="text-sm text-text-muted mt-1">Gerez l'inventaire des bus.</p>
                 </div>
                 <Button onClick={openCreateModal} className="shrink-0 flex items-center gap-2">
                     <Plus className="w-4 h-4" />
@@ -213,21 +204,6 @@ export function BusManagement() {
                             value={formData.model || ''}
                             onChange={(e) => setFormData(p => ({ ...p, model: e.target.value }))}
                         />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-text-primary mb-1">Agence d'attachement *</label>
-                        <select
-                            required
-                            className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
-                            value={formData.office || ''}
-                            onChange={(e) => setFormData(p => ({ ...p, office: Number(e.target.value) }))}
-                        >
-                            <option value="">Sélectionnez une agence</option>
-                            {officesData?.results?.map(o => (
-                                <option key={o.id} value={o.id}>{o.name}</option>
-                            ))}
-                        </select>
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">

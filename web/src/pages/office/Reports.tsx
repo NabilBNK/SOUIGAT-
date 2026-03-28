@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getDailyReport, triggerExport, getExportStatus, downloadExportFile } from '../../api/reports'
 import { getOffices } from '../../api/admin'
@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { DataTable } from '../../components/ui/DataTable'
 import { createColumnHelper } from '@tanstack/react-table'
 import { AlertCircle, FileSpreadsheet, Loader2, Calendar, LayoutDashboard } from 'lucide-react'
+import type { DailyReport } from '../../types/report'
 
 const columnHelper = createColumnHelper<any>()
 
@@ -56,9 +57,13 @@ const columns = [
 export function ReportsPage() {
     const { user } = useAuth()
     const today = new Date().toISOString().split('T')[0]
-    const [dateFrom, setDateFrom] = useState(today)
+    const defaultFrom = new Date(Date.now() - (6 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+    const [dateFrom, setDateFrom] = useState(defaultFrom)
     const [dateTo, setDateTo] = useState(today)
     const [selectedOffice, setSelectedOffice] = useState<string>('all')
+    const [onlyWithActivity, setOnlyWithActivity] = useState(true)
+    const dateFromInputRef = useRef<HTMLInputElement | null>(null)
+    const dateToInputRef = useRef<HTMLInputElement | null>(null)
 
     // Export state
     const [exportTaskId, setExportTaskId] = useState<string | null>(null)
@@ -79,21 +84,76 @@ export function ReportsPage() {
         queryParams.office_id = Number(selectedOffice)
     }
 
-    const { data: reports, isLoading, isError, refetch } = useQuery({
+    const { data: reports, isLoading, isError, error, refetch } = useQuery({
         queryKey: ['dailyReports', dateFrom, dateTo, selectedOffice],
         queryFn: () => getDailyReport(queryParams),
     })
 
+    const rows = useMemo<DailyReport[]>(() => reports || [], [reports])
+
+    const visibleRows = useMemo<DailyReport[]>(() => {
+        if (!onlyWithActivity) {
+            return rows
+        }
+
+        return rows.filter((row) => (
+            (row.total_trips ?? 0) > 0
+            || (row.total_passengers ?? 0) > 0
+            || (row.total_cargo ?? 0) > 0
+            || (row.passenger_revenue ?? 0) > 0
+            || (row.cargo_revenue ?? 0) > 0
+            || (row.net_revenue ?? 0) > 0
+        ))
+    }, [onlyWithActivity, rows])
+
+    const reportErrorMessage = useMemo(() => {
+        if (!error || typeof error !== 'object') {
+            return 'Erreur lors du chargement des rapports.'
+        }
+
+        const response = (error as { response?: { data?: unknown } }).response
+        const data = response?.data
+        if (data && typeof data === 'object') {
+            const detail = (data as { detail?: unknown }).detail
+            if (typeof detail === 'string' && detail.trim().length > 0) {
+                return detail
+            }
+        }
+
+        return 'Erreur lors du chargement des rapports.'
+    }, [error])
+
     // KPI Calculations
     const kpis = useMemo(() => {
-        if (!reports) return { trips: 0, pRev: 0, cRev: 0, net: 0 }
-        return reports.reduce((acc, row) => ({
+        if (visibleRows.length === 0) return { trips: 0, pRev: 0, cRev: 0, net: 0 }
+        return visibleRows.reduce((acc, row) => ({
             trips: acc.trips + (row.total_trips || 0),
             pRev: acc.pRev + (row.passenger_revenue || 0),
             cRev: acc.cRev + (row.cargo_revenue || 0),
             net: acc.net + (row.net_revenue || 0),
         }), { trips: 0, pRev: 0, cRev: 0, net: 0 })
-    }, [reports])
+    }, [visibleRows])
+
+    const applyQuickRange = (days: number) => {
+        const end = new Date()
+        const start = new Date(Date.now() - ((days - 1) * 24 * 60 * 60 * 1000))
+        setDateFrom(start.toISOString().split('T')[0])
+        setDateTo(end.toISOString().split('T')[0])
+    }
+
+    const openDatePicker = (input: HTMLInputElement | null) => {
+        if (!input) {
+            return
+        }
+
+        if ('showPicker' in input && typeof input.showPicker === 'function') {
+            input.showPicker()
+            return
+        }
+
+        input.focus()
+        input.click()
+    }
 
     // Poll export status if we have a taskId
     const { data: exportStatus } = useQuery({
@@ -218,26 +278,65 @@ export function ReportsPage() {
                 <div className="flex-1 w-full">
                     <label className="block text-xs font-medium text-text-secondary mb-1">Date de début</label>
                     <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                         <input
+                            ref={dateFromInputRef}
                             type="date"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
-                            className="w-full bg-surface-900 border border-surface-700 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg pl-3 pr-10 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
+                        <button
+                            type="button"
+                            onClick={() => openDatePicker(dateFromInputRef.current)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-700"
+                            aria-label="Choisir la date de début"
+                        >
+                            <Calendar className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
                 <div className="flex-1 w-full">
                     <label className="block text-xs font-medium text-text-secondary mb-1">Date de fin</label>
                     <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                         <input
+                            ref={dateToInputRef}
                             type="date"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
-                            className="w-full bg-surface-900 border border-surface-700 rounded-lg pl-10 pr-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            className="w-full bg-surface-900 border border-surface-700 rounded-lg pl-3 pr-10 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
+                        <button
+                            type="button"
+                            onClick={() => openDatePicker(dateToInputRef.current)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-700"
+                            aria-label="Choisir la date de fin"
+                        >
+                            <Calendar className="w-4 h-4" />
+                        </button>
                     </div>
+                </div>
+                <div className="w-full sm:w-auto flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => applyQuickRange(1)}
+                        className="px-2.5 py-2 rounded-md text-xs bg-surface-900 border border-surface-700 text-text-secondary hover:text-text-primary"
+                    >
+                        Aujourd'hui
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => applyQuickRange(7)}
+                        className="px-2.5 py-2 rounded-md text-xs bg-surface-900 border border-surface-700 text-text-secondary hover:text-text-primary"
+                    >
+                        7 jours
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => applyQuickRange(30)}
+                        className="px-2.5 py-2 rounded-md text-xs bg-surface-900 border border-surface-700 text-text-secondary hover:text-text-primary"
+                    >
+                        30 jours
+                    </button>
                 </div>
                 {user?.role === 'admin' && (
                     <div className="flex-1 w-full">
@@ -257,6 +356,15 @@ export function ReportsPage() {
                         </div>
                     </div>
                 )}
+                <label className="inline-flex items-center gap-2 text-xs text-text-secondary select-none mb-1">
+                    <input
+                        type="checkbox"
+                        checked={onlyWithActivity}
+                        onChange={(e) => setOnlyWithActivity(e.target.checked)}
+                        className="rounded border-surface-700 bg-surface-900"
+                    />
+                    Afficher seulement les lignes actives
+                </label>
                 <Button type="submit" variant="primary">Filtrer</Button>
             </form>
 
@@ -291,14 +399,16 @@ export function ReportsPage() {
                 {isError ? (
                     <div className="p-8 text-center text-red-600 dark:text-red-400">
                         <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-80" />
-                        <p>Erreur lors du chargement des rapports.</p>
+                        <p>{reportErrorMessage}</p>
                     </div>
                 ) : (
                     <DataTable
-                        data={reports || []}
+                        data={visibleRows}
                         columns={columns}
                         isLoading={isLoading}
-                        emptyMessage="Aucun rapport trouvé pour cette période."
+                        emptyMessage={onlyWithActivity
+                            ? 'Aucune activité trouvée pour cette période. Désactivez le filtre pour voir toutes les lignes.'
+                            : 'Aucun rapport trouvé pour cette période.'}
                         pageCount={1}
                         pageIndex={0}
                         onPageChange={() => { }}

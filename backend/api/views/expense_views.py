@@ -38,6 +38,15 @@ class TripExpenseViewSet(viewsets.ModelViewSet):
         qs = TripExpense.objects.select_related(
             'trip', 'created_by', 'trip__origin_office', 'trip__destination_office',
         ).order_by('-created_at', '-id')
+
+        trip_id_param = self.request.query_params.get('trip')
+        if trip_id_param is not None:
+            try:
+                trip_id = int(trip_id_param)
+            except (TypeError, ValueError):
+                return qs.none()
+            qs = qs.filter(trip_id=trip_id)
+
         if self.request.user.role == 'admin':
             return qs
         if self.request.user.role == 'office_staff':

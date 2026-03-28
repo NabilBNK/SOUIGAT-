@@ -31,7 +31,9 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
         data: tickets,
         isLoading,
         error,
-    } = useTripCargoMirror(trip.id)
+    } = useTripCargoMirror(trip.id, {
+        enableRealtime: true,
+    })
 
     const extractErrorMsg = (err: unknown, defaultMsg: string) => {
         if (err && typeof err === 'object' && 'response' in err) {

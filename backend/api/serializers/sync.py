@@ -4,9 +4,9 @@ from api.models import SyncLog
 
 
 class SyncItemSerializer(serializers.Serializer):
-    """Single item in a sync batch (ticket or expense)."""
+    """Single item in a sync batch (ticket, expense, or trip status)."""
     type = serializers.ChoiceField(
-        choices=['passenger_ticket', 'cargo_ticket', 'expense'],
+        choices=['passenger_ticket', 'cargo_ticket', 'expense', 'trip_status'],
     )
     idempotency_key = serializers.CharField(max_length=100)
     payload = serializers.JSONField()

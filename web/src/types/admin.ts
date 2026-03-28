@@ -11,8 +11,8 @@ export interface Bus {
     id: number
     plate_number: string
     model: string
-    office: number
-    office_name: string
+    office: number | null
+    office_name: string | null
     capacity: number
     is_active: boolean
 }

@@ -144,6 +144,9 @@ class TripDetailViewModel @Inject constructor(
             tripRepository.getTripDetail(tripId)
                 .onSuccess { trip ->
                     _uiState.value = TripDetailUiState.Success(trip.toTripDetailUiModel())
+                    viewModelScope.launch {
+                        tripRepository.refreshTripActivity(tripId)
+                    }
                 }
                 .onFailure { error ->
                     val exception = error as? TripException ?: TripException.ServerError(500)

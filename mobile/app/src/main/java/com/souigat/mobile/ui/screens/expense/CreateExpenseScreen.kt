@@ -64,10 +64,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.souigat.mobile.data.local.ExpenseFormDraft
 import com.souigat.mobile.ui.components.StitchCard
 import com.souigat.mobile.ui.components.StitchMonoText
 import com.souigat.mobile.ui.components.StitchPrimaryButton
 import com.souigat.mobile.ui.components.StitchSectionLabel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -78,12 +80,14 @@ fun CreateExpenseScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
+    val draftState by viewModel.draftState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var amount by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("fuel") }
     var receiptCaptured by rememberSaveable { mutableStateOf(false) }
+    var hasHydratedDraft by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val receiptCameraLauncher = rememberLauncherForActivityResult(
@@ -108,6 +112,28 @@ fun CreateExpenseScreen(
                 snackbarHostState.showSnackbar("Permission camera refusee.")
             }
         }
+    }
+
+    LaunchedEffect(draftState, hasHydratedDraft) {
+        if (hasHydratedDraft) return@LaunchedEffect
+        amount = draftState.amount
+        description = draftState.description
+        category = draftState.category
+        receiptCaptured = draftState.receiptCaptured
+        hasHydratedDraft = true
+    }
+
+    LaunchedEffect(hasHydratedDraft, amount, description, category, receiptCaptured) {
+        if (!hasHydratedDraft) return@LaunchedEffect
+        delay(350)
+        viewModel.persistDraft(
+            ExpenseFormDraft(
+                amount = amount,
+                description = description,
+                category = category,
+                receiptCaptured = receiptCaptured
+            )
+        )
     }
 
     LaunchedEffect(uiState) {

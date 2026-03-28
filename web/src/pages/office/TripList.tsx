@@ -1,24 +1,143 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getTrips } from '../../api/trips'
+import { getTrip, getTrips } from '../../api/trips'
 import { formatDateTime } from '../../utils/formatters'
 import { DataTable } from '../../components/ui/DataTable'
 import { StatusBadge } from '../../components/ui/StatusBadge'
+import { useTripStatusMirrorMap } from '../../hooks/useTripMirrorData'
+import { shouldPreferMirrorStatus } from '../../utils/tripStatusSource'
 import { Link } from 'react-router-dom'
-import { Plus, Filter } from 'lucide-react'
+import { Plus, Filter, RefreshCw, TriangleAlert } from 'lucide-react'
 import type { Trip, TripStatus, TripFilters } from '../../types/trip'
 import type { ColumnDef } from '@tanstack/react-table'
+import { queueTripUpsert } from '../../sync/tripSync'
+import { getLatestSyncRecordForEntity, syncQueueEvents } from '../../sync/queue'
+import type { SyncRecordStatus } from '../../sync/types'
+
+type TripSyncState = {
+    status: SyncRecordStatus
+    lastError: string | null
+}
 
 export function TripList() {
     const [page, setPage] = useState(1)
     const [filters, setFilters] = useState<TripFilters>({})
     const [showFilters, setShowFilters] = useState(false)
+    const [syncingTripId, setSyncingTripId] = useState<number | null>(null)
+    const [syncNotice, setSyncNotice] = useState<string | null>(null)
+    const [syncStateByTripId, setSyncStateByTripId] = useState<Record<number, TripSyncState>>({})
 
     const { data, isLoading } = useQuery({
         queryKey: ['trips', { page, ...filters }],
         queryFn: () => getTrips({ page, ...filters }),
         placeholderData: (prev) => prev,
     })
+
+    const visibleTripIds = useMemo(
+        () => (data?.results ?? []).map((trip) => trip.id),
+        [data?.results],
+    )
+    const activeVisibleTripIds = useMemo(
+        () => (data?.results ?? [])
+            .filter((trip) => trip.status === 'scheduled' || trip.status === 'in_progress')
+            .map((trip) => trip.id),
+        [data?.results],
+    )
+    const { statuses: mirrorStatuses } = useTripStatusMirrorMap(activeVisibleTripIds)
+    const mirrorStatusTripIds = useMemo(() => {
+        const tripIds = new Set<number>()
+        ;(data?.results ?? []).forEach((trip) => {
+            const mirrored = mirrorStatuses[trip.id]
+            if (shouldPreferMirrorStatus(trip, mirrored)) {
+                tripIds.add(trip.id)
+            }
+        })
+        return tripIds
+    }, [data?.results, mirrorStatuses])
+
+    const effectiveTrips = useMemo<Trip[]>(() => {
+        return (data?.results ?? []).map((trip) => {
+            const mirrored = mirrorStatuses[trip.id]
+            if (!shouldPreferMirrorStatus(trip, mirrored)) {
+                return trip
+            }
+
+            return {
+                ...trip,
+                status: mirrored.status ?? trip.status,
+                arrival_datetime: mirrored.arrivalDatetime ?? trip.arrival_datetime,
+            }
+        })
+    }, [data?.results, mirrorStatuses])
+
+    useEffect(() => {
+        let mounted = true
+
+        const refreshSyncIssues = async () => {
+            if (visibleTripIds.length === 0) {
+                if (mounted) {
+                    setSyncStateByTripId({})
+                }
+                return
+            }
+
+            const entries = await Promise.all(
+                visibleTripIds.map(async (tripId) => {
+                    const record = await getLatestSyncRecordForEntity('trip', String(tripId))
+                    return [tripId, record] as const
+                }),
+            )
+
+            if (!mounted) {
+                return
+            }
+
+            const next: Record<number, TripSyncState> = {}
+            entries.forEach(([tripId, record]) => {
+                if (record) {
+                    next[tripId] = {
+                        status: record.status,
+                        lastError: record.lastError,
+                    }
+                }
+            })
+            setSyncStateByTripId(next)
+        }
+
+        const onChanged = () => {
+            void refreshSyncIssues()
+        }
+
+        void refreshSyncIssues()
+        syncQueueEvents.addEventListener('changed', onChanged)
+
+        return () => {
+            mounted = false
+            syncQueueEvents.removeEventListener('changed', onChanged)
+        }
+    }, [visibleTripIds])
+
+    const handleManualSync = async (trip: Trip) => {
+        setSyncNotice(null)
+        setSyncingTripId(trip.id)
+        try {
+            const latestTrip = await getTrip(trip.id)
+            await queueTripUpsert(latestTrip)
+            setSyncNotice(`Sync lancé pour le voyage #${trip.id.toString().padStart(4, '0')} avec les données les plus récentes.`)
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Erreur inconnue pendant la mise en file.'
+            setSyncStateByTripId((prev) => ({
+                ...prev,
+                [trip.id]: {
+                    status: 'failed',
+                    lastError: message,
+                },
+            }))
+            setSyncNotice(`Échec de sync pour le voyage #${trip.id.toString().padStart(4, '0')}: ${message}`)
+        } finally {
+            setSyncingTripId(null)
+        }
+    }
 
     const columns = useMemo<ColumnDef<Trip>[]>(
         () => [
@@ -37,11 +156,15 @@ export function TripList() {
                 cell: ({ row }) => {
                     const t = row.original
                     return (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium">{t.origin_office_name}</span>
+                        <Link
+                            to={`/office/trips/${t.id}`}
+                            className="inline-flex items-center gap-2 hover:opacity-90"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <span className="font-medium text-brand-400 hover:text-brand-300">{t.origin_office_name}</span>
                             <span className="text-text-muted">→</span>
-                            <span className="font-medium">{t.destination_office_name}</span>
-                        </div>
+                            <span className="font-medium text-brand-400 hover:text-brand-300">{t.destination_office_name}</span>
+                        </Link>
                     )
                 },
             },
@@ -66,9 +189,19 @@ export function TripList() {
             {
                 accessorKey: 'status',
                 header: 'Statut',
-                cell: (info) => (
-                    <StatusBadge status={info.getValue<TripStatus>()} type="trip" />
-                ),
+                cell: (info) => {
+                    const isMirrorStatus = mirrorStatusTripIds.has(info.row.original.id)
+                    return (
+                        <div className="flex items-center gap-2">
+                            <StatusBadge status={info.getValue<TripStatus>()} type="trip" />
+                            {isMirrorStatus && (
+                                <span className="inline-flex items-center rounded border border-brand-500/30 bg-[#137fec]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-300">
+                                    Firebase
+                                </span>
+                            )}
+                        </div>
+                    )
+                },
             },
             {
                 accessorKey: 'passenger_count',
@@ -91,18 +224,41 @@ export function TripList() {
             {
                 id: 'actions',
                 header: '',
-                cell: ({ row }) => (
-                    <Link
-                        to={`/office/trips/${row.original.id}`}
-                        className="text-brand-400 hover:text-brand-300 font-medium text-[13px] transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        Gérer →
-                    </Link>
-                ),
+                cell: ({ row }) => {
+                    const isSyncing = syncingTripId === row.original.id
+                    const syncState = syncStateByTripId[row.original.id]
+                    const issue = syncState?.lastError
+                    const showIssue = Boolean(
+                        issue
+                        && (syncState?.status === 'failed' || syncState?.status === 'conflict'),
+                    )
+
+                    return (
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    void handleManualSync(row.original)
+                                }}
+                                disabled={isSyncing}
+                                className="inline-flex items-center gap-1 text-[11px] text-text-secondary hover:text-text-primary disabled:opacity-60 disabled:cursor-not-allowed"
+                                title={issue ?? 'Relancer la synchronisation Firebase'}
+                            >
+                                <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                                Sync
+                            </button>
+                            {showIssue && (
+                                <span className="inline-flex items-center text-[11px] text-red-500" title={issue ?? undefined}>
+                                    <TriangleAlert className="h-3.5 w-3.5" />
+                                </span>
+                            )}
+                        </div>
+                    )
+                },
             },
         ],
-        []
+        [mirrorStatusTripIds, syncingTripId, syncStateByTripId]
     )
 
     const handleFilterChange = (key: keyof TripFilters, value: string | undefined) => {
@@ -203,9 +359,15 @@ export function TripList() {
             )}
 
             {/* Table */}
+            {syncNotice && (
+                <div className="rounded-md border border-surface-700 bg-surface-800/70 px-4 py-2 text-sm text-text-secondary">
+                    {syncNotice}
+                </div>
+            )}
+
             <DataTable
                 columns={columns}
-                data={data?.results || []}
+                data={effectiveTrips}
                 pageCount={pageCount}
                 pageIndex={page - 1}
                 onPageChange={(newIndex) => setPage(newIndex + 1)}

@@ -8,8 +8,9 @@ from rest_framework.test import APIClient
 
 from api.models import (
     Bus, CargoTicket, Office, PassengerTicket,
-    PricingConfig, Trip, TripExpense, User,
+    PricingConfig, Settlement, Trip, TripExpense, User,
 )
+from api.services.report_snapshots import upsert_trip_report_snapshots_for_trip
 
 
 class ReportTests(TestCase):
@@ -163,3 +164,36 @@ class ReportTests(TestCase):
         resp = self.client.get('/api/reports/daily/?date_from=2026-01-01&date_to=2026-02-15')
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(resp.data['error_code'], 'DATE_RANGE_TOO_LARGE')
+
+    def test_daily_report_prefers_settled_snapshot(self):
+        self.trip.status = 'completed'
+        self.trip.save()
+
+        settlement = Settlement.objects.create(
+            trip=self.trip,
+            office=self.office_b,
+            conductor=self.conductor,
+            expected_passenger_cash=2000,
+            expected_cargo_cash=500,
+            expected_total_cash=2500,
+            expenses_to_reimburse=300,
+            net_cash_expected=2200,
+            status=Settlement.STATUS_SETTLED,
+        )
+        upsert_trip_report_snapshots_for_trip(self.trip)
+
+        PassengerTicket.objects.filter(trip=self.trip).update(status='cancelled')
+        settlement.notes = 'snapshot is frozen'
+        settlement.save(update_fields=['notes', 'updated_at'])
+
+        self.client.force_authenticate(self.admin)
+        today = timezone.now().strftime('%Y-%m-%d')
+        resp = self.client.get(f'/api/reports/daily/?date_from={today}&date_to={today}')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        algiers_row = next((r for r in resp.data if r['office_id'] == self.office.id), None)
+        self.assertIsNotNone(algiers_row)
+        self.assertEqual(algiers_row['passenger_revenue'], 2000)
+        self.assertEqual(algiers_row['cargo_revenue'], 500)
+        self.assertEqual(algiers_row['expense_total'], 300)
+        self.assertEqual(algiers_row['net_revenue'], 2200)

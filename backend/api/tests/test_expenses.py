@@ -145,6 +145,37 @@ class TripExpenseTests(TestCase):
         self.assertEqual(resp.data['count'], 1)
         self.assertEqual(resp.data['results'][0]['id'], own_expense.id)
 
+    def test_expense_list_can_filter_by_trip(self):
+        expense_a = TripExpense.objects.create(
+            trip=self.trip,
+            description='Fuel A',
+            amount=500,
+            category='fuel',
+            created_by=self.conductor,
+        )
+        TripExpense.objects.create(
+            trip=self.trip,
+            description='Fuel B',
+            amount=700,
+            category='fuel',
+            created_by=self.conductor,
+        )
+        TripExpense.objects.create(
+            trip=self.trip_other,
+            description='Other trip',
+            amount=900,
+            category='other',
+            created_by=self.conductor_c,
+        )
+
+        self.client.force_authenticate(self.conductor)
+        resp = self.client.get(f'/api/expenses/?trip={self.trip.id}')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['count'], 2)
+        result_ids = {item['id'] for item in resp.data['results']}
+        self.assertIn(expense_a.id, result_ids)
+
     def test_office_staff_cannot_retrieve_other_office_expense(self):
         foreign_expense = TripExpense.objects.create(
             trip=self.trip_other,

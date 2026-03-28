@@ -20,6 +20,8 @@ import { getTrips } from '../../api/trips'
 import { Button } from '../../components/ui/Button'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { useAuth } from '../../hooks/useAuth'
+import { useTripStatusMirrorMap } from '../../hooks/useTripMirrorData'
+import { shouldPreferMirrorStatus } from '../../utils/tripStatusSource'
 import type { SettlementListItem } from '../../types/settlement'
 import type { Trip } from '../../types/trip'
 import { formatCurrency, formatDateTime } from '../../utils/formatters'
@@ -155,7 +157,38 @@ export function OfficeDashboard() {
     }, [dailyReports])
 
     const activeTrips = activeTripsData?.results || []
-    const recentTrips = (tripsData?.results || []).slice(0, 6)
+    const recentTrips = useMemo(() => (tripsData?.results || []).slice(0, 6), [tripsData?.results])
+    const recentTripIds = useMemo(
+        () => recentTrips
+            .filter((trip) => trip.status === 'scheduled' || trip.status === 'in_progress')
+            .map((trip) => trip.id),
+        [recentTrips],
+    )
+    const { statuses: recentTripMirrorStatuses } = useTripStatusMirrorMap(recentTripIds)
+    const recentMirrorStatusTripIds = useMemo(() => {
+        const tripIds = new Set<number>()
+        recentTrips.forEach((trip) => {
+            const mirrored = recentTripMirrorStatuses[trip.id]
+            if (shouldPreferMirrorStatus(trip, mirrored)) {
+                tripIds.add(trip.id)
+            }
+        })
+        return tripIds
+    }, [recentTrips, recentTripMirrorStatuses])
+    const effectiveRecentTrips = useMemo<Trip[]>(() => {
+        return recentTrips.map((trip) => {
+            const mirrored = recentTripMirrorStatuses[trip.id]
+            if (!shouldPreferMirrorStatus(trip, mirrored)) {
+                return trip
+            }
+
+            return {
+                ...trip,
+                status: mirrored.status ?? trip.status,
+                arrival_datetime: mirrored.arrivalDatetime ?? trip.arrival_datetime,
+            }
+        })
+    }, [recentTrips, recentTripMirrorStatuses])
     const pendingSettlements = pendingSettlementsData?.results || []
 
     const pendingSettlementMap = useMemo(() => {
@@ -179,7 +212,7 @@ export function OfficeDashboard() {
             to: '/office/reports',
         },
         {
-            label: 'Active trips',
+            label: 'Active trips (backend)',
             value: activeTrips.length.toString(),
             meta: activeTrips.length === 1 ? '1 trip in progress' : `${activeTrips.length} trips in progress`,
             icon: <Bus className="h-5 w-5" />,
@@ -315,14 +348,15 @@ export function OfficeDashboard() {
                                             </td>
                                         </tr>
                                     ))
-                                ) : recentTrips.length > 0 ? (
-                                    recentTrips.map((trip) => {
+                                ) : effectiveRecentTrips.length > 0 ? (
+                                    effectiveRecentTrips.map((trip) => {
                                         const pendingSettlement = pendingSettlementMap.get(trip.id)
                                         return (
                                             <RecentTripRow
                                                 key={trip.id}
                                                 trip={trip}
                                                 pendingSettlement={pendingSettlement}
+                                                isMirrorStatus={recentMirrorStatusTripIds.has(trip.id)}
                                             />
                                         )
                                     })
@@ -474,9 +508,11 @@ function MetricLinkCard({
 function RecentTripRow({
     trip,
     pendingSettlement,
+    isMirrorStatus,
 }: {
     trip: Trip
     pendingSettlement?: SettlementListItem
+    isMirrorStatus: boolean
 }) {
     const financeText = pendingSettlement
         ? formatCurrency(pendingSettlement.net_cash_expected)
@@ -523,6 +559,11 @@ function RecentTripRow({
             <td className="px-6 py-5">
                 <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={trip.status} type="trip" />
+                    {isMirrorStatus && (
+                        <span className="inline-flex items-center rounded border border-brand-500/30 bg-[#137fec]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-300">
+                            Firebase
+                        </span>
+                    )}
                     {pendingSettlement && (
                         <StatusBadge status={pendingSettlement.status} type="settlement" />
                     )}

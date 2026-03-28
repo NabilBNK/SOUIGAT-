@@ -3,6 +3,8 @@ package com.souigat.mobile.ui.screens.expense
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.souigat.mobile.data.local.ExpenseFormDraft
+import com.souigat.mobile.data.local.FormDraftStore
 import com.souigat.mobile.data.local.dao.TripDao
 import com.souigat.mobile.data.local.entity.TripEntity
 import com.souigat.mobile.domain.repository.ExpenseRepository
@@ -38,6 +40,7 @@ sealed class ExpenseFormHeaderState {
 @HiltViewModel
 class CreateExpenseViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
+    private val formDraftStore: FormDraftStore,
     tripDao: TripDao,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -67,6 +70,9 @@ class CreateExpenseViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<CreateExpenseUiState>(CreateExpenseUiState.Idle)
     val uiState: StateFlow<CreateExpenseUiState> = _uiState.asStateFlow()
+
+    private val _draftState = MutableStateFlow(formDraftStore.getExpenseDraft(tripId))
+    val draftState: StateFlow<ExpenseFormDraft> = _draftState.asStateFlow()
 
     fun createExpense(
         amountInput: String,
@@ -108,6 +114,7 @@ class CreateExpenseViewModel @Inject constructor(
                 category = categoryClean,
                 description = descriptionClean
             ).onSuccess {
+                clearDraft()
                 _uiState.value = CreateExpenseUiState.Success("Depense enregistree hors ligne avec succes.")
             }.onFailure { error ->
                 _uiState.value = CreateExpenseUiState.Error(
@@ -123,6 +130,17 @@ class CreateExpenseViewModel @Inject constructor(
 
     fun retryLookup() {
         lookupRequests.value += 1
+    }
+
+    fun persistDraft(draft: ExpenseFormDraft) {
+        _draftState.value = draft
+        formDraftStore.saveExpenseDraft(tripId, draft)
+    }
+
+    private fun clearDraft() {
+        val cleared = ExpenseFormDraft()
+        _draftState.value = cleared
+        formDraftStore.clearExpenseDraft(tripId)
     }
 
     private fun TripEntity.toFormHeader(): TripFormHeaderUiModel {

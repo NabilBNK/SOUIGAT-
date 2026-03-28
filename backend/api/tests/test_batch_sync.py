@@ -14,6 +14,7 @@ from api.models import (
     Bus, CargoTicket, Office, PassengerTicket,
     PricingConfig, QuarantinedSync, SyncLog, Trip, TripExpense, User,
 )
+from api.services import initiate_settlement_for_trip
 
 
 class BatchSyncTests(TestCase):
@@ -484,3 +485,125 @@ class BatchSyncTests(TestCase):
         self.assertEqual(resp.data['accepted'], 1)
         self.assertEqual(QuarantinedSync.objects.count(), 1)
         self.assertEqual(PassengerTicket.objects.count(), 1)
+
+    def test_trip_status_accepts_transition_to_completed(self):
+        self.trip.status = 'in_progress'
+        self.trip.save(update_fields=['status'])
+        self.client.force_authenticate(self.conductor)
+
+        item = self._make_item(
+            item_type='trip_status',
+            key='trip-status-completed',
+            payload={'status': 'completed'},
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['accepted'], 1)
+        self.trip.refresh_from_db()
+        self.assertEqual(self.trip.status, 'completed')
+
+    def test_trip_status_duplicate_key_reports_duplicate(self):
+        self.trip.status = 'in_progress'
+        self.trip.save(update_fields=['status'])
+        SyncLog.objects.create(
+            key='trip-status-dup',
+            conductor=self.conductor,
+            trip=self.trip,
+            accepted=1,
+            quarantined=0,
+        )
+        self.client.force_authenticate(self.conductor)
+
+        item = self._make_item(
+            item_type='trip_status',
+            key='trip-status-dup',
+            payload={'status': 'completed'},
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['duplicates'], 1)
+        self.assertEqual(resp.data['accepted'], 0)
+
+    def test_trip_status_stale_noop_when_trip_already_completed(self):
+        self.trip.status = 'completed'
+        self.trip.arrival_datetime = self.trip.departure_datetime + timedelta(minutes=1)
+        self.trip.save(update_fields=['status', 'arrival_datetime'])
+        self.client.force_authenticate(self.conductor)
+
+        item = self._make_item(
+            item_type='trip_status',
+            key='trip-status-stale-noop',
+            payload={'status': 'in_progress'},
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['accepted'], 1)
+        self.assertEqual(resp.data['quarantined'], 0)
+        self.trip.refresh_from_db()
+        self.assertEqual(self.trip.status, 'completed')
+
+    def test_trip_status_quarantined_for_cancelled_trip(self):
+        self.trip.status = 'cancelled'
+        self.trip.save(update_fields=['status'])
+        self.client.force_authenticate(self.conductor)
+
+        item = self._make_item(
+            item_type='trip_status',
+            key='trip-status-cancelled',
+            payload={'status': 'completed'},
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['accepted'], 0)
+        self.assertEqual(resp.data['quarantined'], 1)
+
+    def test_completed_trip_sync_recomputes_existing_settlement_snapshot(self):
+        self.trip.status = 'completed'
+        self.trip.arrival_datetime = self.trip.departure_datetime + timedelta(minutes=1)
+        self.trip.save(update_fields=['status', 'arrival_datetime'])
+        settlement, _ = initiate_settlement_for_trip(self.trip)
+        self.assertEqual(settlement.expected_total_cash, 0)
+
+        PassengerTicket.objects.create(
+            trip=self.trip,
+            ticket_number='PT-LATE-001',
+            passenger_name='Late Add',
+            price=1200,
+            currency='DZD',
+            payment_source='cash',
+            boarding_point=self.office.name,
+            alighting_point=self.office_b.name,
+            created_by=self.conductor,
+        )
+
+        self.client.force_authenticate(self.conductor)
+        item = self._make_item(
+            item_type='trip_status',
+            key='trip-status-recompute-trigger',
+            payload={'status': 'completed'},
+        )
+        resp = self.client.post('/api/sync/batch/', {
+            'trip_id': self.trip.id,
+            'items': [item],
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['accepted'], 1)
+
+        settlement.refresh_from_db()
+        self.assertEqual(settlement.expected_total_cash, 1200)

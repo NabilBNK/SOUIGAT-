@@ -21,8 +21,10 @@ import com.souigat.mobile.domain.model.SyncStatus
     tableName = "sync_queue",
     indices = [
         Index("status"),
+        Index(value = ["status", "nextAttemptAt"]),
         Index("idempotencyKey", unique = true),
-        Index("tripId")
+        Index("tripId"),
+        Index(value = ["tripId", "createdAt"])
     ]
 )
 data class SyncQueueEntity(
@@ -33,6 +35,11 @@ data class SyncQueueEntity(
     val idempotencyKey: String,      // UUID v4 generated at ticket creation time
     val status: SyncStatus = SyncStatus.PENDING,
     val retryCount: Int = 0,
+    val nextAttemptAt: Long = System.currentTimeMillis(),
+    val lastAttemptAt: Long? = null,
+    val lastErrorCode: String? = null,
+    val lastErrorMessage: String? = null,
+    val deadLetterReason: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val syncedAt: Long? = null
 )

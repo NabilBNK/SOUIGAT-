@@ -16,6 +16,9 @@ object Constants {
 
     const val SYNC_BATCH_SIZE = 80
     const val MAX_SYNC_DRAIN_ROUNDS = 10
+    const val SYNC_MAX_ATTEMPTS = 8
+    const val SYNC_BASE_BACKOFF_MS = 5_000L
+    const val SYNC_MAX_BACKOFF_MS = 10 * 60_000L
     const val SYNC_WORKER_TAG = "souigat_sync"
     const val TRIP_REMINDER_TAG = "souigat_trip_reminder"
     const val TRIP_REMINDER_CHANNEL_ID = "trip_reminders"

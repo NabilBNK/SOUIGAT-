@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import date, timedelta
 
 from django.core.cache import cache
@@ -9,7 +10,15 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from api.models import CargoTicket, Office, PassengerTicket, Trip, TripExpense, User
+from api.models import (
+    CargoTicket,
+    Office,
+    PassengerTicket,
+    Trip,
+    TripExpense,
+    TripReportSnapshot,
+    User,
+)
 from api.permissions import get_cached_user_permissions
 
 
@@ -117,6 +126,32 @@ def _build_office_day_row(office, day, trip_ids):
     }
 
 
+def _merge_daily_rows(office, day, live_row, snapshot_rows):
+    merged = {
+        'date': str(day),
+        'office_name': office.name,
+        'office_id': office.id,
+        'total_trips': int(live_row['total_trips']),
+        'total_passengers': int(live_row['total_passengers']),
+        'total_cargo': int(live_row['total_cargo']),
+        'passenger_revenue': int(live_row['passenger_revenue']),
+        'cargo_revenue': int(live_row['cargo_revenue']),
+        'expense_total': int(live_row['expense_total']),
+        'net_revenue': int(live_row['net_revenue']),
+    }
+
+    for snapshot in snapshot_rows:
+        merged['total_trips'] += int(snapshot.total_trips)
+        merged['total_passengers'] += int(snapshot.total_passengers)
+        merged['total_cargo'] += int(snapshot.total_cargo)
+        merged['passenger_revenue'] += int(snapshot.passenger_revenue)
+        merged['cargo_revenue'] += int(snapshot.cargo_revenue)
+        merged['expense_total'] += int(snapshot.expense_total)
+        merged['net_revenue'] += int(snapshot.net_revenue)
+
+    return merged
+
+
 @api_view(['GET'])
 def daily_report(request):
     """
@@ -152,6 +187,18 @@ def daily_report(request):
     else:
         offices = list(Office.objects.filter(id=request.user.office_id))
 
+    office_ids = [office.id for office in offices]
+    snapshot_rows = TripReportSnapshot.objects.filter(
+        office_id__in=office_ids,
+        report_date__gte=date_from,
+        report_date__lte=date_to,
+        settlement_status='settled',
+    )
+    snapshot_by_scope = defaultdict(dict)
+    for snapshot in snapshot_rows:
+        scope_key = (snapshot.office_id, snapshot.report_date)
+        snapshot_by_scope[scope_key][snapshot.trip_id] = snapshot
+
     # Iterate every date in range × every office
     rows = []
     current = date_from
@@ -163,7 +210,18 @@ def daily_report(request):
                 Q(origin_office=office) | Q(destination_office=office)
             )
             trip_ids = list(trips.values_list('id', flat=True))
-            rows.append(_build_office_day_row(office, current, trip_ids))
+
+            scoped_snapshots = snapshot_by_scope.get((office.id, current), {})
+            matching_snapshots = [
+                scoped_snapshots[trip_id]
+                for trip_id in trip_ids
+                if trip_id in scoped_snapshots
+            ]
+            snapshot_trip_ids = {snapshot.trip_id for snapshot in matching_snapshots}
+            live_trip_ids = [trip_id for trip_id in trip_ids if trip_id not in snapshot_trip_ids]
+
+            live_row = _build_office_day_row(office, current, live_trip_ids)
+            rows.append(_merge_daily_rows(office, current, live_row, matching_snapshots))
         current += timedelta(days=1)
 
     cache.set(cache_key, rows, timeout=900)  # 15-min cache

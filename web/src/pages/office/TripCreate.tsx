@@ -9,6 +9,7 @@ import type { TripCreate } from '../../types/trip'
 import type { Office, Bus } from '../../types/admin'
 import type { User } from '../../types/auth'
 import { Link } from 'react-router-dom'
+import { queueTripUpsert } from '../../sync/tripSync'
 
 export function TripCreatePage() {
     const navigate = useNavigate()
@@ -28,8 +29,8 @@ export function TripCreatePage() {
 
     // Reference Data Queries
     const { data: referenceData } = useQuery({
-        queryKey: ['trip_reference_data', originId],
-        queryFn: () => getTripReferenceData(originId ? Number(originId) : undefined),
+        queryKey: ['trip_reference_data'],
+        queryFn: () => getTripReferenceData(),
     })
     const offices = referenceData?.offices || []
     const buses = referenceData?.buses || []
@@ -38,6 +39,9 @@ export function TripCreatePage() {
     const { mutate, isPending } = useMutation({
         mutationFn: (data: TripCreate) => createTrip(data),
         onSuccess: (newTrip) => {
+            void queueTripUpsert(newTrip).catch((syncError) => {
+                console.warn('[SYNC] Failed to queue trip mirror sync after trip creation.', syncError)
+            })
             queryClient.invalidateQueries({ queryKey: ['trips'] })
             navigate(`/office/trips/${newTrip.id}`)
         },
@@ -136,7 +140,7 @@ export function TripCreatePage() {
                                     value={originId}
                                     onChange={(e) => {
                                         setOriginId(e.target.value)
-                                        setBusId('') // Reset bus when origin changes
+                                        setBusId('')
                                     }}
                                     className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow disabled:opacity-50"
                                     required
@@ -227,7 +231,7 @@ export function TripCreatePage() {
                                     ))}
                                 </select>
                                 {originId && buses.length === 0 && (
-                                    <p className="text-[12px] text-yellow-600 dark:text-yellow-400 mt-1">Aucun bus n'est actuellement stationné dans ce bureau.</p>
+                                    <p className="text-[12px] text-yellow-600 dark:text-yellow-400 mt-1">Aucun bus actif disponible actuellement.</p>
                                 )}
                             </div>
 

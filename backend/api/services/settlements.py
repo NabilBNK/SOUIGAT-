@@ -107,6 +107,33 @@ def initiate_settlement_for_trip(trip):
     return settlement, created
 
 
+def recompute_settlement_for_trip(trip):
+    """Recompute expected settlement totals for an existing trip settlement."""
+    settlement, _created = initiate_settlement_for_trip(trip)
+    computation = compute_settlement(trip)
+
+    settlement.expected_passenger_cash = computation.expected_passenger_cash
+    settlement.expected_cargo_cash = computation.expected_cargo_cash
+    settlement.expected_total_cash = computation.expected_total_cash
+    settlement.agency_presale_total = computation.agency_presale_total
+    settlement.outstanding_cargo_delivery = computation.outstanding_cargo_delivery
+    settlement.expenses_to_reimburse = computation.expenses_to_reimburse
+    settlement.net_cash_expected = computation.net_cash_expected
+    settlement.calculation_snapshot = computation.snapshot
+    settlement.save(update_fields=[
+        'expected_passenger_cash',
+        'expected_cargo_cash',
+        'expected_total_cash',
+        'agency_presale_total',
+        'outstanding_cargo_delivery',
+        'expenses_to_reimburse',
+        'net_cash_expected',
+        'calculation_snapshot',
+        'updated_at',
+    ])
+    return settlement
+
+
 def build_settlement_preview(settlement):
     return {
         'settlement_id': settlement.id,

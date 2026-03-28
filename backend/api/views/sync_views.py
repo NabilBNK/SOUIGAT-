@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
@@ -19,10 +20,22 @@ from api.services.money_scale import (
     normalize_money_amount,
     parse_integer_money,
 )
+from api.services import (
+    initiate_settlement_for_trip,
+    recompute_settlement_for_trip,
+    upsert_trip_report_snapshots_for_trip,
+)
 
 logger = logging.getLogger(__name__)
 
 VALID_CARGO_TIERS = {'small', 'medium', 'large'}
+VALID_TRIP_STATUS_TARGETS = {'in_progress', 'completed'}
+
+
+def _sync_completion_arrival_datetime(trip):
+    now = timezone.now()
+    minimum_arrival = trip.departure_datetime + timedelta(seconds=1)
+    return max(now, minimum_arrival)
 
 
 def _quarantine_item(*, idx, item, key, trip, user, reason):
@@ -121,8 +134,9 @@ def batch_sync(request):
                     last_processed_index = idx
                     continue
 
-                # If trip is closed, quarantine instead of processing
-                if trip_closed:
+                # If trip is closed, quarantine instead of processing, except trip_status
+                # which supports idempotent no-op convergence.
+                if trip_closed and item['type'] != 'trip_status':
                     try:
                         _quarantine_item(
                             idx=idx,
@@ -213,6 +227,17 @@ def batch_sync(request):
     if accepted > 0 or quarantined > 0:
         _invalidate_report_cache(trip)
 
+    if accepted > 0 and trip.status == 'completed':
+        try:
+            recompute_settlement_for_trip(trip)
+            upsert_trip_report_snapshots_for_trip(trip)
+        except Exception:
+            logger.error(
+                'Settlement recompute failed after batch sync for completed trip %s',
+                trip.id,
+                exc_info=True,
+            )
+
     return Response({
         'sync_log_trip': trip_id,
         'accepted': accepted,
@@ -272,8 +297,72 @@ def _process_item(item_type, payload, trip, user, trip_state):
         return _create_cargo_ticket(payload, trip, user, trip_state)
     elif item_type == 'expense':
         return _create_expense(payload, trip, user)
+    elif item_type == 'trip_status':
+        return _apply_trip_status(payload, trip, user)
     else:
         raise ValidationError(f'Unknown item type: {item_type}')
+
+
+def _apply_trip_status(payload, trip, user):
+    """Apply a trip status event idempotently during batch sync."""
+    target_status = str(payload.get('status') or '').strip().lower()
+    if target_status not in VALID_TRIP_STATUS_TARGETS:
+        raise ValidationError(
+            f"Invalid trip status '{target_status}'. Must be one of: {', '.join(sorted(VALID_TRIP_STATUS_TARGETS))}."
+        )
+
+    if user.role == 'conductor' and trip.conductor_id != user.id:
+        raise ValidationError('You are not the assigned conductor for this trip.')
+
+    current_status = trip.status
+    if current_status == target_status:
+        logger.info(
+            'trip_status sync no-op (already %s) trip=%s keyless payload',
+            target_status,
+            trip.id,
+        )
+        return trip.id
+
+    # Never regress terminal state.
+    if current_status == 'completed':
+        logger.info(
+            'trip_status sync no-op (stale %s while completed) trip=%s',
+            target_status,
+            trip.id,
+        )
+        return trip.id
+
+    if current_status == 'cancelled':
+        raise ValidationError('Cannot apply trip status to a cancelled trip.')
+
+    if target_status == 'in_progress':
+        if current_status != 'scheduled':
+            raise ValidationError(f'Invalid trip status transition {current_status} -> {target_status}')
+
+        trip.status = 'in_progress'
+        trip.save(skip_validation=True)
+        logger.info('trip_status sync applied scheduled -> in_progress trip=%s', trip.id)
+        return trip.id
+
+    # target_status == 'completed'
+    if current_status not in ('scheduled', 'in_progress'):
+        raise ValidationError(f'Invalid trip status transition {current_status} -> {target_status}')
+
+    trip.status = 'completed'
+    trip.arrival_datetime = _sync_completion_arrival_datetime(trip)
+    trip.save(skip_validation=True)
+    logger.info('trip_status sync applied %s -> completed trip=%s', current_status, trip.id)
+
+    try:
+        initiate_settlement_for_trip(trip)
+    except Exception:
+        logger.error(
+            'Settlement initiation failed during trip_status sync for trip %s',
+            trip.id,
+            exc_info=True,
+        )
+
+    return trip.id
 
 
 def _count_occupied_seats_for_boarding(trip, boarding_point):

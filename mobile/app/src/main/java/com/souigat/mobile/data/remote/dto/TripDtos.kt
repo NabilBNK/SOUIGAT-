@@ -15,6 +15,12 @@ data class TripListDto(
     val status: String,
     @SerialName("passenger_base_price")
     val passengerBasePrice: Long,
+    @SerialName("cargo_small_price")
+    val cargoSmallPrice: Long? = null,
+    @SerialName("cargo_medium_price")
+    val cargoMediumPrice: Long? = null,
+    @SerialName("cargo_large_price")
+    val cargoLargePrice: Long? = null,
     val currency: String
 )
 

@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type {
+    SyncEntityType,
     SyncEntitySummary,
     SyncRecord,
     SyncRecordDraft,
@@ -278,6 +279,41 @@ export async function getSyncSummaryByEntity(): Promise<SyncEntitySummary> {
     })
 
     return summary
+}
+
+export async function getLatestSyncIssueForEntity(
+    entityType: SyncEntityType,
+    entityId: string,
+): Promise<SyncRecord | null> {
+    const db = await getDb()
+    const all = await db.getAll(STORE_NAME)
+
+    const candidate = all
+        .filter((record) => (
+            record.entityType === entityType
+            && record.entityId === entityId
+            && (record.status === 'failed' || record.status === 'conflict')
+        ))
+        .sort((a, b) => b.updatedAt - a.updatedAt)[0]
+
+    return candidate ?? null
+}
+
+export async function getLatestSyncRecordForEntity(
+    entityType: SyncEntityType,
+    entityId: string,
+): Promise<SyncRecord | null> {
+    const db = await getDb()
+    const all = await db.getAll(STORE_NAME)
+
+    const candidate = all
+        .filter((record) => (
+            record.entityType === entityType
+            && record.entityId === entityId
+        ))
+        .sort((a, b) => b.updatedAt - a.updatedAt)[0]
+
+    return candidate ?? null
 }
 
 async function pruneOldSyncedRecordsInternal(

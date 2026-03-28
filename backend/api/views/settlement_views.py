@@ -20,7 +20,11 @@ from api.serializers.settlement import (
     SettlementResolveSerializer,
     SettlementSerializer,
 )
-from api.services import initiate_settlement_for_trip, serialize_settlement_audit
+from api.services import (
+    initiate_settlement_for_trip,
+    serialize_settlement_audit,
+    upsert_trip_report_snapshots_for_trip,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +195,7 @@ def record_settlement(request, trip_id):
             settlement.settled_at = None
 
         settlement.save()
+        upsert_trip_report_snapshots_for_trip(settlement.trip)
         _log_settlement_audit(
             request,
             'update',
@@ -257,6 +262,7 @@ def resolve_settlement(request, trip_id):
         settlement.settled_at = settlement.settled_at or timezone.now()
         _recompute_discrepancy(settlement)
         settlement.save()
+        upsert_trip_report_snapshots_for_trip(settlement.trip)
         _log_settlement_audit(
             request,
             'override',

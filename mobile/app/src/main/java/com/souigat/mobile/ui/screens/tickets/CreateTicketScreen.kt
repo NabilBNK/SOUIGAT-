@@ -66,6 +66,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.souigat.mobile.data.local.TicketFormDraft
 import com.souigat.mobile.R
 import com.souigat.mobile.ui.components.StitchCard
 import com.souigat.mobile.ui.components.StitchMonoText
@@ -75,6 +76,7 @@ import com.souigat.mobile.ui.model.TripFormHeaderUiModel
 import com.souigat.mobile.util.formatCompact
 import com.souigat.mobile.util.formatCurrency
 import com.souigat.mobile.util.parseCurrencyInput
+import kotlinx.coroutines.delay
 
 @Composable
 fun CreateTicketScreen(
@@ -84,6 +86,7 @@ fun CreateTicketScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
+    val draftState by viewModel.draftState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var selectedTab by rememberSaveable { mutableIntStateOf(if (startWithCargo) 1 else 0) }
@@ -101,6 +104,65 @@ fun CreateTicketScreen(
     var cargoDescription by rememberSaveable { mutableStateOf("") }
     var cargoTier by rememberSaveable { mutableStateOf("") }
     var cargoPaymentSource by rememberSaveable { mutableStateOf("prepaid") }
+    var hasHydratedDraft by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(draftState, hasHydratedDraft) {
+        if (hasHydratedDraft) return@LaunchedEffect
+        selectedTab = draftState.selectedTab.coerceIn(0, 1)
+        passengerCount = draftState.passengerCount.coerceIn(1, 50)
+        passengerPriceInput = draftState.passengerPriceInput
+        seatNumber = draftState.seatNumber
+        boardingPoint = draftState.boardingPoint
+        alightingPoint = draftState.alightingPoint
+        passengerPaymentSource = draftState.passengerPaymentSource
+        senderName = draftState.senderName
+        senderPhone = draftState.senderPhone
+        receiverName = draftState.receiverName
+        receiverPhone = draftState.receiverPhone
+        cargoDescription = draftState.cargoDescription
+        cargoTier = draftState.cargoTier
+        cargoPaymentSource = draftState.cargoPaymentSource
+        hasHydratedDraft = true
+    }
+
+    LaunchedEffect(
+        hasHydratedDraft,
+        selectedTab,
+        passengerCount,
+        passengerPriceInput,
+        seatNumber,
+        boardingPoint,
+        alightingPoint,
+        passengerPaymentSource,
+        senderName,
+        senderPhone,
+        receiverName,
+        receiverPhone,
+        cargoDescription,
+        cargoTier,
+        cargoPaymentSource
+    ) {
+        if (!hasHydratedDraft) return@LaunchedEffect
+        delay(350)
+        viewModel.persistDraft(
+            TicketFormDraft(
+                selectedTab = selectedTab,
+                passengerCount = passengerCount,
+                passengerPriceInput = passengerPriceInput,
+                seatNumber = seatNumber,
+                boardingPoint = boardingPoint,
+                alightingPoint = alightingPoint,
+                passengerPaymentSource = passengerPaymentSource,
+                senderName = senderName,
+                senderPhone = senderPhone,
+                receiverName = receiverName,
+                receiverPhone = receiverPhone,
+                cargoDescription = cargoDescription,
+                cargoTier = cargoTier,
+                cargoPaymentSource = cargoPaymentSource
+            )
+        )
+    }
 
     LaunchedEffect(formState) {
         val ready = formState as? TicketFormHeaderState.Ready ?: return@LaunchedEffect

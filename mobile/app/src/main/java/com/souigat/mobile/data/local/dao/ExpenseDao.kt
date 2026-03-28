@@ -89,6 +89,9 @@ interface ExpenseDao {
     @Query("SELECT SUM(amount) FROM expenses WHERE tripId = :tripId AND status = 'active'")
     suspend fun getTotalAmount(tripId: Long): Long?
 
+    @Query("SELECT * FROM expenses WHERE serverId = :serverId LIMIT 1")
+    suspend fun getByServerId(serverId: Long): ExpenseEntity?
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun upsert(expense: ExpenseEntity): Long
 

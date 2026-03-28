@@ -177,6 +177,7 @@ class TripViewSet(viewsets.ModelViewSet):
         # Ensure the bus isn't double-booked on an overlapping schedule (+/- 4 hours)
         bus = serializer.validated_data.get('bus')
         departure = serializer.validated_data.get('departure_datetime')
+
         if bus and departure:
             window = timedelta(hours=4)
             overlapping = Trip.objects.filter(
@@ -213,27 +214,12 @@ class TripViewSet(viewsets.ModelViewSet):
         Read-only reference lists for trip creation UI.
         Avoids exposing admin-only CRUD endpoints to office staff.
         """
-        user = request.user
-
         offices_qs = Office.objects.filter(is_active=True).order_by('name')
         conductors_qs = User.objects.filter(
             role='conductor',
             is_active=True,
         ).order_by('first_name', 'last_name')
-
-        current_office_id = request.query_params.get('current_office_id')
-        if user.role == 'office_staff':
-            bus_office_id = user.office_id
-            conductors_qs = conductors_qs.filter(office_id=user.office_id)
-        else:
-            try:
-                bus_office_id = int(current_office_id) if current_office_id else None
-            except (TypeError, ValueError):
-                bus_office_id = None
-
         buses_qs = Bus.objects.filter(is_active=True)
-        if bus_office_id:
-            buses_qs = buses_qs.filter(office_id=bus_office_id)
 
         offices = [
             {'id': o.id, 'name': o.name, 'city': o.city}

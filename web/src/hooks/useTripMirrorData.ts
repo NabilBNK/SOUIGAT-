@@ -1,12 +1,42 @@
 import { useEffect, useState } from 'react'
-import { collection, limit, onSnapshot, orderBy, query, where, type DocumentData } from 'firebase/firestore'
+import { collection, doc, documentId, limit, onSnapshot, orderBy, query, where, type DocumentData } from 'firebase/firestore'
 import type { CargoTicket, PassengerTicket } from '../types/ticket'
 import type { TripExpense } from '../api/expenses'
+import { getTripExpenses } from '../api/expenses'
+import { getTripCargoTickets } from '../api/cargo'
+import { getTripPassengerTickets } from '../api/tickets'
+import type { TripStatus } from '../types/trip'
 import { ensureFirebaseSession } from '../firebase/auth'
 import { getFirebaseFirestore } from '../firebase/firestore'
 
 interface MirrorHookState<T> {
     data: T[]
+    isLoading: boolean
+    error: string | null
+}
+
+interface MirrorCollectionOptions {
+    enableRealtime?: boolean
+}
+
+interface TripStatusMirrorOptions {
+    enabled?: boolean
+}
+
+interface TripStatusMirrorMapOptions {
+    enabled?: boolean
+}
+
+interface TripStatusMirrorState {
+    status: TripStatus | null
+    arrivalDatetime: string | null
+    sourceUpdatedAt: string | null
+    isLoading: boolean
+    error: string | null
+}
+
+interface TripStatusMirrorMapState {
+    statuses: Record<number, { status: TripStatus | null; arrivalDatetime: string | null; sourceUpdatedAt: string | null }>
     isLoading: boolean
     error: string | null
 }
@@ -26,6 +56,18 @@ function parseNumber(value: unknown, fallback = 0): number {
 
 function parseString(value: unknown, fallback = ''): string {
     return typeof value === 'string' ? value : fallback
+}
+
+function chunkIds(ids: number[], size: number): number[][] {
+    if (ids.length === 0) {
+        return []
+    }
+
+    const chunks: number[][] = []
+    for (let index = 0; index < ids.length; index += size) {
+        chunks.push(ids.slice(index, index + size))
+    }
+    return chunks
 }
 
 function toPassengerTicket(docData: DocumentData): PassengerTicket | null {
@@ -114,6 +156,8 @@ function useTripMirrorCollection<T>(
     tripId: number,
     collectionName: string,
     mapper: (docData: DocumentData) => T | null,
+    fallbackFetch: (tripId: number) => Promise<T[]>,
+    options?: MirrorCollectionOptions,
 ): MirrorHookState<T> {
     const [state, setState] = useState<MirrorHookState<T>>({
         data: [],
@@ -122,6 +166,8 @@ function useTripMirrorCollection<T>(
     })
 
     useEffect(() => {
+        const enableRealtime = options?.enableRealtime ?? false
+
         if (!tripId || !Number.isFinite(tripId)) {
             setState({ data: [], isLoading: false, error: null })
             return
@@ -130,8 +176,27 @@ function useTripMirrorCollection<T>(
         let unsubscribe: (() => void) | null = null
         let active = true
 
+        const loadBackendFallback = async () => {
+            try {
+                const fallbackData = await fallbackFetch(tripId)
+                if (active) {
+                    setState({ data: fallbackData, isLoading: false, error: null })
+                }
+            } catch {
+                if (active) {
+                    setState({ data: [], isLoading: false, error: 'Erreur de chargement des donnees.' })
+                }
+            }
+        }
+
         const start = async () => {
             setState((prev) => ({ ...prev, isLoading: true, error: null }))
+
+            if (!enableRealtime) {
+                await loadBackendFallback()
+                return
+            }
+
             const sessionReady = await ensureFirebaseSession()
             const firestore = getFirebaseFirestore()
 
@@ -140,7 +205,7 @@ function useTripMirrorCollection<T>(
             }
 
             if (!sessionReady || !firestore) {
-                setState({ data: [], isLoading: false, error: 'Firebase non disponible.' })
+                await loadBackendFallback()
                 return
             }
 
@@ -167,8 +232,138 @@ function useTripMirrorCollection<T>(
                 },
                 (error) => {
                     console.warn(`[FIREBASE] ${collectionName} listener failed.`, error)
+                    void (async () => {
+                        await loadBackendFallback()
+                    })()
+                },
+            )
+        }
+
+        void start()
+
+        return () => {
+            active = false
+            if (unsubscribe) {
+                unsubscribe()
+            }
+        }
+    }, [tripId, collectionName, mapper, fallbackFetch, options?.enableRealtime])
+
+    return state
+}
+
+export function useTripPassengerMirror(
+    tripId: number,
+    options?: MirrorCollectionOptions,
+): MirrorHookState<PassengerTicket> {
+    return useTripMirrorCollection(
+        tripId,
+        'passenger_ticket_mirror_v1',
+        toPassengerTicket,
+        getTripPassengerTickets,
+        options,
+    )
+}
+
+export function useTripCargoMirror(
+    tripId: number,
+    options?: MirrorCollectionOptions,
+): MirrorHookState<CargoTicket> {
+    return useTripMirrorCollection(
+        tripId,
+        'cargo_ticket_mirror_v1',
+        toCargoTicket,
+        getTripCargoTickets,
+        options,
+    )
+}
+
+export function useTripExpenseMirror(
+    tripId: number,
+    options?: MirrorCollectionOptions,
+): MirrorHookState<TripExpense> {
+    return useTripMirrorCollection(
+        tripId,
+        'trip_expense_mirror_v1',
+        toTripExpense,
+        getTripExpenses,
+        options,
+    )
+}
+
+export function useTripStatusMirror(
+    tripId: number,
+    options?: TripStatusMirrorOptions,
+): TripStatusMirrorState {
+    const [state, setState] = useState<TripStatusMirrorState>({
+        status: null,
+        arrivalDatetime: null,
+        sourceUpdatedAt: null,
+        isLoading: true,
+        error: null,
+    })
+
+    useEffect(() => {
+        const enabled = options?.enabled ?? true
+
+        if (!enabled) {
+            setState({ status: null, arrivalDatetime: null, sourceUpdatedAt: null, isLoading: false, error: null })
+            return
+        }
+
+        if (!tripId || !Number.isFinite(tripId)) {
+            setState({ status: null, arrivalDatetime: null, sourceUpdatedAt: null, isLoading: false, error: null })
+            return
+        }
+
+        let unsubscribe: (() => void) | null = null
+        let active = true
+
+        const start = async () => {
+            setState({ status: null, arrivalDatetime: null, sourceUpdatedAt: null, isLoading: true, error: null })
+            const sessionReady = await ensureFirebaseSession()
+            const firestore = getFirebaseFirestore()
+
+            if (!active) {
+                return
+            }
+
+            if (!sessionReady || !firestore) {
+                setState({ status: null, arrivalDatetime: null, sourceUpdatedAt: null, isLoading: false, error: 'Firebase non disponible.' })
+                return
+            }
+
+            const tripRef = doc(firestore, 'trip_mirror_v1', String(tripId))
+            unsubscribe = onSnapshot(
+                tripRef,
+                (snapshot) => {
+                    if (!active) {
+                        return
+                    }
+
+                    const data = snapshot.data()
+                    if (!snapshot.exists() || !data || data.is_deleted === true) {
+                        setState({ status: null, arrivalDatetime: null, sourceUpdatedAt: null, isLoading: false, error: null })
+                        return
+                    }
+
+                    const status = parseString(data.status, '') as TripStatus | ''
+                    const safeStatus = ['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)
+                        ? status as TripStatus
+                        : null
+
+                    setState({
+                        status: safeStatus,
+                        arrivalDatetime: parseString(data.arrival_datetime) || null,
+                        sourceUpdatedAt: parseString(data.source_updated_at) || null,
+                        isLoading: false,
+                        error: null,
+                    })
+                },
+                (error) => {
+                    console.warn('[FIREBASE] trip_mirror_v1 status listener failed.', error)
                     if (active) {
-                        setState({ data: [], isLoading: false, error: 'Erreur Firebase temps réel.' })
+                        setState({ status: null, arrivalDatetime: null, sourceUpdatedAt: null, isLoading: false, error: 'Erreur Firebase temps réel.' })
                     }
                 },
             )
@@ -182,19 +377,134 @@ function useTripMirrorCollection<T>(
                 unsubscribe()
             }
         }
-    }, [tripId, collectionName, mapper])
+    }, [tripId, options?.enabled])
 
     return state
 }
 
-export function useTripPassengerMirror(tripId: number): MirrorHookState<PassengerTicket> {
-    return useTripMirrorCollection(tripId, 'passenger_ticket_mirror_v1', toPassengerTicket)
-}
+export function useTripStatusMirrorMap(
+    tripIds: number[],
+    options?: TripStatusMirrorMapOptions,
+): TripStatusMirrorMapState {
+    const [state, setState] = useState<TripStatusMirrorMapState>({
+        statuses: {},
+        isLoading: true,
+        error: null,
+    })
 
-export function useTripCargoMirror(tripId: number): MirrorHookState<CargoTicket> {
-    return useTripMirrorCollection(tripId, 'cargo_ticket_mirror_v1', toCargoTicket)
-}
+    useEffect(() => {
+        const enabled = options?.enabled ?? true
 
-export function useTripExpenseMirror(tripId: number): MirrorHookState<TripExpense> {
-    return useTripMirrorCollection(tripId, 'trip_expense_mirror_v1', toTripExpense)
+        if (!enabled) {
+            setState({ statuses: {}, isLoading: false, error: null })
+            return
+        }
+
+        const uniqueIds = Array.from(
+            new Set(tripIds.filter((tripId) => Number.isFinite(tripId) && tripId > 0)),
+        )
+
+        if (uniqueIds.length === 0) {
+            setState({ statuses: {}, isLoading: false, error: null })
+            return
+        }
+
+        let active = true
+        const listeners: Array<() => void> = []
+        const chunkStates = new Map<number, Record<number, { status: TripStatus | null; arrivalDatetime: string | null; sourceUpdatedAt: string | null }>>()
+        const chunks = chunkIds(uniqueIds, 10)
+
+        const emitMergedState = () => {
+            if (!active) {
+                return
+            }
+
+            const merged: Record<number, { status: TripStatus | null; arrivalDatetime: string | null; sourceUpdatedAt: string | null }> = {}
+            chunkStates.forEach((chunkState) => {
+                Object.assign(merged, chunkState)
+            })
+
+            setState({
+                statuses: merged,
+                isLoading: false,
+                error: null,
+            })
+        }
+
+        const start = async () => {
+            setState({ statuses: {}, isLoading: true, error: null })
+
+            const sessionReady = await ensureFirebaseSession()
+            const firestore = getFirebaseFirestore()
+
+            if (!active) {
+                return
+            }
+
+            if (!sessionReady || !firestore) {
+                setState({ statuses: {}, isLoading: false, error: 'Firebase non disponible.' })
+                return
+            }
+
+            chunks.forEach((chunk, chunkIndex) => {
+                const chunkQuery = query(
+                    collection(firestore, 'trip_mirror_v1'),
+                    where(documentId(), 'in', chunk.map((tripId) => String(tripId))),
+                )
+
+                const unsubscribe = onSnapshot(
+                    chunkQuery,
+                    (snapshot) => {
+                        if (!active) {
+                            return
+                        }
+
+                        const currentChunkState: Record<number, { status: TripStatus | null; arrivalDatetime: string | null; sourceUpdatedAt: string | null }> = {}
+                        snapshot.docs.forEach((document) => {
+                            const data = document.data()
+                            if (!data || data.is_deleted === true) {
+                                return
+                            }
+
+                            const id = Number(document.id)
+                            if (!Number.isFinite(id)) {
+                                return
+                            }
+
+                            const parsedStatus = parseString(data.status, '') as TripStatus | ''
+                            const safeStatus = ['scheduled', 'in_progress', 'completed', 'cancelled'].includes(parsedStatus)
+                                ? parsedStatus as TripStatus
+                                : null
+
+                            currentChunkState[id] = {
+                                status: safeStatus,
+                                arrivalDatetime: parseString(data.arrival_datetime) || null,
+                                sourceUpdatedAt: parseString(data.source_updated_at) || null,
+                            }
+                        })
+
+                        chunkStates.set(chunkIndex, currentChunkState)
+                        emitMergedState()
+                    },
+                    (error) => {
+                        console.warn('[FIREBASE] trip_mirror_v1 list status listener failed.', error)
+                        if (active) {
+                            setState({ statuses: {}, isLoading: false, error: 'Erreur Firebase temps réel.' })
+                        }
+                    },
+                )
+
+                listeners.push(unsubscribe)
+            })
+        }
+
+        void start()
+
+        return () => {
+            active = false
+            listeners.forEach((unsubscribe) => unsubscribe())
+        }
+    }, [tripIds, options?.enabled])
+
+    return state
 }

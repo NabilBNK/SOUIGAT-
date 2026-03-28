@@ -10,7 +10,9 @@ export function TripExpenses({ tripId }: TripExpensesProps) {
         data: expenses,
         isLoading,
         error,
-    } = useTripExpenseMirror(tripId)
+    } = useTripExpenseMirror(tripId, {
+        enableRealtime: true,
+    })
 
     if (isLoading) {
         return <div className="animate-pulse h-32 bg-surface-800/80 backdrop-blur-md rounded-xl" />
