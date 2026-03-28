@@ -16,8 +16,13 @@ import java.io.IOException
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
@@ -27,8 +32,18 @@ class AuthRepositoryImpl @Inject constructor(
     private val firebaseSessionManager: FirebaseSessionManager
 ) : AuthRepository {
 
+    private val authWarmupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var firebaseWarmupJob: Job? = null
+
     override suspend fun login(phone: String, password: String): Result<UserProfileDto> {
+        firebaseWarmupJob?.cancel()
+        firebaseWarmupJob = null
+
         return try {
+            val loginStartMs = System.currentTimeMillis()
+            Timber.i("[AUTH] Login started at ${System.currentTimeMillis()}")
+
+            val firebaseSignInStartMs = System.currentTimeMillis()
             val firebaseIdToken = firebaseSessionManager
                 .signInWithEmployeeCredentials(phone.trim(), password)
                 .getOrElse { error ->
@@ -42,8 +57,12 @@ class AuthRepositoryImpl @Inject constructor(
                         }
                     )
                 }
+            val firebaseSignInDurationMs = System.currentTimeMillis() - firebaseSignInStartMs
+            Timber.i("[AUTH] Firebase sign-in completed in ${firebaseSignInDurationMs}ms")
 
             val previousUserId = tokenManager.getUserId()
+            
+            val backendLoginStartMs = System.currentTimeMillis()
             val response = try {
                 authApi.firebaseLogin(
                     FirebaseLoginRequest(
@@ -75,6 +94,9 @@ class AuthRepositoryImpl @Inject constructor(
 
             if (response.isSuccessful) {
                 val body = response.body()!!
+                val backendLoginDurationMs = System.currentTimeMillis() - backendLoginStartMs
+                Timber.i("[AUTH] Backend login completed in ${backendLoginDurationMs}ms")
+                
                 val incomingUserId = body.user.id
                 if (previousUserId != null && previousUserId != incomingUserId) {
                     clearLocalOperationalData()
@@ -87,7 +109,21 @@ class AuthRepositoryImpl @Inject constructor(
                     firstName = body.user.first_name,
                     lastName = body.user.last_name
                 )
-                firebaseSessionManager.ensureSignedIn(forceRefresh = true)
+                
+                val loginCompletedBeforeWarmupMs = System.currentTimeMillis()
+                val totalLoginDurationMs = loginCompletedBeforeWarmupMs - loginStartMs
+                Timber.i("[AUTH] Login successful in ${totalLoginDurationMs}ms, about to start async Firebase warmup")
+                
+                firebaseWarmupJob = authWarmupScope.launch {
+                    val warmupStartMs = System.currentTimeMillis()
+                    val signedIn = firebaseSessionManager.ensureSignedIn(forceRefresh = false)
+                    val warmupDurationMs = System.currentTimeMillis() - warmupStartMs
+                    if (!signedIn) {
+                        Timber.w("[AUTH] Async Firebase session warmup was not completed after ${warmupDurationMs}ms.")
+                    } else {
+                        Timber.i("[AUTH] Async Firebase session warmup completed in ${warmupDurationMs}ms")
+                    }
+                }
                 Result.success(body.user)
             } else {
                 val errorCode = response.code()
@@ -109,23 +145,34 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun logout(): Result<Unit> {
-        return try {
-            val refreshToken = tokenManager.getRefreshToken()
-            if (refreshToken != null) {
-                authApi.logout(LogoutRequest(refreshToken))
-                // Fire and forget — clear local tokens regardless of server response
+        firebaseWarmupJob?.cancel()
+        firebaseWarmupJob = null
+
+        val logoutStartMs = System.currentTimeMillis()
+        Timber.i("[AUTH] Logout started at ${System.currentTimeMillis()}")
+
+        val refreshToken = tokenManager.getRefreshToken()
+        firebaseSessionManager.signOut()
+        tokenManager.clearAll()
+
+        val localClearDurationMs = System.currentTimeMillis() - logoutStartMs
+        Timber.i("[AUTH] Local logout (Firebase + tokens) completed in ${localClearDurationMs}ms")
+
+        if (!refreshToken.isNullOrBlank()) {
+            authWarmupScope.launch {
+                val serverLogoutStartMs = System.currentTimeMillis()
+                runCatching {
+                    authApi.logout(LogoutRequest(refreshToken))
+                }.onFailure { error ->
+                    Timber.w(error, "AuthRepositoryImpl: deferred server logout failed.")
+                }.onSuccess {
+                    val serverLogoutDurationMs = System.currentTimeMillis() - serverLogoutStartMs
+                    Timber.i("[AUTH] Deferred server logout completed in ${serverLogoutDurationMs}ms")
+                }
             }
-            firebaseSessionManager.signOut()
-            clearLocalOperationalData()
-            tokenManager.clearAll()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            // Always clear local tokens even if server logout fails
-            firebaseSessionManager.signOut()
-            clearLocalOperationalData()
-            tokenManager.clearAll()
-            Result.success(Unit)
         }
+
+        return Result.success(Unit)
     }
 
     private suspend fun clearLocalOperationalData() = withContext(Dispatchers.IO) {
