@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, createUser, updateUser, revokeDevice, getOffices } from '../../api/admin'
+import { getUsers, createUser, updateUser, revokeDevice, getOffices, bulkDeleteUsers } from '../../api/admin'
 import { DataTable } from '../../components/ui/DataTable'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { createColumnHelper } from '@tanstack/react-table'
-import { Search, Plus, ShieldAlert, Edit, Smartphone, Power } from 'lucide-react'
+import { Search, Plus, ShieldAlert, Edit, Smartphone, Power, Trash2 } from 'lucide-react'
 import type { User, Role, Department } from '../../types/auth'
 
 const columnHelper = createColumnHelper<any>()
@@ -19,6 +19,7 @@ export function UserManagement() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingUser, setEditingUser] = useState<User | null>(null)
     const [formData, setFormData] = useState<Partial<User> & { password?: string }>({})
+    const [selectedIds, setSelectedIds] = useState<number[]>([])
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearch(e.target.value)
@@ -68,6 +69,17 @@ export function UserManagement() {
         onSuccess: () => invalidateUsers(),
     })
 
+    const bulkDeleteMutation = useMutation({
+        mutationFn: (ids: number[]) => bulkDeleteUsers(ids, { hard: true }),
+        onSuccess: (result) => {
+            setSelectedIds([])
+            invalidateUsers()
+            if (result.errors.length > 0) {
+                alert(`Suppression partielle: ${result.deleted} supprimé(s), ${result.errors.length} erreur(s).`)
+            }
+        },
+    })
+
     const openCreateModal = () => {
         setEditingUser(null)
         setFormData({ role: 'office_staff', is_active: true, department: null, office: null })
@@ -80,7 +92,52 @@ export function UserManagement() {
         setIsModalOpen(true)
     }
 
+    const currentUsers = usersData?.results || []
+    const currentUserIds = currentUsers.map((user) => user.id)
+    const selectedOnPage = currentUserIds.filter((id) => selectedIds.includes(id))
+    const allOnPageSelected = currentUserIds.length > 0 && selectedOnPage.length === currentUserIds.length
+
+    const toggleSelectAllOnPage = () => {
+        setSelectedIds((prev) => {
+            if (allOnPageSelected) {
+                return prev.filter((id) => !currentUserIds.includes(id))
+            }
+            return Array.from(new Set([...prev, ...currentUserIds]))
+        })
+    }
+
+    const toggleSelectOne = (id: number) => {
+        setSelectedIds((prev) => (
+            prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+        ))
+    }
+
+    const isProtectedAdmin = (user: User) => user.phone === '0500000001' || user.role === 'admin'
+
     const columns = [
+        columnHelper.display({
+            id: 'select',
+            header: () => (
+                <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    aria-label="Sélectionner tous les utilisateurs de la page"
+                />
+            ),
+            cell: info => {
+                const user = info.row.original as User
+                return (
+                    <input
+                        type="checkbox"
+                        checked={selectedIds.includes(user.id)}
+                        disabled={isProtectedAdmin(user)}
+                        onChange={() => toggleSelectOne(user.id)}
+                        aria-label={`Sélectionner l'utilisateur ${user.first_name} ${user.last_name}`}
+                    />
+                )
+            },
+        }),
         columnHelper.accessor(row => `${row.first_name} ${row.last_name}`, {
             id: 'name',
             header: 'Nom',
@@ -125,6 +182,7 @@ export function UserManagement() {
             header: 'Actions',
             cell: info => {
                 const user = info.row.original
+                const protectedAdmin = isProtectedAdmin(user)
                 return (
                     <div className="flex items-center gap-2">
                         <Button variant="ghost" className="p-1.5 h-auto text-brand-400 hover:bg-[#137fec]/10" onClick={() => openEditModal(user)} title="Modifier">
@@ -148,12 +206,13 @@ export function UserManagement() {
                         <Button
                             variant={user.is_active ? 'danger' : 'primary'}
                             className="p-1.5 h-auto"
+                            disabled={protectedAdmin}
                             onClick={() => {
                                 if (confirm(user.is_active ? "Désactiver cet utilisateur ?" : "Réactiver cet utilisateur ?")) {
                                     unbindMutation.mutate({ userId: user.id, isActive: !user.is_active })
                                 }
                             }}
-                            title={user.is_active ? "Désactiver" : "Activer"}
+                            title={protectedAdmin ? "Compte admin protégé" : user.is_active ? "Désactiver" : "Activer"}
                             isLoading={unbindMutation.isPending && unbindMutation.variables?.userId === user.id}
                         >
                             <Power className="w-4 h-4" />
@@ -171,10 +230,27 @@ export function UserManagement() {
                     <h1 className="text-2xl font-bold text-text-primary">Employés & Utilisateurs</h1>
                     <p className="text-sm text-text-muted mt-1">Gérez les accès, les agences d'attachement, et les appareils.</p>
                 </div>
-                <Button onClick={openCreateModal} className="shrink-0 flex items-center gap-2">
-                    <Plus className="w-4 h-4" />
-                    Créer un employé
-                </Button>
+                <div className="flex items-center gap-2">
+                    {selectedIds.length > 0 && (
+                        <Button
+                            variant="danger"
+                            className="shrink-0 flex items-center gap-2"
+                            onClick={() => {
+                                if (confirm(`Supprimer définitivement ${selectedIds.length} utilisateur(s) sélectionné(s) ? Cette action est irréversible.`)) {
+                                    bulkDeleteMutation.mutate(selectedIds)
+                                }
+                            }}
+                            isLoading={bulkDeleteMutation.isPending}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Supprimer sélection ({selectedIds.length})
+                        </Button>
+                    )}
+                    <Button onClick={openCreateModal} className="shrink-0 flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        Créer un employé
+                    </Button>
+                </div>
             </div>
 
             <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 p-4 rounded-xl flex flex-col md:flex-row gap-4">
@@ -271,7 +347,14 @@ export function UserManagement() {
                                 required
                                 className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:ring-2 focus:ring-brand-500"
                                 value={formData.role || ''}
-                                onChange={(e) => setFormData(p => ({ ...p, role: e.target.value as Role }))}
+                                onChange={(e) => {
+                                    const nextRole = e.target.value as Role
+                                    setFormData((p) => ({
+                                        ...p,
+                                        role: nextRole,
+                                        office: nextRole === 'conductor' ? null : p.office,
+                                    }))
+                                }}
                             >
                                 <option value="office_staff">Guichetier (Office Staff)</option>
                                 <option value="conductor">Receveur (Conductor)</option>
@@ -280,7 +363,7 @@ export function UserManagement() {
                             </select>
                         </div>
 
-                        {(formData.role === 'office_staff' || formData.role === 'conductor') && (
+                        {formData.role === 'office_staff' && (
                             <div>
                                 <label className="block text-sm font-medium text-text-primary mb-1">Agence (Optionnel)</label>
                                 <select

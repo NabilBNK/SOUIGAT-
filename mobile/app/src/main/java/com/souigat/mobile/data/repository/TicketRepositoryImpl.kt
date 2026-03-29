@@ -12,6 +12,7 @@ import com.souigat.mobile.data.local.entity.SyncQueueEntity
 import com.souigat.mobile.domain.model.SyncStatus
 import com.souigat.mobile.domain.repository.TicketRepository
 import com.souigat.mobile.worker.SyncScheduler
+import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -34,6 +35,12 @@ class TicketRepositoryImpl @Inject constructor(
     private val syncScheduler: SyncScheduler,
     private val tokenManager: TokenManager
 ) : TicketRepository {
+
+    private companion object {
+        val CARGO_RECEIVER_DELIVERY_FROM = setOf("created", "loaded", "in_transit")
+        val CARGO_AGENCY_HANDOVER_FROM = setOf("created", "loaded", "in_transit")
+        val CARGO_BULK_AGENCY_HANDOVER_FROM = listOf("created", "loaded", "in_transit")
+    }
 
     override suspend fun createPassengerTicket(
         tripId: Long,
@@ -77,6 +84,8 @@ class TicketRepositoryImpl @Inject constructor(
                         currency = currency,
                         paymentSource = paymentSource,
                         seatNumber = seatNumber,
+                        boardingPoint = boardingPoint,
+                        alightingPoint = alightingPoint,
                         status = "active"
                     )
 
@@ -184,6 +193,8 @@ class TicketRepositoryImpl @Inject constructor(
                             currency = currency,
                             paymentSource = paymentSource,
                             seatNumber = seatNumber,
+                            boardingPoint = boardingPoint,
+                            alightingPoint = alightingPoint,
                             status = "active"
                         )
 
@@ -255,9 +266,9 @@ class TicketRepositoryImpl @Inject constructor(
         paymentSource: String
     ): Result<CargoTicketEntity> = withContext(Dispatchers.IO) {
         val role = tokenManager.getUserRole().orEmpty()
-        if (role !in setOf("admin", "office_staff")) {
+        if (role !in setOf("admin", "office_staff", "conductor")) {
             return@withContext Result.failure(
-                IllegalStateException("Seuls les admins et agents de bureau peuvent creer des colis.")
+                IllegalStateException("Seuls les conducteurs, admins et agents de bureau peuvent creer des colis.")
             )
         }
 
@@ -353,6 +364,110 @@ class TicketRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun deliverCargoToReceiver(cargoLocalId: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        val userId = tokenManager.getUserId()
+            ?: return@withContext Result.failure(
+                IllegalStateException("Session utilisateur indisponible pour la livraison colis.")
+            )
+
+        return@withContext try {
+            val shouldSync = db.withTransaction {
+                val ticket = cargoDao.getById(cargoLocalId)
+                    ?: throw IllegalStateException("Colis introuvable localement.")
+
+                if (ticket.status == "delivered" || ticket.status == "arrived") {
+                    return@withTransaction false
+                }
+
+                if (ticket.status !in CARGO_RECEIVER_DELIVERY_FROM) {
+                    throw IllegalStateException("Ce colis ne peut pas etre livre au destinataire depuis l'etat '${ticket.status}'.")
+                }
+
+                val transitionAt = System.currentTimeMillis()
+                cargoDao.updateStatus(cargoLocalId, "delivered")
+                enqueueCargoStatusSync(
+                    ticket = ticket,
+                    newStatus = "delivered",
+                    transitionAtMillis = transitionAt,
+                    deliveredById = userId,
+                )
+                true
+            }
+
+            if (shouldSync) {
+                syncScheduler.triggerOneTimeSync()
+            }
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    override suspend fun handoverCargoToAgency(cargoLocalId: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val shouldSync = db.withTransaction {
+                val ticket = cargoDao.getById(cargoLocalId)
+                    ?: throw IllegalStateException("Colis introuvable localement.")
+
+                if (ticket.status == "arrived" || ticket.status == "delivered") {
+                    return@withTransaction false
+                }
+
+                if (ticket.status !in CARGO_AGENCY_HANDOVER_FROM) {
+                    throw IllegalStateException("Ce colis ne peut pas etre transfere a l'agence depuis l'etat '${ticket.status}'.")
+                }
+
+                val transitionAt = System.currentTimeMillis()
+                cargoDao.updateStatus(cargoLocalId, "arrived")
+                enqueueCargoStatusSync(
+                    ticket = ticket,
+                    newStatus = "arrived",
+                    transitionAtMillis = transitionAt,
+                    deliveredById = null,
+                )
+                true
+            }
+
+            if (shouldSync) {
+                syncScheduler.triggerOneTimeSync()
+            }
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    override suspend fun handoverAllCargoToAgency(tripId: Long): Result<Int> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val movedCount = db.withTransaction {
+                val candidates = cargoDao.getByTripOrServerIdAndStatuses(tripId, CARGO_BULK_AGENCY_HANDOVER_FROM)
+                if (candidates.isEmpty()) {
+                    return@withTransaction 0
+                }
+
+                val transitionAt = System.currentTimeMillis()
+                val ids = candidates.map { it.id }
+                cargoDao.updateStatusByIds(ids, "arrived")
+                candidates.forEach { ticket ->
+                    enqueueCargoStatusSync(
+                        ticket = ticket,
+                        newStatus = "arrived",
+                        transitionAtMillis = transitionAt,
+                        deliveredById = null,
+                    )
+                }
+                ids.size
+            }
+
+            if (movedCount > 0) {
+                syncScheduler.triggerOneTimeSync()
+            }
+            Result.success(movedCount)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
     override fun observePassengerTicketCount(tripId: Long): Flow<Int> {
         return passengerDao.observeCountByTripOrServerId(tripId)
     }
@@ -386,6 +501,35 @@ class TicketRepositoryImpl @Inject constructor(
 
     private fun formatSequence(seq: Int): String {
         return String.format(Locale.US, "%04d", seq)
+    }
+
+    private suspend fun enqueueCargoStatusSync(
+        ticket: CargoTicketEntity,
+        newStatus: String,
+        transitionAtMillis: Long,
+        deliveredById: Int?,
+    ) {
+        val payload = JSONObject().apply {
+            put("cargo_idempotency_key", ticket.idempotencyKey)
+            put("status", newStatus)
+            put("transition_at", transitionAtMillis)
+            if (newStatus == "delivered") {
+                put("delivered_at", Instant.ofEpochMilli(transitionAtMillis).toString())
+                if (deliveredById != null) {
+                    put("delivered_by_id", deliveredById)
+                }
+            }
+        }.toString()
+
+        syncQueueDao.enqueue(
+            SyncQueueEntity(
+                tripId = ticket.tripId,
+                itemType = "cargo_status",
+                payload = payload,
+                idempotencyKey = "cargo-status-${ticket.idempotencyKey}-$newStatus",
+                status = SyncStatus.PENDING,
+            )
+        )
     }
 
     private fun currentDateStampUtc(): String {

@@ -10,38 +10,58 @@ service cloud.firestore {
     }
 
     function userId() {
-      return request.auth.token.user_id;
+      return request.auth.token.app_user_id != null
+        ? request.auth.token.app_user_id
+        : request.auth.token.user_id;
+    }
+
+    function claimEquals(candidateValue, claimValue) {
+      return candidateValue != null
+        && claimValue != null
+        && (
+          candidateValue == claimValue
+          || string(candidateValue) == string(claimValue)
+        );
     }
 
     function uidMatchesUserId(candidateUserId) {
       return candidateUserId != null
-        && request.auth.uid == ('souigat-user-' + candidateUserId);
+        && request.auth.uid == ('souigat-user-' + string(candidateUserId));
+    }
+
+    function matchesUserId(candidateUserId) {
+      return claimEquals(candidateUserId, userId())
+        || uidMatchesUserId(candidateUserId);
     }
 
     function officeId() {
       return request.auth.token.office_id;
     }
 
+    function matchesOfficeScope(scopeIds) {
+      return officeId() != null
+        && scopeIds is list
+        && (
+          scopeIds.hasAny([officeId()])
+          || scopeIds.hasAny([string(officeId())])
+        );
+    }
+
     function canReadTrip(data) {
       return role() == 'admin'
         || (
-          role() == 'conductor'
-          && data.conductor_id == userId()
+          (role() == 'conductor' || role() == 'driver')
+          && matchesUserId(data.conductor_id)
         )
-        || uidMatchesUserId(data.conductor_id)
         || (
           role() == 'office_staff'
-          && officeId() != null
-          && data.office_scope_ids.hasAny([officeId()])
+          && matchesOfficeScope(data.office_scope_ids)
         );
     }
 
     function canReadPricing(data) {
       return role() == 'admin'
-        || (
-          officeId() != null
-          && data.office_scope_ids.hasAny([officeId()])
-        );
+        || matchesOfficeScope(data.office_scope_ids);
     }
 
     function canWriteMirror() {
@@ -49,62 +69,87 @@ service cloud.firestore {
     }
 
     function canConductorCreatePassengerTicket() {
-      return (role() == 'conductor' || uidMatchesUserId(request.resource.data.created_by_id))
+      return (role() == 'conductor' || role() == 'driver' || matchesUserId(request.resource.data.created_by_id))
         && request.resource.data.entity == 'passenger_ticket'
-        && (
-          request.resource.data.created_by_id == userId()
-          || uidMatchesUserId(request.resource.data.created_by_id)
-        )
-        && (
-          request.resource.data.conductor_id == userId()
-          || uidMatchesUserId(request.resource.data.conductor_id)
-        )
+        && matchesUserId(request.resource.data.created_by_id)
+        && matchesUserId(request.resource.data.conductor_id)
         && request.resource.data.is_deleted == false
         && request.resource.data.status == 'active'
         && canReadTripById(request.resource.data.trip_id);
     }
 
     function canConductorCreateTripExpense() {
-      return (role() == 'conductor' || uidMatchesUserId(request.resource.data.created_by_id))
+      return (role() == 'conductor' || role() == 'driver' || matchesUserId(request.resource.data.created_by_id))
         && request.resource.data.entity == 'trip_expense'
-        && (
-          request.resource.data.created_by_id == userId()
-          || uidMatchesUserId(request.resource.data.created_by_id)
-        )
-        && (
-          request.resource.data.conductor_id == userId()
-          || uidMatchesUserId(request.resource.data.conductor_id)
-        )
+        && matchesUserId(request.resource.data.created_by_id)
+        && matchesUserId(request.resource.data.conductor_id)
         && request.resource.data.is_deleted == false
         && canReadTripById(request.resource.data.trip_id);
     }
 
     function canConductorCreateCargoTicket() {
-      return (role() == 'conductor' || uidMatchesUserId(request.resource.data.created_by_id))
+      return (role() == 'conductor' || role() == 'driver' || matchesUserId(request.resource.data.created_by_id))
         && request.resource.data.entity == 'cargo_ticket'
-        && (
-          request.resource.data.created_by_id == userId()
-          || uidMatchesUserId(request.resource.data.created_by_id)
-        )
-        && (
-          request.resource.data.conductor_id == userId()
-          || uidMatchesUserId(request.resource.data.conductor_id)
-        )
+        && matchesUserId(request.resource.data.created_by_id)
+        && matchesUserId(request.resource.data.conductor_id)
         && request.resource.data.is_deleted == false
         && canReadTripById(request.resource.data.trip_id);
+    }
+
+    function canConductorReplayMirrorUpdate(entityName) {
+      return (role() == 'conductor' || role() == 'driver')
+        && resource.data.entity == entityName
+        && request.resource.data.entity == entityName
+        && resource.data.is_deleted == false
+        && request.resource.data.is_deleted == false
+        && matchesUserId(resource.data.conductor_id)
+        && matchesUserId(request.resource.data.conductor_id)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.trip_id == resource.data.trip_id
+        && request.resource.data.idempotency_key == resource.data.idempotency_key
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'source_updated_at'
+        ]);
+    }
+
+    function canConductorUpdateCargoStatus() {
+      let fromStatus = resource.data.status;
+      let toStatus = request.resource.data.status;
+      let validTarget = toStatus == 'arrived' || toStatus == 'delivered';
+      let validTransition =
+        (toStatus == 'arrived' && ['created', 'loaded', 'in_transit', 'arrived'].hasAny([fromStatus]))
+        || (toStatus == 'delivered' && ['created', 'loaded', 'in_transit', 'delivered'].hasAny([fromStatus]));
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      let validAffected =
+        toStatus == 'delivered'
+          ? affected.hasOnly(['status', 'source_updated_at', 'delivered_at', 'delivered_by_id'])
+          : affected.hasOnly(['status', 'source_updated_at']);
+
+      return (role() == 'conductor' || role() == 'driver')
+        && validTarget
+        && validTransition
+        && resource.data.entity == 'cargo_ticket'
+        && request.resource.data.entity == 'cargo_ticket'
+        && resource.data.is_deleted == false
+        && request.resource.data.is_deleted == false
+        && matchesUserId(resource.data.conductor_id)
+        && matchesUserId(request.resource.data.conductor_id)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.trip_id == resource.data.trip_id
+        && request.resource.data.idempotency_key == resource.data.idempotency_key
+        && validAffected
+        && (toStatus == 'delivered' ? matchesUserId(request.resource.data.delivered_by_id) : true);
     }
 
     function canReadMirrorByScope(data) {
       return role() == 'admin'
         || (
-          role() == 'conductor'
-          && data.conductor_id == userId()
+          (role() == 'conductor' || role() == 'driver')
+          && matchesUserId(data.conductor_id)
         )
-        || uidMatchesUserId(data.conductor_id)
         || (
           role() == 'office_staff'
-          && officeId() != null
-          && data.office_scope_ids.hasAny([officeId()])
+          && matchesOfficeScope(data.office_scope_ids)
         );
     }
 
@@ -126,7 +171,7 @@ service cloud.firestore {
     }
 
     function tripDoc(tripId) {
-      return get(/databases/$(database)/documents/trip_mirror_v1/$(tripId));
+      return get(/databases/$(database)/documents/trip_mirror_v1/$(string(tripId)));
     }
 
     function canReadTripById(tripId) {
@@ -145,19 +190,26 @@ service cloud.firestore {
     match /passenger_ticket_mirror_v1/{ticketId} {
       allow get, list: if isSignedIn() && canReadMirrorByScope(resource.data);
       allow create: if isSignedIn() && (canWriteMirror() || canConductorCreatePassengerTicket());
-      allow update, delete: if isSignedIn() && canWriteMirror();
+      allow update: if isSignedIn() && (canWriteMirror() || canConductorReplayMirrorUpdate('passenger_ticket'));
+      allow delete: if isSignedIn() && canWriteMirror();
     }
 
     match /cargo_ticket_mirror_v1/{ticketId} {
       allow get, list: if isSignedIn() && canReadMirrorByScope(resource.data);
       allow create: if isSignedIn() && (canWriteMirror() || canConductorCreateCargoTicket());
-      allow update, delete: if isSignedIn() && canWriteMirror();
+      allow update: if isSignedIn() && (
+        canWriteMirror()
+        || canConductorReplayMirrorUpdate('cargo_ticket')
+        || canConductorUpdateCargoStatus()
+      );
+      allow delete: if isSignedIn() && canWriteMirror();
     }
 
     match /trip_expense_mirror_v1/{expenseId} {
       allow get, list: if isSignedIn() && canReadMirrorByScope(resource.data);
       allow create: if isSignedIn() && (canWriteMirror() || canConductorCreateTripExpense());
-      allow update, delete: if isSignedIn() && canWriteMirror();
+      allow update: if isSignedIn() && (canWriteMirror() || canConductorReplayMirrorUpdate('trip_expense'));
+      allow delete: if isSignedIn() && canWriteMirror();
     }
 
     match /settlement_mirror_v1/{settlementId} {

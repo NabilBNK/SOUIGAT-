@@ -10,6 +10,8 @@ export interface Trip {
     destination_office_name: string
     bus: number
     bus_plate: string
+    route_template: number | null
+    route_template_name: string
     conductor: number
     conductor_name: string
     departure_datetime: string
@@ -27,9 +29,34 @@ export interface Trip {
     updated_at: string
 }
 
+export interface RouteTemplateStopSnapshot {
+    office_id: number
+    office_name: string
+    stop_order: number
+}
+
+export interface RouteTemplateSegmentSnapshot {
+    from_stop_order: number
+    to_stop_order: number
+    passenger_price: number
+    currency: string
+}
+
+export interface RouteTemplateRef {
+    id: number
+    name: string
+    code: string
+    direction: 'forward' | 'reverse'
+    start_office_id: number
+    start_office_name: string
+    end_office_id: number
+    end_office_name: string
+    stops: RouteTemplateStopSnapshot[]
+    segment_tariffs: RouteTemplateSegmentSnapshot[]
+}
+
 export interface TripCreate {
-    origin_office: number
-    destination_office: number
+    route_template: number
     bus: number
     conductor: number
     departure_datetime: string

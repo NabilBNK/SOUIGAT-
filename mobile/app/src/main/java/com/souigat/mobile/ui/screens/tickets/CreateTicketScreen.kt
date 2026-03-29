@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,6 +47,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,6 +107,7 @@ fun CreateTicketScreen(
     var cargoTier by rememberSaveable { mutableStateOf("") }
     var cargoPaymentSource by rememberSaveable { mutableStateOf("prepaid") }
     var hasHydratedDraft by rememberSaveable { mutableStateOf(false) }
+    var showCreateConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(draftState, hasHydratedDraft) {
         if (hasHydratedDraft) return@LaunchedEffect
@@ -166,14 +169,19 @@ fun CreateTicketScreen(
 
     LaunchedEffect(formState) {
         val ready = formState as? TicketFormHeaderState.Ready ?: return@LaunchedEffect
-        if (passengerPriceInput.isBlank()) {
-            passengerPriceInput = formatCompact(ready.passengerBasePriceCentimes)
-        }
         if (cargoTier.isBlank() || ready.cargoTierPrices.none { it.tier == cargoTier }) {
             cargoTier = ready.cargoTierPrices.firstOrNull()?.tier.orEmpty()
         }
-        if (boardingPoint.isBlank()) boardingPoint = ready.header.origin
-        if (alightingPoint.isBlank()) alightingPoint = ready.header.destination
+        if (boardingPoint.isBlank()) {
+            boardingPoint = ready.routeStops.firstOrNull() ?: ready.header.origin
+        }
+        if (alightingPoint.isBlank() || !isForwardPathSelected(ready.routeStops, boardingPoint, alightingPoint)) {
+            alightingPoint = forwardDestinationOptions(ready.routeStops, boardingPoint).firstOrNull()
+                ?: ready.header.destination
+        }
+        val fare = computeForwardFare(ready.routeStops, ready.routeSegments, boardingPoint, alightingPoint)
+            ?: ready.passengerBasePriceCentimes
+        passengerPriceInput = formatCompact(fare)
     }
 
     LaunchedEffect(uiState) {
@@ -192,42 +200,62 @@ fun CreateTicketScreen(
 
     val isLoading = uiState is CreateTicketUiState.Loading
     val readyState = formState as? TicketFormHeaderState.Ready
-    val passengerPriceCentimes by remember(passengerPriceInput, readyState) {
+    val passengerPriceCentimes by remember(passengerPriceInput, readyState, boardingPoint, alightingPoint) {
         derivedStateOf {
-            parseCurrencyInput(passengerPriceInput)
-                ?: readyState?.passengerBasePriceCentimes
-                ?: 0L
+            val ready = readyState
+            if (ready != null) {
+                computeForwardFare(
+                    routeStops = ready.routeStops,
+                    routeSegments = ready.routeSegments,
+                    boardingPoint = boardingPoint,
+                    alightingPoint = alightingPoint,
+                ) ?: ready.passengerBasePriceCentimes
+            } else {
+                parseCurrencyInput(passengerPriceInput) ?: 0L
+            }
         }
     }
     val passengerTotal = passengerPriceCentimes * passengerCount
     val cargoPrice = readyState?.cargoTierPrices?.firstOrNull { it.tier == cargoTier }?.valueCentimes ?: 0L
     val footerAmount = if (selectedTab == 0) passengerTotal else cargoPrice
     val footerCurrency = readyState?.header?.currency ?: "DZD"
+    val canSubmit = if (selectedTab == 0) {
+        passengerPriceCentimes > 0 &&
+            passengerCount in 1..50 &&
+            readyState?.let { isForwardPathSelected(it.routeStops, boardingPoint, alightingPoint) } == true
+    } else {
+        senderName.isNotBlank() && receiverName.isNotBlank() && cargoPrice > 0
+    }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TicketTopBar(
-                onNavigateBack = onNavigateBack,
-                onRetryLookup = viewModel::retryLookup
-            )
-        },
-        bottomBar = {
-            if (readyState != null) {
-                TicketFooterBar(
-                    totalLabel = formatTicketTotal(footerAmount, footerCurrency),
-                    buttonLabel = "Creer billet",
-                    isLoading = isLoading,
-                    enabled = if (selectedTab == 0) {
-                        passengerPriceCentimes > 0 && passengerCount in 1..50
+    if (showCreateConfirmDialog && readyState != null) {
+        val passengerSummary = "${passengerCount} billet(s), ${boardingPoint.ifBlank { readyState.header.origin }} -> ${alightingPoint.ifBlank { readyState.header.destination }}, total ${formatCurrency(passengerTotal, readyState.header.currency)}."
+        val selectedCargoTier = readyState.cargoTierPrices.firstOrNull { it.tier == cargoTier }
+        val cargoTierLabel = selectedCargoTier?.label ?: cargoTier
+        val cargoSummary = "${senderName.ifBlank { "Expediteur" }} -> ${receiverName.ifBlank { "Destinataire" }}, ${cargoTierLabel}, ${formatCurrency(cargoPrice, readyState.header.currency)}."
+
+        AlertDialog(
+            onDismissRequest = {
+                if (!isLoading) {
+                    showCreateConfirmDialog = false
+                }
+            },
+            title = { Text("Confirmer la creation") },
+            text = {
+                Text(
+                    if (selectedTab == 0) {
+                        "Voulez-vous creer ces billets passager ?\n$passengerSummary"
                     } else {
-                        senderName.isNotBlank() && receiverName.isNotBlank() && cargoPrice > 0
-                    },
-                    onSubmit = {
+                        "Voulez-vous creer ce billet colis ?\n$cargoSummary"
+                    }
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showCreateConfirmDialog = false
                         if (selectedTab == 0) {
                             viewModel.createPassengerTicketBatch(
                                 count = passengerCount,
-                                manualPriceInput = passengerPriceInput,
                                 paymentSource = passengerPaymentSource,
                                 seatNumber = seatNumber,
                                 boardingPoint = boardingPoint,
@@ -244,6 +272,40 @@ fun CreateTicketScreen(
                                 paymentSource = cargoPaymentSource
                             )
                         }
+                    },
+                    enabled = !isLoading
+                ) {
+                    Text("Oui, creer")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showCreateConfirmDialog = false },
+                    enabled = !isLoading
+                ) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TicketTopBar(
+                onNavigateBack = onNavigateBack,
+                onRetryLookup = viewModel::retryLookup
+            )
+        },
+        bottomBar = {
+            if (readyState != null) {
+                TicketFooterBar(
+                    totalLabel = formatTicketTotal(footerAmount, footerCurrency),
+                    buttonLabel = "Creer billet",
+                    isLoading = isLoading,
+                    enabled = canSubmit,
+                    onSubmit = {
+                        showCreateConfirmDialog = true
                     }
                 )
             }
@@ -313,12 +375,8 @@ fun CreateTicketScreen(
                             PassengerTicketForm(
                                 routeOrigin = state.header.origin,
                                 routeDestination = state.header.destination,
-                                passengerPriceInput = passengerPriceInput,
-                                onPassengerPriceChange = {
-                                    passengerPriceInput = it.filter { ch ->
-                                        ch.isDigit() || ch == ',' || ch == '.' || ch == ' '
-                                    }
-                                },
+                                stopOptions = state.routeStops,
+                                passengerPriceLabel = formatCurrency(passengerPriceCentimes, state.header.currency),
                                 suggestedPriceLabel = formatCurrency(state.passengerBasePriceCentimes, state.header.currency),
                                 passengerCount = passengerCount,
                                 onIncreaseCount = { if (passengerCount < 50) passengerCount += 1 },
@@ -326,7 +384,15 @@ fun CreateTicketScreen(
                                 seatNumber = seatNumber,
                                 onSeatNumberChange = { seatNumber = it.filter(Char::isDigit) },
                                 boardingPoint = boardingPoint,
-                                onBoardingPointChange = { boardingPoint = it },
+                                onBoardingPointChange = {
+                                    boardingPoint = it
+                                    if (!isForwardPathSelected(state.routeStops, it, alightingPoint)) {
+                                        val nextStop = forwardDestinationOptions(state.routeStops, it).firstOrNull()
+                                        if (nextStop != null) {
+                                            alightingPoint = nextStop
+                                        }
+                                    }
+                                },
                                 alightingPoint = alightingPoint,
                                 onAlightingPointChange = { alightingPoint = it },
                                 paymentSource = passengerPaymentSource,
@@ -527,8 +593,8 @@ private fun TicketTabButton(
 private fun PassengerTicketForm(
     routeOrigin: String,
     routeDestination: String,
-    passengerPriceInput: String,
-    onPassengerPriceChange: (String) -> Unit,
+    stopOptions: List<String>,
+    passengerPriceLabel: String,
     suggestedPriceLabel: String,
     passengerCount: Int,
     onIncreaseCount: () -> Unit,
@@ -543,10 +609,16 @@ private fun PassengerTicketForm(
     onPaymentSourceChange: (String) -> Unit,
     isLoading: Boolean
 ) {
-    val stopOptions = remember(routeDestination, alightingPoint) {
-        listOf(routeDestination, "Chlef", "Relizane", "Mostaganem", alightingPoint)
-            .filter { it.isNotBlank() }
-            .distinct()
+    val normalizedStops = remember(stopOptions, routeOrigin, routeDestination) {
+        val candidates = if (stopOptions.isNotEmpty()) {
+            stopOptions
+        } else {
+            listOf(routeOrigin, routeDestination)
+        }
+        candidates.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    }
+    val destinationOptions = remember(normalizedStops, boardingPoint) {
+        forwardDestinationOptions(normalizedStops, boardingPoint)
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -608,10 +680,10 @@ private fun PassengerTicketForm(
                 }
             }
             OutlinedTextField(
-                value = passengerPriceInput,
-                onValueChange = onPassengerPriceChange,
+                value = passengerPriceLabel.substringBefore(" "),
+                onValueChange = {},
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading,
+                enabled = false,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
@@ -640,7 +712,7 @@ private fun PassengerTicketForm(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                stopOptions.forEach { stop ->
+                destinationOptions.forEach { stop ->
                     val selected = stop == alightingPoint
                     Box(
                         modifier = Modifier
@@ -667,6 +739,13 @@ private fun PassengerTicketForm(
                         )
                     }
                 }
+            }
+            if (destinationOptions.isEmpty()) {
+                Text(
+                    text = "Aucune destination disponible apres ce point de montee.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
 
@@ -744,14 +823,29 @@ private fun CargoTicketForm(
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             StitchSectionLabel("Format du colis")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                cargoTierPrices.take(3).forEach { option ->
-                    CargoTierCard(
-                        option = option,
-                        selected = option.tier == selectedTier,
-                        onClick = { onTierSelected(option.tier) },
-                        modifier = Modifier.weight(1f)
+            if (cargoTierPrices.isEmpty()) {
+                StitchCard {
+                    Text(
+                        text = "Aucun format colis disponible pour ce trajet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    cargoTierPrices.forEach { option ->
+                        CargoTierCard(
+                            option = option,
+                            selected = option.tier == selectedTier,
+                            onClick = { onTierSelected(option.tier) },
+                            modifier = Modifier.width(132.dp)
+                        )
+                    }
                 }
             }
         }
@@ -895,12 +989,6 @@ private fun CargoTierCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val title = option.label.substringBefore(" - ")
-        .replace("colis", "")
-        .trim()
-        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-    val price = option.label.substringAfter(" - ", formatCurrency(option.valueCentimes))
-
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
@@ -919,12 +1007,12 @@ private fun CargoTierCard(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(
-                text = title,
+                text = option.displayName,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
             StitchMonoText(
-                text = price,
+                text = option.amountLabel,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primaryContainer
             )
@@ -1113,4 +1201,45 @@ private fun stitchFieldColors() = OutlinedTextFieldDefaults.colors(
 
 private fun formatTicketTotal(amount: Long, currency: String): String {
     return "${formatCompact(amount)}.00 $currency"
+}
+
+private fun forwardDestinationOptions(stops: List<String>, boardingPoint: String): List<String> {
+    val normalized = stops.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    val boardingIndex = normalized.indexOfFirst { it.equals(boardingPoint.trim(), ignoreCase = true) }
+    if (boardingIndex == -1) {
+        return emptyList()
+    }
+    return normalized.drop(boardingIndex + 1)
+}
+
+private fun isForwardPathSelected(stops: List<String>, boardingPoint: String, alightingPoint: String): Boolean {
+    val normalized = stops.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    val boardingIndex = normalized.indexOfFirst { it.equals(boardingPoint.trim(), ignoreCase = true) }
+    val alightingIndex = normalized.indexOfFirst { it.equals(alightingPoint.trim(), ignoreCase = true) }
+    return boardingIndex >= 0 && alightingIndex > boardingIndex
+}
+
+private fun computeForwardFare(
+    routeStops: List<String>,
+    routeSegments: List<com.souigat.mobile.domain.model.TripRouteSegmentTariff>,
+    boardingPoint: String,
+    alightingPoint: String,
+): Long? {
+    val normalizedStops = routeStops.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    val boardingIndex = normalizedStops.indexOfFirst { it.equals(boardingPoint.trim(), ignoreCase = true) }
+    val alightingIndex = normalizedStops.indexOfFirst { it.equals(alightingPoint.trim(), ignoreCase = true) }
+    if (boardingIndex == -1 || alightingIndex <= boardingIndex) {
+        return null
+    }
+
+    var total = 0L
+    for (index in boardingIndex until alightingIndex) {
+        val fromOrder = index + 1
+        val toOrder = index + 2
+        val segment = routeSegments.firstOrNull {
+            it.fromStopOrder == fromOrder && it.toStopOrder == toOrder
+        } ?: return null
+        total += segment.passengerPrice
+    }
+    return total
 }

@@ -12,6 +12,7 @@ import {
     BarChart3,
     Ticket,
     Landmark,
+    Route,
 } from 'lucide-react'
 import type { Role } from '../../types/auth'
 
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
     { label: 'Utilisateurs', to: '/admin/users', icon: Users, roles: ['admin'] },
     { label: 'Autobus', to: '/admin/buses', icon: Bus, roles: ['admin'] },
     { label: 'Tarification', to: '/admin/pricing', icon: Settings, roles: ['admin'] },
+    { label: 'Templates Route', to: '/admin/templates', icon: Route, roles: ['admin'] },
     { label: 'Reglements', to: '/admin/settlements', icon: Landmark, roles: ['admin'] },
     { label: "Journal d'audit", to: '/admin/audit', icon: BarChart3, roles: ['admin'] },
     { label: 'Quarantaine', to: '/admin/quarantine', icon: AlertTriangle, roles: ['admin', 'office_staff'] },

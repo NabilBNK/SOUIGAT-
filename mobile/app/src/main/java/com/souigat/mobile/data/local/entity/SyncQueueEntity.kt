@@ -12,8 +12,7 @@ import com.souigat.mobile.domain.model.SyncStatus
  * This is critical: if stored as Int, any reordering of SyncStatus values silently
  * corrupts all existing rows. String storage is safe across enum refactoring.
  *
- * localId: the Room auto-increment ID. Echoed to backend in POST /api/sync/batch/.
- * The backend echoes it back in the response so we can call markSyncedByLocalId().
+ * localId: the Room auto-increment ID used by the local sync worker lifecycle.
  *
  * idempotencyKey: UUID v4 generated at ticket creation time. Max 100 chars (VARCHAR(100) on server).
  */
@@ -30,7 +29,7 @@ import com.souigat.mobile.domain.model.SyncStatus
 data class SyncQueueEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val tripId: Long,
-    val itemType: String,            // passenger_ticket | cargo_ticket | expense | trip_status
+    val itemType: String,            // passenger_ticket | cargo_ticket | cargo_status | expense | trip_status
     val payload: String,             // JSON string
     val idempotencyKey: String,      // UUID v4 generated at ticket creation time
     val status: SyncStatus = SyncStatus.PENDING,

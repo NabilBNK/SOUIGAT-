@@ -1,48 +1,30 @@
-package com.souigat.mobile.data.repository
+﻿package com.souigat.mobile.data.repository
 
 import android.util.Base64
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
-import com.souigat.mobile.data.local.TokenManager
-import com.souigat.mobile.data.local.SouigatDatabase
 import com.souigat.mobile.data.firebase.FirebaseSessionManager
-import com.souigat.mobile.data.remote.api.AuthApi
-import com.souigat.mobile.data.remote.dto.LogoutRequest
-import com.souigat.mobile.data.remote.dto.UserProfileDto
+import com.souigat.mobile.data.local.SouigatDatabase
+import com.souigat.mobile.data.local.TokenManager
+import com.souigat.mobile.domain.model.UserProfile
 import com.souigat.mobile.domain.repository.AuthRepository
 import java.io.IOException
-import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import timber.log.Timber
+import org.json.JSONObject
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
-    private val authApi: AuthApi,
     private val tokenManager: TokenManager,
     private val database: SouigatDatabase,
-    private val firebaseSessionManager: FirebaseSessionManager
+    private val firebaseSessionManager: FirebaseSessionManager,
 ) : AuthRepository {
 
-    private val authWarmupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var firebaseWarmupJob: Job? = null
-
-    override suspend fun login(phone: String, password: String): Result<UserProfileDto> {
-        firebaseWarmupJob?.cancel()
-        firebaseWarmupJob = null
-
+    override suspend fun login(phone: String, password: String): Result<UserProfile> {
         return try {
-            val loginStartMs = System.currentTimeMillis()
-            Timber.i("[AUTH] Login started at ${System.currentTimeMillis()}")
-
-            val firebaseSignInStartMs = System.currentTimeMillis()
             val firebaseIdToken = firebaseSessionManager
                 .signInWithEmployeeCredentials(phone.trim(), password)
                 .getOrElse { error ->
@@ -56,8 +38,6 @@ class AuthRepositoryImpl @Inject constructor(
                         }
                     )
                 }
-            val firebaseSignInDurationMs = System.currentTimeMillis() - firebaseSignInStartMs
-            Timber.i("[AUTH] Firebase sign-in completed in ${firebaseSignInDurationMs}ms")
 
             val firebaseUser = buildOfflineFirebaseProfile(firebaseIdToken, phone.trim())
                 ?: return Result.failure(AuthException.SchemaMismatch)
@@ -67,69 +47,27 @@ class AuthRepositoryImpl @Inject constructor(
                 clearLocalOperationalData()
             }
 
-            // Firebase is the source of authentication for mobile login.
-            // Backend JWT exchange is no longer required for login success.
             tokenManager.clearBackendTokens()
             tokenManager.saveUserProfile(
                 userId = firebaseUser.id,
                 role = firebaseUser.role,
-                officeId = firebaseUser.office,
-                firstName = firebaseUser.first_name,
-                lastName = firebaseUser.last_name,
+                officeId = firebaseUser.officeId,
+                firstName = firebaseUser.firstName,
+                lastName = firebaseUser.lastName,
             )
-
-            val totalLoginDurationMs = System.currentTimeMillis() - loginStartMs
-            Timber.i("[AUTH] Firebase-only login successful in ${totalLoginDurationMs}ms")
-
-            firebaseWarmupJob = authWarmupScope.launch {
-                val warmupStartMs = System.currentTimeMillis()
-                val signedIn = firebaseSessionManager.ensureSignedIn(forceRefresh = false)
-                val warmupDurationMs = System.currentTimeMillis() - warmupStartMs
-                if (!signedIn) {
-                    Timber.w("[AUTH] Async Firebase session warmup was not completed after ${warmupDurationMs}ms.")
-                } else {
-                    Timber.i("[AUTH] Async Firebase session warmup completed in ${warmupDurationMs}ms")
-                }
-            }
 
             Result.success(firebaseUser)
         } catch (e: IOException) {
             Result.failure(AuthException.NetworkUnavailable)
         } catch (e: Exception) {
-            // Catch SerializationException or other unexpected runtime errors at the boundary
             Result.failure(AuthException.SchemaMismatch)
         }
     }
 
     override suspend fun logout(): Result<Unit> {
-        firebaseWarmupJob?.cancel()
-        firebaseWarmupJob = null
-
-        val logoutStartMs = System.currentTimeMillis()
-        Timber.i("[AUTH] Logout started at ${System.currentTimeMillis()}")
-
-        val refreshToken = tokenManager.getRefreshToken()
         clearLocalOperationalData()
         firebaseSessionManager.signOut()
         tokenManager.clearAll()
-
-        val localClearDurationMs = System.currentTimeMillis() - logoutStartMs
-        Timber.i("[AUTH] Local logout (Firebase + tokens) completed in ${localClearDurationMs}ms")
-
-        if (!refreshToken.isNullOrBlank()) {
-            authWarmupScope.launch {
-                val serverLogoutStartMs = System.currentTimeMillis()
-                runCatching {
-                    authApi.logout(LogoutRequest(refreshToken))
-                }.onFailure { error ->
-                    Timber.w(error, "AuthRepositoryImpl: deferred server logout failed.")
-                }.onSuccess {
-                    val serverLogoutDurationMs = System.currentTimeMillis() - serverLogoutStartMs
-                    Timber.i("[AUTH] Deferred server logout completed in ${serverLogoutDurationMs}ms")
-                }
-            }
-        }
-
         return Result.success(Unit)
     }
 
@@ -137,27 +75,21 @@ class AuthRepositoryImpl @Inject constructor(
         database.clearAllTables()
     }
 
-    override suspend fun getStoredUserProfile(): UserProfileDto? {
+    override suspend fun getStoredUserProfile(): UserProfile? {
         val role = tokenManager.getUserRole() ?: return null
         val id = tokenManager.getUserId() ?: return null
-        val officeId = tokenManager.getOfficeId()
         val firstName = tokenManager.getFirstName() ?: return null
         val lastName = tokenManager.getLastName() ?: return null
-        
-        return UserProfileDto(
+
+        return UserProfile(
             id = id,
-            phone = "", // Not stored locally currently, but optional in the app's offline flow
-            first_name = firstName, 
-            last_name = lastName, 
+            phone = "",
+            firstName = firstName,
+            lastName = lastName,
             role = role,
-            department = null,
-            office = officeId,
-            office_name = null,
-            office_city = null,
-            is_active = true,
-            device_id = tokenManager.getDeviceId(),
-            last_login = null,
-            permissions = emptyList()
+            officeId = tokenManager.getOfficeId(),
+            isActive = true,
+            deviceId = tokenManager.getDeviceId(),
         )
     }
 
@@ -165,7 +97,7 @@ class AuthRepositoryImpl @Inject constructor(
         return firebaseSessionManager.hasActiveFirebaseUser() && tokenManager.getUserId() != null
     }
 
-    private fun buildOfflineFirebaseProfile(idToken: String, phone: String): UserProfileDto? {
+    private fun buildOfflineFirebaseProfile(idToken: String, phone: String): UserProfile? {
         val payload = decodeJwtPayload(idToken) ?: return null
 
         val role = payload.optString("role").ifBlank { "conductor" }
@@ -179,20 +111,15 @@ class AuthRepositoryImpl @Inject constructor(
         val firstName = nameParts.firstOrNull() ?: "Conducteur"
         val lastName = nameParts.drop(1).joinToString(" ").ifBlank { "Souigat" }
 
-        return UserProfileDto(
+        return UserProfile(
             id = userId,
             phone = phone,
-            first_name = firstName,
-            last_name = lastName,
+            firstName = firstName,
+            lastName = lastName,
             role = role,
-            department = payload.optString("department").ifBlank { null },
-            office = officeId,
-            office_name = null,
-            office_city = null,
-            is_active = true,
-            device_id = tokenManager.getDeviceId(),
-            last_login = null,
-            permissions = emptyList(),
+            officeId = officeId,
+            isActive = true,
+            deviceId = tokenManager.getDeviceId(),
         )
     }
 
@@ -227,12 +154,11 @@ class AuthRepositoryImpl @Inject constructor(
     }
 }
 
-// Typed error hierarchy — NO generic "Error" states
 sealed class AuthException : Exception() {
     object InvalidCredentials : AuthException()
     object AccountDisabled : AuthException()
     object NetworkUnavailable : AuthException()
-    object TooManyAttempts : AuthException()   // 429 from throttle
-    object SchemaMismatch : AuthException()     // JSON parsing failure
-    data class ServerError(val code: Int) : AuthException()
+    object TooManyAttempts : AuthException()
+    object SchemaMismatch : AuthException()
 }
+

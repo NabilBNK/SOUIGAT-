@@ -40,6 +40,12 @@ interface TicketRepository {
         paymentSource: String
     ): Result<CargoTicketEntity>
 
+    suspend fun deliverCargoToReceiver(cargoLocalId: Long): Result<Unit>
+
+    suspend fun handoverCargoToAgency(cargoLocalId: Long): Result<Unit>
+
+    suspend fun handoverAllCargoToAgency(tripId: Long): Result<Int>
+
     fun observePassengerTicketCount(tripId: Long): Flow<Int>
     fun observePassengerTickets(tripId: Long): Flow<List<PassengerTicketEntity>>
     fun observeCargoTickets(tripId: Long): Flow<List<CargoTicketEntity>>

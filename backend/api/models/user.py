@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.db.models import Q
 
 
 class UserManager(BaseUserManager):
@@ -54,6 +55,12 @@ class User(AbstractUser):
 
     class Meta:
         db_table = 'users'
+        constraints = [
+            models.CheckConstraint(
+                condition=~Q(role='conductor') | Q(office__isnull=True),
+                name='users_conductor_office_null',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.get_full_name()} ({self.role})"

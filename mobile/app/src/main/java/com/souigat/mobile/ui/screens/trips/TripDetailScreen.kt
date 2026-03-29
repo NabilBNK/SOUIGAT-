@@ -21,9 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.LocalAtm
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
@@ -37,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,11 +74,15 @@ fun TripDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val actionState by viewModel.actionState.collectAsStateWithLifecycle()
+    val cargoActionState by viewModel.cargoActionState.collectAsStateWithLifecycle()
     val passengerTicketCount by viewModel.passengerTicketCount.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedSection by rememberSaveable { mutableIntStateOf(0) }
     var selectedOfflineSection by rememberSaveable { mutableIntStateOf(0) }
     var showCompleteDialog by rememberSaveable { mutableStateOf(false) }
+    var showDeliverAllDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedCargoForDelivery by remember { mutableStateOf<OfflineActivityUiModel?>(null) }
+    val isBulkModeActive = showDeliverAllDialog || cargoActionState is TripDetailViewModel.CargoActionState.Loading
 
     LaunchedEffect(actionState) {
         when (val current = actionState) {
@@ -91,18 +93,29 @@ fun TripDetailScreen(
             }
             is TripDetailViewModel.ActionState.Success -> {
                 showCompleteDialog = false
-                val preview = current.response.settlementPreview
+                val preview = current.response.completionRecap
                 when {
                     preview != null -> {
                         snackbarHostState.showSnackbar("Trajet termine. Ouverture du recapitulatif.")
                         onNavigateToSettlementSummary(viewModel.toSettlementPreviewUiModel(preview))
                     }
-                    current.response.settlementPreviewError != null -> {
-                        snackbarHostState.showSnackbar("Trajet termine. Recapitulatif indisponible pour le moment.")
-                    }
                     else -> snackbarHostState.showSnackbar("Mise a jour effectuee.")
                 }
                 viewModel.resetActionState()
+            }
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(cargoActionState) {
+        when (val current = cargoActionState) {
+            is TripDetailViewModel.CargoActionState.Error -> {
+                snackbarHostState.showSnackbar(current.message)
+                viewModel.resetCargoActionState()
+            }
+            is TripDetailViewModel.CargoActionState.Success -> {
+                snackbarHostState.showSnackbar(current.message)
+                viewModel.resetCargoActionState()
             }
             else -> Unit
         }
@@ -126,6 +139,80 @@ fun TripDetailScreen(
                 Button(
                     onClick = { showCompleteDialog = false },
                     enabled = actionState !is TripDetailViewModel.ActionState.Loading
+                ) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
+
+    val cargoToDeliver = selectedCargoForDelivery
+    if (cargoToDeliver != null && !showDeliverAllDialog) {
+        AlertDialog(
+            onDismissRequest = { selectedCargoForDelivery = null },
+            title = { Text("Livraison du colis") },
+            text = {
+                Text("Choisissez la cible de livraison pour ${cargoToDeliver.title}.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val localId = cargoToDeliver.localId
+                        if (localId != null) {
+                            viewModel.deliverCargo(localId, CargoDeliveryTarget.Receiver)
+                        }
+                        selectedCargoForDelivery = null
+                    },
+                    enabled = cargoActionState !is TripDetailViewModel.CargoActionState.Loading
+                ) {
+                    Text("Destinataire")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            val localId = cargoToDeliver.localId
+                            if (localId != null) {
+                                viewModel.deliverCargo(localId, CargoDeliveryTarget.Agency)
+                            }
+                            selectedCargoForDelivery = null
+                        },
+                        enabled = cargoActionState !is TripDetailViewModel.CargoActionState.Loading
+                    ) {
+                        Text("Agence")
+                    }
+                    TextButton(
+                        onClick = { selectedCargoForDelivery = null },
+                        enabled = cargoActionState !is TripDetailViewModel.CargoActionState.Loading
+                    ) {
+                        Text("Annuler")
+                    }
+                }
+            }
+        )
+    }
+
+    if (showDeliverAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeliverAllDialog = false },
+            title = { Text("Transferer tous vers agence") },
+            text = { Text("Tous les colis ouverts de ce trajet seront transferes vers l'agence d'arrivee.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeliverAllDialog = false
+                        viewModel.handoverAllCargoToAgency()
+                    },
+                    enabled = cargoActionState !is TripDetailViewModel.CargoActionState.Loading
+                ) {
+                    Text("Confirmer")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeliverAllDialog = false },
+                    enabled = cargoActionState !is TripDetailViewModel.CargoActionState.Loading
                 ) {
                     Text("Annuler")
                 }
@@ -308,8 +395,45 @@ fun TripDetailScreen(
                                             EmptyOfflineCard("Aucun billet colis hors ligne.")
                                         }
                                     } else {
+                                        val openCargoCount = visibleCargoTickets.count { it.canHandoverToAgency }
+                                        item("cargo_bulk_actions") {
+                                            StitchCard(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                                contentPadding = PaddingValues(12.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "$openCargoCount colis ouvert(s)",
+                                                        style = MaterialTheme.typography.titleSmall,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                    StitchOutlineButton(
+                                                        label = "Transferer tous vers agence",
+                                                        onClick = {
+                                                            selectedCargoForDelivery = null
+                                                            showDeliverAllDialog = true
+                                                        },
+                                                        enabled = openCargoCount > 0
+                                                            && cargoActionState !is TripDetailViewModel.CargoActionState.Loading,
+                                                    )
+                                                }
+                                            }
+                                        }
                                         items(visibleCargoTickets, key = { it.id }) { item ->
-                                            OfflineActivityCard(item)
+                                            CargoOfflineActivityCard(
+                                                item = item,
+                                                isLoading = cargoActionState is TripDetailViewModel.CargoActionState.Loading,
+                                                showDeliverAction = !isBulkModeActive,
+                                                onDeliverClick = {
+                                                    if (!isBulkModeActive) {
+                                                        selectedCargoForDelivery = item
+                                                    }
+                                                }
+                                            )
                                         }
                                     }
                                 }
@@ -587,6 +711,72 @@ private fun OfflineActivityCard(item: OfflineActivityUiModel) {
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun CargoOfflineActivityCard(
+    item: OfflineActivityUiModel,
+    isLoading: Boolean,
+    showDeliverAction: Boolean,
+    onDeliverClick: () -> Unit,
+) {
+    val statusTone = when (item.status) {
+        "delivered" -> Success
+        "arrived" -> MaterialTheme.colorScheme.primaryContainer
+        "in_transit", "loaded", "created" -> Color(0xFF9A6A00)
+        "cancelled" -> ErrorRed
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    val statusLabel = item.statusLabel ?: item.status ?: "Inconnu"
+    val canDeliver = item.canDeliverToReceiver || item.canHandoverToAgency
+
+    StitchCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            StitchPill(
+                text = item.amountLabel,
+                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                contentColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        }
+        Text(
+            text = item.subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = item.meta,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            StitchPill(
+                text = statusLabel,
+                containerColor = statusTone.copy(alpha = 0.14f),
+                contentColor = statusTone
+            )
+            if (showDeliverAction && canDeliver && item.localId != null) {
+                StitchOutlineButton(
+                    label = "Deliver",
+                    onClick = onDeliverClick,
+                    enabled = !isLoading
+                )
+            }
+        }
     }
 }
 

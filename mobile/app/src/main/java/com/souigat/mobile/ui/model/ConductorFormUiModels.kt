@@ -22,6 +22,8 @@ data class TicketPriceOptionUiModel(
 @Immutable
 data class CargoTierPriceUiModel(
     val tier: String,
+    val displayName: String,
     val label: String,
+    val amountLabel: String,
     val valueCentimes: Long
 )

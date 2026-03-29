@@ -1,6 +1,52 @@
 import client from './client'
-import type { Office, Bus, PricingConfig, AuditLogEntry, QuarantinedSync } from '../types/admin'
+import type {
+    Office,
+    Bus,
+    PricingConfig,
+    AuditLogEntry,
+    QuarantinedSync,
+    RouteTemplate,
+    RouteTemplateStop,
+    RouteTemplateSegmentTariff,
+} from '../types/admin'
 import type { User } from '../types/auth'
+
+const ROUTE_TEMPLATE_BASES = ['/admin/route-templates/', '/admin/route_templates/'] as const
+const ROUTE_TEMPLATE_STOP_BASES = ['/admin/route-template-stops/', '/admin/route_template_stops/'] as const
+const ROUTE_TEMPLATE_SEGMENT_BASES = ['/admin/route-template-segment-tariffs/', '/admin/route_template_segment_tariffs/'] as const
+
+async function requestWithFallback<T>(
+    candidates: readonly string[],
+    method: 'get' | 'post' | 'patch' | 'delete',
+    paramsOrData?: Record<string, unknown>,
+): Promise<T> {
+    let lastError: unknown
+    for (let index = 0; index < candidates.length; index += 1) {
+        const path = candidates[index]
+        try {
+            if (method === 'get') {
+                const response = await client.get<T>(path, { params: paramsOrData })
+                return response.data
+            }
+            if (method === 'post') {
+                const response = await client.post<T>(path, paramsOrData)
+                return response.data
+            }
+            if (method === 'patch') {
+                const response = await client.patch<T>(path, paramsOrData)
+                return response.data
+            }
+            await client.delete(path)
+            return undefined as T
+        } catch (error: any) {
+            lastError = error
+            if (error?.response?.status !== 404 || index === candidates.length - 1) {
+                throw error
+            }
+        }
+    }
+    throw lastError
+}
 
 // Users
 export async function getUsers(params?: Record<string, unknown>): Promise<{ count: number; results: User[] }> {
@@ -20,6 +66,17 @@ export async function updateUser(id: number, data: Partial<User>): Promise<User>
 
 export async function deleteUser(id: number): Promise<void> {
     await client.delete(`/admin/users/${id}/`)
+}
+
+export async function bulkDeleteUsers(
+    ids: number[],
+    options: { hard?: boolean } = { hard: true },
+): Promise<{ processed: number; deleted: number; deactivated: number; errors: Array<{ id: number; detail: string }> }> {
+    const response = await client.post('/admin/users/bulk-delete/', {
+        ids,
+        hard: options.hard ?? true,
+    })
+    return response.data
 }
 
 export async function revokeDevice(userId: number): Promise<void> {
@@ -59,6 +116,13 @@ export async function createOffice(data: Partial<Office>): Promise<Office> {
 
 export async function updateOffice(id: number, data: Partial<Office>): Promise<Office> {
     const response = await client.patch<Office>(`/admin/offices/${id}/`, data)
+    return response.data
+}
+
+export async function bulkDeleteOffices(
+    ids: number[],
+): Promise<{ processed: number; deleted: number; errors: Array<{ id: number; detail: string }> }> {
+    const response = await client.post('/admin/offices/bulk-delete/', { ids })
     return response.data
 }
 
@@ -113,4 +177,91 @@ export async function bulkReviewQuarantinedSyncs(
 ): Promise<{ processed: number; reprocess_errors: number; skipped: number }> {
     const response = await client.post('/quarantine/bulk_review/', data)
     return response.data
+}
+
+// Route templates
+export async function getRouteTemplates(params?: Record<string, unknown>): Promise<{ count: number; results: RouteTemplate[] }> {
+    return requestWithFallback<{ count: number; results: RouteTemplate[] }>(
+        ROUTE_TEMPLATE_BASES,
+        'get',
+        params
+    )
+}
+
+export async function createRouteTemplate(data: Partial<RouteTemplate>): Promise<RouteTemplate> {
+    return requestWithFallback<RouteTemplate>(ROUTE_TEMPLATE_BASES, 'post', data as Record<string, unknown>)
+}
+
+export async function updateRouteTemplate(id: number, data: Partial<RouteTemplate>): Promise<RouteTemplate> {
+    return requestWithFallback<RouteTemplate>(
+        ROUTE_TEMPLATE_BASES.map((base) => `${base}${id}/`),
+        'patch',
+        data as Record<string, unknown>
+    )
+}
+
+export async function deleteRouteTemplate(id: number): Promise<void> {
+    await requestWithFallback<void>(
+        ROUTE_TEMPLATE_BASES.map((base) => `${base}${id}/`),
+        'delete'
+    )
+}
+
+export async function createReverseRouteTemplate(id: number): Promise<RouteTemplate> {
+    return requestWithFallback<RouteTemplate>(
+        ROUTE_TEMPLATE_BASES.map((base) => `${base}${id}/create-reverse/`),
+        'post',
+        {}
+    )
+}
+
+export async function createRouteTemplateStop(data: Partial<RouteTemplateStop>): Promise<RouteTemplateStop> {
+    return requestWithFallback<RouteTemplateStop>(
+        ROUTE_TEMPLATE_STOP_BASES,
+        'post',
+        data as Record<string, unknown>
+    )
+}
+
+export async function updateRouteTemplateStop(id: number, data: Partial<RouteTemplateStop>): Promise<RouteTemplateStop> {
+    return requestWithFallback<RouteTemplateStop>(
+        ROUTE_TEMPLATE_STOP_BASES.map((base) => `${base}${id}/`),
+        'patch',
+        data as Record<string, unknown>
+    )
+}
+
+export async function deleteRouteTemplateStop(id: number): Promise<void> {
+    await requestWithFallback<void>(
+        ROUTE_TEMPLATE_STOP_BASES.map((base) => `${base}${id}/`),
+        'delete'
+    )
+}
+
+export async function createRouteTemplateSegmentTariff(
+    data: Partial<RouteTemplateSegmentTariff>
+): Promise<RouteTemplateSegmentTariff> {
+    return requestWithFallback<RouteTemplateSegmentTariff>(
+        ROUTE_TEMPLATE_SEGMENT_BASES,
+        'post',
+        data as Record<string, unknown>
+    )
+}
+
+export async function updateRouteTemplateSegmentTariff(
+    id: number,
+    data: Partial<RouteTemplateSegmentTariff>
+): Promise<RouteTemplateSegmentTariff> {
+    return requestWithFallback<RouteTemplateSegmentTariff>(
+        ROUTE_TEMPLATE_SEGMENT_BASES.map((base) => `${base}${id}/`),
+        'patch',
+        data as Record<string, unknown>
+    )
+}
+
+export async function deleteRouteTemplateSegmentTariff(id: number): Promise<void> {
+    await requestWithFallback<void>(
+        ROUTE_TEMPLATE_SEGMENT_BASES.map((base) => `${base}${id}/`),
+        'delete'
+    )
 }

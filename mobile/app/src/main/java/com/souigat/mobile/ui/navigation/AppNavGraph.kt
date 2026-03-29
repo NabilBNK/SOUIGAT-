@@ -18,7 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.compose.material3.Scaffold
 import com.souigat.mobile.BuildConfig
-import com.souigat.mobile.data.connectivity.BackendConnectionState
+import com.souigat.mobile.data.connectivity.AppConnectionState
 import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.ui.components.ConnectionStatusStrip
 import com.souigat.mobile.ui.screens.boot.BootScreen
@@ -59,8 +59,8 @@ fun AppNavGraph(
     val showBottomBar = bottomNavItems.any { it.route == currentRoute }
     val showConnectionStrip = currentRoute != NavRoute.Login.route &&
         currentRoute != "boot" &&
-        connectionState != BackendConnectionState.Online &&
-        connectionState != BackendConnectionState.Checking
+        connectionState != AppConnectionState.Online &&
+        connectionState != AppConnectionState.Checking
 
     val startDestination = remember(debugStartRoute) {
         resolveStartDestination(debugStartRoute)
@@ -163,14 +163,12 @@ fun AppNavGraph(
                     },
                     onNavigateToSettlementSummary = { preview ->
                         navController.currentBackStackEntry?.savedStateHandle?.apply {
-                            set("settlement_preview_id", preview.settlementId)
-                            set("settlement_preview_status", preview.status)
-                            set("settlement_preview_office_name", preview.officeName)
-                            set("settlement_preview_expected_total", preview.expectedTotalCashLabel)
-                            set("settlement_preview_expenses", preview.expensesToReimburseLabel)
-                            set("settlement_preview_net", preview.netCashExpectedLabel)
-                            set("settlement_preview_agency", preview.agencyPresaleLabel)
-                            set("settlement_preview_outstanding", preview.outstandingCargoDeliveryLabel)
+                            set("settlement_passenger_count", preview.passengerCount)
+                            set("settlement_cargo_count", preview.cargoCount)
+                            set("settlement_passenger_cash", preview.passengerCashLabel)
+                            set("settlement_cargo_cash", preview.cargoCashLabel)
+                            set("settlement_expenses", preview.expensesLabel)
+                            set("settlement_cash_expected", preview.cashExpectedLabel)
                         }
                         navController.navigate(NavRoute.SettlementSummary.route)
                     }
@@ -179,19 +177,17 @@ fun AppNavGraph(
 
             composable(NavRoute.SettlementSummary.route) {
                 val savedStateHandle = navController.previousBackStackEntry?.savedStateHandle
-                val settlementId = savedStateHandle?.get<Int>("settlement_preview_id")
-                val preview = if (settlementId == null) {
+                val passengerCount = savedStateHandle?.get<Int>("settlement_passenger_count")
+                val preview = if (passengerCount == null) {
                     null
                 } else {
                     SettlementPreviewUiModel(
-                        settlementId = settlementId,
-                        status = savedStateHandle.get<String>("settlement_preview_status").orEmpty(),
-                        officeName = savedStateHandle.get<String>("settlement_preview_office_name").orEmpty(),
-                        expectedTotalCashLabel = savedStateHandle.get<String>("settlement_preview_expected_total").orEmpty(),
-                        expensesToReimburseLabel = savedStateHandle.get<String>("settlement_preview_expenses").orEmpty(),
-                        netCashExpectedLabel = savedStateHandle.get<String>("settlement_preview_net").orEmpty(),
-                        agencyPresaleLabel = savedStateHandle.get<String>("settlement_preview_agency").orEmpty(),
-                        outstandingCargoDeliveryLabel = savedStateHandle.get<String>("settlement_preview_outstanding").orEmpty()
+                        passengerCount = passengerCount,
+                        cargoCount = savedStateHandle.get<Int>("settlement_cargo_count") ?: 0,
+                        passengerCashLabel = savedStateHandle.get<String>("settlement_passenger_cash").orEmpty(),
+                        cargoCashLabel = savedStateHandle.get<String>("settlement_cargo_cash").orEmpty(),
+                        expensesLabel = savedStateHandle.get<String>("settlement_expenses").orEmpty(),
+                        cashExpectedLabel = savedStateHandle.get<String>("settlement_cash_expected").orEmpty(),
                     )
                 }
 

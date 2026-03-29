@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
@@ -19,39 +18,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.souigat.mobile.data.connectivity.BackendConnectionState
-import com.souigat.mobile.ui.theme.ErrorRed
+import com.souigat.mobile.data.connectivity.AppConnectionState
 import com.souigat.mobile.ui.theme.Success
 import com.souigat.mobile.ui.theme.Warning
 
 @Composable
 fun ConnectionStatusStrip(
-    state: BackendConnectionState,
+    state: AppConnectionState,
     modifier: Modifier = Modifier
 ) {
     val (icon, label, containerColor, contentColor) = when (state) {
-        BackendConnectionState.Online -> ConnectionStripStyle(
+        AppConnectionState.Online -> ConnectionStripStyle(
             icon = Icons.Default.Wifi,
-            label = "Connecte au serveur",
+            label = "Connecte",
             containerColor = Success.copy(alpha = 0.14f),
             contentColor = Success
         )
 
-        BackendConnectionState.Checking -> ConnectionStripStyle(
+        AppConnectionState.Checking -> ConnectionStripStyle(
             icon = Icons.Default.Sync,
-            label = "Verification reseau",
+            label = "Verification connexion",
             containerColor = Warning.copy(alpha = 0.14f),
             contentColor = Warning
         )
 
-        BackendConnectionState.BackendUnavailable -> ConnectionStripStyle(
-            icon = Icons.Default.CloudQueue,
-            label = "Serveur indisponible - mode local/Firebase actif",
-            containerColor = ErrorRed.copy(alpha = 0.12f),
-            contentColor = ErrorRed
-        )
-
-        BackendConnectionState.Offline -> ConnectionStripStyle(
+        AppConnectionState.Offline -> ConnectionStripStyle(
             icon = Icons.Default.CloudOff,
             label = "Mode hors ligne",
             containerColor = MaterialTheme.colorScheme.surfaceVariant,

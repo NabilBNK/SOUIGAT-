@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getOffices, createOffice, updateOffice } from '../../api/admin'
+import { getOffices, createOffice, updateOffice, bulkDeleteOffices } from '../../api/admin'
 import { DataTable } from '../../components/ui/DataTable'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { createColumnHelper } from '@tanstack/react-table'
-import { Plus, ShieldAlert, Edit, Power, Building2, MapPin, Search } from 'lucide-react'
+import { Plus, ShieldAlert, Edit, Power, Building2, MapPin, Search, Trash2 } from 'lucide-react'
 import type { Office } from '../../types/admin'
 
 const columnHelper = createColumnHelper<any>()
@@ -19,6 +19,7 @@ export function OfficeManagement() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingOffice, setEditingOffice] = useState<Office | null>(null)
     const [formData, setFormData] = useState<Partial<Office>>({})
+    const [selectedIds, setSelectedIds] = useState<number[]>([])
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearch(e.target.value)
@@ -54,6 +55,17 @@ export function OfficeManagement() {
         onSuccess: () => invalidateOffices(),
     })
 
+    const bulkDeleteMutation = useMutation({
+        mutationFn: (ids: number[]) => bulkDeleteOffices(ids),
+        onSuccess: (result) => {
+            setSelectedIds([])
+            invalidateOffices()
+            if (result.errors.length > 0) {
+                alert(`Suppression partielle: ${result.deleted} supprimée(s), ${result.errors.length} erreur(s).`)
+            }
+        },
+    })
+
     const openCreateModal = () => {
         setEditingOffice(null)
         setFormData({ is_active: true })
@@ -66,7 +78,49 @@ export function OfficeManagement() {
         setIsModalOpen(true)
     }
 
+    const currentOffices = officesData?.results || []
+    const currentOfficeIds = currentOffices.map((office) => office.id)
+    const selectedOnPage = currentOfficeIds.filter((id) => selectedIds.includes(id))
+    const allOnPageSelected = currentOfficeIds.length > 0 && selectedOnPage.length === currentOfficeIds.length
+
+    const toggleSelectAllOnPage = () => {
+        setSelectedIds((prev) => {
+            if (allOnPageSelected) {
+                return prev.filter((id) => !currentOfficeIds.includes(id))
+            }
+            return Array.from(new Set([...prev, ...currentOfficeIds]))
+        })
+    }
+
+    const toggleSelectOne = (id: number) => {
+        setSelectedIds((prev) => (
+            prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+        ))
+    }
+
     const columns = [
+        columnHelper.display({
+            id: 'select',
+            header: () => (
+                <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    aria-label="Sélectionner toutes les agences de la page"
+                />
+            ),
+            cell: info => {
+                const office = info.row.original as Office
+                return (
+                    <input
+                        type="checkbox"
+                        checked={selectedIds.includes(office.id)}
+                        onChange={() => toggleSelectOne(office.id)}
+                        aria-label={`Sélectionner l'agence ${office.name}`}
+                    />
+                )
+            },
+        }),
         columnHelper.accessor('name', {
             header: 'Nom de l\'agence',
             cell: info => <span className="font-semibold text-text-primary">{info.getValue()}</span>,
@@ -135,10 +189,27 @@ export function OfficeManagement() {
                     </h1>
                     <p className="text-sm text-text-muted mt-1">Gérez vos bureaux et points de vente.</p>
                 </div>
-                <Button onClick={openCreateModal} className="shrink-0 flex items-center gap-2">
-                    <Plus className="w-4 h-4" />
-                    Ajouter une Agence
-                </Button>
+                <div className="flex items-center gap-2">
+                    {selectedIds.length > 0 && (
+                        <Button
+                            variant="danger"
+                            className="shrink-0 flex items-center gap-2"
+                            onClick={() => {
+                                if (confirm(`Supprimer définitivement ${selectedIds.length} agence(s) sélectionnée(s) ? Cette action est irréversible.`)) {
+                                    bulkDeleteMutation.mutate(selectedIds)
+                                }
+                            }}
+                            isLoading={bulkDeleteMutation.isPending}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Supprimer sélection ({selectedIds.length})
+                        </Button>
+                    )}
+                    <Button onClick={openCreateModal} className="shrink-0 flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        Ajouter une Agence
+                    </Button>
+                </div>
             </div>
 
             <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 p-4 rounded-xl flex flex-col md:flex-row gap-4">

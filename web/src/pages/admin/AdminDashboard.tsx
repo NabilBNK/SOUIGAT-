@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getUsers, getBuses, getOffices, getPricingConfigs } from '../../api/admin'
-import { Users, Bus, Building2, CircleDollarSign, ShieldAlert, Activity } from 'lucide-react'
+import { Users, Bus, Building2, CircleDollarSign, ShieldAlert, Activity, Route } from 'lucide-react'
 
 export function AdminDashboard() {
     const { data: users } = useQuery({
@@ -76,6 +76,13 @@ export function AdminDashboard() {
                     icon={<CircleDollarSign className="w-6 h-6" />}
                     to="/admin/pricing"
                     description="Prix par type de trajet et colis."
+                />
+                <StatCard
+                    title="Templates Route"
+                    value="Route"
+                    icon={<Route className="w-6 h-6" />}
+                    to="/admin/templates"
+                    description="Stops ordonnes, tarifs segmentaires, reverse."
                 />
                 <StatCard
                     title="Journal d'Audit"

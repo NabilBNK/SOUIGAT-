@@ -61,3 +61,38 @@ export interface QuarantinedSync {
     review_notes: string | null
     created_at: string
 }
+
+export interface RouteTemplateStop {
+    id: number
+    route_template: number
+    office: number
+    office_name: string
+    stop_order: number
+}
+
+export interface RouteTemplateSegmentTariff {
+    id: number
+    route_template: number
+    from_stop: number
+    to_stop: number
+    from_stop_order: number
+    to_stop_order: number
+    passenger_price: number
+    currency: string
+    is_active: boolean
+}
+
+export interface RouteTemplate {
+    id: number
+    name: string
+    code: string
+    direction: 'forward' | 'reverse'
+    start_office: number
+    start_office_name: string
+    end_office: number
+    end_office_name: string
+    source_template: number | null
+    is_active: boolean
+    stops: RouteTemplateStop[]
+    segment_tariffs: RouteTemplateSegmentTariff[]
+}

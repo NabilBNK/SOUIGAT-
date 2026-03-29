@@ -5,8 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.souigat.mobile.data.remote.dto.UserProfileDto
 import com.souigat.mobile.data.repository.AuthException
+import com.souigat.mobile.domain.model.UserProfile
 import com.souigat.mobile.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -19,7 +19,7 @@ import timber.log.Timber
 sealed class LoginUiState {
     object Idle : LoginUiState()
     object Loading : LoginUiState()
-    data class Success(val user: UserProfileDto) : LoginUiState()
+    data class Success(val user: UserProfile) : LoginUiState()
 
     sealed class Error : LoginUiState() {
         object InvalidCredentials : Error()
@@ -81,7 +81,6 @@ class LoginViewModel @Inject constructor(
                         is AuthException.AccountDisabled -> LoginUiState.Error.AccountDisabled
                         is AuthException.NetworkUnavailable -> LoginUiState.Error.NetworkUnavailable
                         is AuthException.TooManyAttempts -> LoginUiState.Error.TooManyAttempts
-                        is AuthException.ServerError -> LoginUiState.Error.Unknown("Erreur serveur (${error.code})")
                         else -> LoginUiState.Error.Unknown(error.message ?: "Erreur inconnue")
                     }
                 }

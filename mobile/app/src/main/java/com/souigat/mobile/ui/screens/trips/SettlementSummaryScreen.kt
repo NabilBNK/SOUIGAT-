@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.LocalAtm
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -65,12 +66,12 @@ fun SettlementSummaryScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "Remettez ${preview.netCashExpectedLabel} au bureau ${preview.officeName}.",
+                            text = "Recapitulatif de fin de trajet.",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "Le conducteur ne modifie pas ce reglement. Cette vue est un recapitulatif apres cloture.",
+                            text = "Calcul local: especes encaissees moins depenses du trajet.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -83,30 +84,32 @@ fun SettlementSummaryScreen(
                     title = "Caisse a remettre",
                     icon = Icons.Default.LocalAtm,
                     lines = listOf(
-                        "Especes collectees" to preview.expectedTotalCashLabel,
-                        "Net attendu" to preview.netCashExpectedLabel,
+                        "Especes passagers" to preview.passengerCashLabel,
+                        "Especes cargo" to preview.cargoCashLabel,
+                        "Depenses" to preview.expensesLabel,
+                        "Net attendu" to preview.cashExpectedLabel,
                     )
                 )
             }
 
             item {
                 SettlementSummaryCard(
-                    title = "Remboursements",
+                    title = "Volumes",
+                    icon = Icons.Default.People,
+                    lines = listOf(
+                        "Billets passagers" to preview.passengerCount.toString(),
+                        "Billets cargo" to preview.cargoCount.toString(),
+                    )
+                )
+            }
+
+            item {
+                SettlementSummaryCard(
+                    title = "Controle",
                     icon = Icons.Default.AccountBalance,
                     lines = listOf(
-                        "Depenses a rembourser" to preview.expensesToReimburseLabel,
-                        "Prevente agence" to preview.agencyPresaleLabel,
-                    )
-                )
-            }
-
-            item {
-                SettlementSummaryCard(
-                    title = "Encaissements restants",
-                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                    lines = listOf(
-                        "Cargo a percevoir (POD)" to preview.outstandingCargoDeliveryLabel,
-                        "Statut" to preview.status,
+                        "Formule" to "(Passagers cash + Cargo cash) - Depenses",
+                        "Statut" to "Calcule localement",
                     )
                 )
             }

@@ -144,7 +144,7 @@ class TripListViewModel @Inject constructor(
                     }
                 }
                 .onFailure { error ->
-                    val exception = error as? TripException ?: TripException.ServerError(500)
+                    val exception = error as? TripException ?: TripException.DataError("Erreur inconnue")
                     Timber.e(error, "refreshTrips failed with %s", exception::class.simpleName)
                     refreshState.update {
                         it.copy(
@@ -200,7 +200,6 @@ class TripListViewModel @Inject constructor(
         TripException.Unauthenticated -> "Session expiree. Reconnectez-vous pour rafraichir."
         TripException.NotAssigned -> "Aucun trajet actif n'est assigne a votre compte."
         is TripException.InvalidStatus -> message
-        is TripException.DeserializationError -> "Erreur de donnees. Une mise a jour peut etre necessaire."
-        is TripException.ServerError -> "Erreur serveur $code. Reessayez plus tard."
+        is TripException.DataError -> detail
     }
 }

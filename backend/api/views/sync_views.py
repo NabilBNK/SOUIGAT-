@@ -21,6 +21,7 @@ from api.services.money_scale import (
     parse_integer_money,
 )
 from api.services import (
+    compute_forward_passenger_price,
     initiate_settlement_for_trip,
     recompute_settlement_for_trip,
     upsert_trip_report_snapshots_for_trip,
@@ -392,34 +393,44 @@ def _create_passenger_ticket(payload, trip, user, trip_state):
     if boarding_point == alighting_point:
         raise ValidationError('alighting_point must differ from boarding_point.')
 
+    route_stops = trip.route_stop_snapshot or []
+    route_segments = trip.route_segment_tariff_snapshot or []
+    if route_stops and route_segments:
+        price = compute_forward_passenger_price(
+            route_stop_snapshot=route_stops,
+            route_segment_tariff_snapshot=route_segments,
+            boarding_point=boarding_point,
+            alighting_point=alighting_point,
+        )
+    else:
+        raw_price = payload.get('price')
+        if raw_price in (None, ''):
+            price = trip.passenger_base_price
+        else:
+            money_scale = payload.get('money_scale')
+            try:
+                price = parse_integer_money(raw_price, field_name='price')
+                price = normalize_money_amount(price, money_scale=money_scale)
+            except ValueError as exc:
+                raise ValidationError(str(exc))
+
+            if money_scale is None and looks_like_legacy_mobile_passenger_price(price, trip.passenger_base_price):
+                logger.warning(
+                    'Normalizing legacy mobile passenger price for trip %d: raw=%s normalized=%s',
+                    trip.id,
+                    raw_price,
+                    price // 100,
+                )
+                price = price // 100
+
+            if price < 100:
+                raise ValidationError('Ticket price must be at least 100 DA.')
+
     occupied_count = _count_occupied_seats_for_boarding(trip, boarding_point)
     if occupied_count >= trip.bus.capacity:
         raise ValidationError(
             f'Bus is at full capacity for boarding at {boarding_point} ({trip.bus.capacity} seats).'
         )
-
-    raw_price = payload.get('price')
-    if raw_price in (None, ''):
-        price = trip.passenger_base_price
-    else:
-        money_scale = payload.get('money_scale')
-        try:
-            price = parse_integer_money(raw_price, field_name='price')
-            price = normalize_money_amount(price, money_scale=money_scale)
-        except ValueError as exc:
-            raise ValidationError(str(exc))
-
-        if money_scale is None and looks_like_legacy_mobile_passenger_price(price, trip.passenger_base_price):
-            logger.warning(
-                'Normalizing legacy mobile passenger price for trip %d: raw=%s normalized=%s',
-                trip.id,
-                raw_price,
-                price // 100,
-            )
-            price = price // 100
-
-        if price < 100:
-            raise ValidationError('Ticket price must be at least 100 DA.')
 
     total_count = trip_state['total_passenger_count']
     ticket_number = f'PT-{trip.id}-{total_count + 1:03d}'

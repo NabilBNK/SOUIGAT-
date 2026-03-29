@@ -7,11 +7,12 @@ import com.souigat.mobile.data.local.FormDraftStore
 import com.souigat.mobile.data.local.TicketFormDraft
 import com.souigat.mobile.data.local.dao.TripDao
 import com.souigat.mobile.data.local.entity.TripEntity
+import com.souigat.mobile.domain.model.TripRouteSegmentTariff
+import com.souigat.mobile.domain.model.TripRouteStop
 import com.souigat.mobile.domain.repository.TicketRepository
 import com.souigat.mobile.ui.model.CargoTierPriceUiModel
 import com.souigat.mobile.ui.model.TripFormHeaderUiModel
 import com.souigat.mobile.util.formatCurrency
-import com.souigat.mobile.util.parseCurrencyInput
 import com.souigat.mobile.util.toRouteDateTime
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 
 sealed class CreateTicketUiState {
     object Idle : CreateTicketUiState()
@@ -37,7 +39,9 @@ sealed class TicketFormHeaderState {
     data class Ready(
         val header: TripFormHeaderUiModel,
         val passengerBasePriceCentimes: Long,
-        val cargoTierPrices: List<CargoTierPriceUiModel>
+        val cargoTierPrices: List<CargoTierPriceUiModel>,
+        val routeStops: List<String>,
+        val routeSegments: List<TripRouteSegmentTariff>,
     ) : TicketFormHeaderState()
 
     data class Error(val message: String) : TicketFormHeaderState()
@@ -83,7 +87,6 @@ class CreateTicketViewModel @Inject constructor(
 
     fun createPassengerTicketBatch(
         count: Int,
-        manualPriceInput: String,
         paymentSource: String,
         seatNumber: String,
         boardingPoint: String,
@@ -104,9 +107,9 @@ class CreateTicketViewModel @Inject constructor(
             _uiState.value = CreateTicketUiState.Error("Le point de montee doit etre different du point de descente.")
             return
         }
-        val parsedPrice = parseCurrencyInput(manualPriceInput)
-        if (parsedPrice == null || parsedPrice < 100L) {
-            _uiState.value = CreateTicketUiState.Error("Veuillez entrer un prix valide.")
+        val computedPrice = computeForwardPassengerFare(form, boarding, alighting)
+        if (computedPrice == null || computedPrice < 100L) {
+            _uiState.value = CreateTicketUiState.Error("Le trajet selectionne est invalide pour ce template.")
             return
         }
         if (paymentSource !in setOf("cash", "prepaid")) {
@@ -123,7 +126,7 @@ class CreateTicketViewModel @Inject constructor(
             ticketRepository.createPassengerTicketBatch(
                 tripId = tripId,
                 count = count,
-                price = parsedPrice,
+                price = computedPrice,
                 currency = form.header.currency,
                 paymentSource = paymentSource,
                 seatNumber = seatNumber.trim(),
@@ -245,18 +248,105 @@ class CreateTicketViewModel @Inject constructor(
         )
 
         val cargoOptions = listOf(
-            CargoTierPriceUiModel("small", "Petit colis", cargoSmallPrice),
-            CargoTierPriceUiModel("medium", "Colis moyen", cargoMediumPrice),
-            CargoTierPriceUiModel("large", "Grand colis", cargoLargePrice)
+            CargoTierPriceUiModel("small", "Petit", "Petit colis", "", cargoSmallPrice),
+            CargoTierPriceUiModel("medium", "Colis moyen", "Colis moyen", "", cargoMediumPrice),
+            CargoTierPriceUiModel("large", "Grand", "Grand colis", "", cargoLargePrice)
         ).filter { it.valueCentimes > 0 }
             .map { option ->
-                option.copy(label = "${option.label} - ${formatCurrency(option.valueCentimes, currency)}")
+                option.copy(
+                    label = "${option.label} - ${formatCurrency(option.valueCentimes, currency)}",
+                    amountLabel = formatCurrency(option.valueCentimes, currency),
+                )
             }
 
         return TicketFormHeaderState.Ready(
             header = header,
             passengerBasePriceCentimes = passengerBasePrice,
-            cargoTierPrices = cargoOptions
+            cargoTierPrices = cargoOptions,
+            routeStops = routeStopsForUi(this),
+            routeSegments = decodeRouteSegments(routeSegmentTariffSnapshot),
         )
+    }
+
+    private fun computeForwardPassengerFare(
+        form: TicketFormHeaderState.Ready,
+        boardingPoint: String,
+        alightingPoint: String,
+    ): Long? {
+        val normalizedStops = form.routeStops.map { it.trim().lowercase() }
+        val boardingIndex = normalizedStops.indexOf(boardingPoint.trim().lowercase())
+        val alightingIndex = normalizedStops.indexOf(alightingPoint.trim().lowercase())
+        if (boardingIndex == -1 || alightingIndex == -1 || alightingIndex <= boardingIndex) {
+            return null
+        }
+
+        var total = 0L
+        for (index in boardingIndex until alightingIndex) {
+            val fromOrder = index + 1
+            val toOrder = index + 2
+            val segment = form.routeSegments.firstOrNull {
+                it.fromStopOrder == fromOrder && it.toStopOrder == toOrder
+            } ?: return null
+            total += segment.passengerPrice
+        }
+        return total
+    }
+
+    private fun routeStopsForUi(trip: TripEntity): List<String> {
+        val decoded = decodeRouteStops(trip.routeStopSnapshot).map { it.officeName.trim() }.filter { it.isNotBlank() }
+        if (decoded.isNotEmpty()) {
+            return decoded
+        }
+        return listOf(trip.originOffice, trip.destinationOffice).map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    }
+
+    private fun decodeRouteStops(raw: String): List<TripRouteStop> {
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (i in 0 until array.length()) {
+                    val item = array.optJSONObject(i) ?: continue
+                    val officeName = item.optString("office_name", "")
+                    val officeId = item.optInt("office_id", -1)
+                    val stopOrder = item.optInt("stop_order", -1)
+                    if (officeName.isBlank() || officeId < 0 || stopOrder < 0) {
+                        continue
+                    }
+                    add(
+                        TripRouteStop(
+                            officeId = officeId,
+                            officeName = officeName,
+                            stopOrder = stopOrder,
+                        )
+                    )
+                }
+            }.sortedBy { it.stopOrder }
+        }.getOrElse { emptyList() }
+    }
+
+    private fun decodeRouteSegments(raw: String): List<TripRouteSegmentTariff> {
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (i in 0 until array.length()) {
+                    val item = array.optJSONObject(i) ?: continue
+                    val fromStopOrder = item.optInt("from_stop_order", -1)
+                    val toStopOrder = item.optInt("to_stop_order", -1)
+                    val passengerPrice = item.optLong("passenger_price", -1L)
+                    val currency = item.optString("currency", "DZD")
+                    if (fromStopOrder < 0 || toStopOrder < 0 || passengerPrice < 0) {
+                        continue
+                    }
+                    add(
+                        TripRouteSegmentTariff(
+                            fromStopOrder = fromStopOrder,
+                            toStopOrder = toStopOrder,
+                            passengerPrice = passengerPrice,
+                            currency = currency,
+                        )
+                    )
+                }
+            }.sortedBy { it.fromStopOrder }
+        }.getOrElse { emptyList() }
     }
 }

@@ -5,6 +5,7 @@ from .models import (
     Office, User, Bus, Trip,
     PassengerTicket, CargoTicket, TripExpense,
     AuditLog, PricingConfig, SyncLog, QuarantinedSync,
+    RouteTemplate, RouteTemplateStop, RouteTemplateSegmentTariff,
 )
 
 
@@ -119,6 +120,29 @@ class PricingConfigAdmin(admin.ModelAdmin):
     list_select_related = ['origin_office', 'destination_office']
     list_filter = ['is_active', 'currency']
     raw_id_fields = ['origin_office', 'destination_office']
+
+
+class RouteTemplateStopInline(admin.TabularInline):
+    model = RouteTemplateStop
+    extra = 0
+    ordering = ["stop_order"]
+
+
+@admin.register(RouteTemplate)
+class RouteTemplateAdmin(admin.ModelAdmin):
+    list_display = ["code", "name", "start_office", "end_office", "direction", "is_active"]
+    list_filter = ["direction", "is_active"]
+    search_fields = ["code", "name"]
+    list_select_related = ["start_office", "end_office", "source_template"]
+    inlines = [RouteTemplateStopInline]
+
+
+@admin.register(RouteTemplateSegmentTariff)
+class RouteTemplateSegmentTariffAdmin(admin.ModelAdmin):
+    list_display = ["route_template", "from_stop", "to_stop", "passenger_price", "currency", "is_active"]
+    list_filter = ["is_active", "currency"]
+    list_select_related = ["route_template", "from_stop", "to_stop"]
+    raw_id_fields = ["route_template", "from_stop", "to_stop"]
 
 
 @admin.register(SyncLog)

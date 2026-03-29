@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
@@ -18,20 +17,6 @@ val keystoreProperties = Properties().apply {
         load(keystorePropertiesFile.inputStream())
     }
 }
-
-fun normalizeApiBaseUrl(raw: String): String {
-    val trimmed = raw.trim()
-    if (trimmed.isEmpty()) {
-        return "http://10.0.2.2:8013/api/"
-    }
-    return if (trimmed.endsWith('/')) trimmed else "$trimmed/"
-}
-
-val debugApiBaseUrl = normalizeApiBaseUrl(
-    providers.gradleProperty("DEBUG_API_BASE_URL").orNull
-        ?: providers.environmentVariable("DEBUG_API_BASE_URL").orNull
-        ?: "http://10.0.2.2:8013/api/"
-)
 
 android {
     namespace = "com.souigat.mobile"
@@ -68,7 +53,6 @@ android {
             isDebuggable = true
             isMinifyEnabled = false
             buildConfigField("String", "BUILD_TYPE_NAME", "\"debug\"")
-            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }
         create("staging") {
             applicationIdSuffix = ".staging"
@@ -82,7 +66,6 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "BUILD_TYPE_NAME", "\"staging\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://staging.souigat.dz/api/\"")
         }
         release {
             isDebuggable = false
@@ -94,7 +77,6 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "BUILD_TYPE_NAME", "\"release\"")
-            buildConfigField("String", "API_BASE_URL", "\"https://api.souigat.dz/api/\"")
         }
     }
 
@@ -154,13 +136,6 @@ dependencies {
     ksp(libs.room.compiler)
     testImplementation(libs.room.testing)
     androidTestImplementation(libs.room.testing)
-
-    // Retrofit + OkHttp + Kotlinx Serialization
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.kotlinx.serialization)
-    implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
-    implementation(libs.kotlinx.serialization.json)
 
     // WorkManager — reliable background sync
     implementation(libs.workmanager.ktx)

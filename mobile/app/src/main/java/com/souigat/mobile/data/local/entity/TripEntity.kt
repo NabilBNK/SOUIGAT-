@@ -27,5 +27,7 @@ data class TripEntity(
     val cargoMediumPrice: Long,
     val cargoLargePrice: Long,
     val currency: String,
+    val routeStopSnapshot: String = "[]",
+    val routeSegmentTariffSnapshot: String = "[]",
     val updatedAt: Long = System.currentTimeMillis()
 )

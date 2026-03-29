@@ -21,6 +21,7 @@ from api.serializers.settlement import (
     SettlementSerializer,
 )
 from api.services import (
+    get_trip_mirror_completion,
     initiate_settlement_for_trip,
     serialize_settlement_audit,
     upsert_trip_report_snapshots_for_trip,
@@ -140,7 +141,20 @@ def initiate_settlement(request, trip_id):
     with transaction.atomic():
         trip = _get_trip_for_initiate(request, trip_id)
         if trip.status != 'completed':
-            raise ValidationError({'detail': 'Only completed trips can be settled.'})
+            mirror_completed, mirror_arrival = get_trip_mirror_completion(trip.id)
+            if not mirror_completed:
+                raise ValidationError({'detail': 'Only completed trips can be settled.'})
+
+            update_fields = ['status', 'updated_at']
+            trip.status = 'completed'
+            if mirror_arrival and trip.arrival_datetime is None:
+                trip.arrival_datetime = mirror_arrival
+                update_fields.append('arrival_datetime')
+            trip.save(update_fields=update_fields)
+            logger.info(
+                'Settlement initiation auto-reconciled trip %s to completed from Firebase mirror.',
+                trip.id,
+            )
 
         settlement, created = initiate_settlement_for_trip(trip)
         if created:

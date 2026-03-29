@@ -5,13 +5,13 @@ import androidx.compose.runtime.Stable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.souigat.mobile.data.local.TokenManager
 import com.souigat.mobile.data.local.entity.CargoTicketEntity
 import com.souigat.mobile.data.local.entity.ExpenseEntity
 import com.souigat.mobile.data.local.entity.PassengerTicketEntity
-import com.souigat.mobile.data.local.TokenManager
-import com.souigat.mobile.data.remote.dto.SettlementPreviewDto
-import com.souigat.mobile.data.remote.dto.TripDetailDto
-import com.souigat.mobile.data.remote.dto.TripStatusDto
+import com.souigat.mobile.domain.model.TripCompletionRecap
+import com.souigat.mobile.domain.model.TripDetail
+import com.souigat.mobile.domain.model.TripStatusResult
 import com.souigat.mobile.domain.repository.ExpenseRepository
 import com.souigat.mobile.domain.repository.TicketRepository
 import com.souigat.mobile.domain.repository.TripException
@@ -44,12 +44,22 @@ enum class OfflineActivityKind {
 @Immutable
 data class OfflineActivityUiModel(
     val id: String,
+    val localId: Long? = null,
     val title: String,
     val subtitle: String,
     val meta: String,
     val amountLabel: String,
-    val kind: OfflineActivityKind
+    val kind: OfflineActivityKind,
+    val status: String? = null,
+    val statusLabel: String? = null,
+    val canDeliverToReceiver: Boolean = false,
+    val canHandoverToAgency: Boolean = false,
 )
+
+enum class CargoDeliveryTarget {
+    Receiver,
+    Agency,
+}
 
 @Stable
 data class TripDetailUiModel(
@@ -76,14 +86,12 @@ data class TripDetailUiModel(
 
 @Immutable
 data class SettlementPreviewUiModel(
-    val settlementId: Int,
-    val status: String,
-    val officeName: String,
-    val expectedTotalCashLabel: String,
-    val expensesToReimburseLabel: String,
-    val netCashExpectedLabel: String,
-    val agencyPresaleLabel: String,
-    val outstandingCargoDeliveryLabel: String
+    val passengerCount: Int,
+    val cargoCount: Int,
+    val passengerCashLabel: String,
+    val cargoCashLabel: String,
+    val expensesLabel: String,
+    val cashExpectedLabel: String,
 )
 
 sealed class TripDetailUiState {
@@ -96,7 +104,7 @@ sealed class TripDetailUiState {
 class TripDetailViewModel @Inject constructor(
     private val tripRepository: TripRepository,
     expenseRepository: ExpenseRepository,
-    ticketRepository: TicketRepository,
+    private val ticketRepository: TicketRepository,
     private val tokenManager: TokenManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -111,6 +119,9 @@ class TripDetailViewModel @Inject constructor(
 
     private val _actionState = MutableStateFlow<ActionState>(ActionState.Idle)
     val actionState: StateFlow<ActionState> = _actionState.asStateFlow()
+
+    private val _cargoActionState = MutableStateFlow<CargoActionState>(CargoActionState.Idle)
+    val cargoActionState: StateFlow<CargoActionState> = _cargoActionState.asStateFlow()
 
     val passengerTicketCount = ticketRepository.observePassengerTicketCount(tripId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
@@ -131,7 +142,14 @@ class TripDetailViewModel @Inject constructor(
         object Idle : ActionState()
         object Loading : ActionState()
         data class Error(val message: String) : ActionState()
-        data class Success(val response: TripStatusDto) : ActionState()
+        data class Success(val response: TripStatusResult) : ActionState()
+    }
+
+    sealed class CargoActionState {
+        object Idle : CargoActionState()
+        object Loading : CargoActionState()
+        data class Error(val message: String) : CargoActionState()
+        data class Success(val message: String) : CargoActionState()
     }
 
     init {
@@ -149,7 +167,7 @@ class TripDetailViewModel @Inject constructor(
                     }
                 }
                 .onFailure { error ->
-                    val exception = error as? TripException ?: TripException.ServerError(500)
+                    val exception = error as? TripException ?: TripException.DataError("Erreur inconnue")
                     _uiState.value = TripDetailUiState.Error(exception.toUserMessage())
                 }
         }
@@ -163,7 +181,7 @@ class TripDetailViewModel @Inject constructor(
         executeAction { tripRepository.completeTrip(tripId) }
     }
 
-    private fun executeAction(action: suspend () -> Result<TripStatusDto>) {
+    private fun executeAction(action: suspend () -> Result<TripStatusResult>) {
         viewModelScope.launch {
             _actionState.value = ActionState.Loading
             action()
@@ -189,22 +207,70 @@ class TripDetailViewModel @Inject constructor(
         _actionState.value = ActionState.Idle
     }
 
-    fun toSettlementPreviewUiModel(dto: SettlementPreviewDto): SettlementPreviewUiModel {
+    fun deliverCargo(cargoLocalId: Long, target: CargoDeliveryTarget) {
+        viewModelScope.launch {
+            _cargoActionState.value = CargoActionState.Loading
+            val result = when (target) {
+                CargoDeliveryTarget.Receiver -> ticketRepository.deliverCargoToReceiver(cargoLocalId)
+                CargoDeliveryTarget.Agency -> ticketRepository.handoverCargoToAgency(cargoLocalId)
+            }
+            result
+                .onSuccess {
+                    _cargoActionState.value = CargoActionState.Success(
+                        when (target) {
+                            CargoDeliveryTarget.Receiver -> "Colis livre au destinataire."
+                            CargoDeliveryTarget.Agency -> "Colis transfere a l'agence."
+                        }
+                    )
+                }
+                .onFailure { error ->
+                    _cargoActionState.value = CargoActionState.Error(
+                        error.message?.takeIf { it.isNotBlank() } ?: "Echec de la mise a jour du colis."
+                    )
+                }
+        }
+    }
+
+    fun handoverAllCargoToAgency() {
+        viewModelScope.launch {
+            _cargoActionState.value = CargoActionState.Loading
+            ticketRepository.handoverAllCargoToAgency(tripId)
+                .onSuccess { movedCount ->
+                    _cargoActionState.value = CargoActionState.Success(
+                        if (movedCount > 0) {
+                            "$movedCount colis transfere(s) a l'agence."
+                        } else {
+                            "Aucun colis ouvert a transferer."
+                        }
+                    )
+                }
+                .onFailure { error ->
+                    _cargoActionState.value = CargoActionState.Error(
+                        error.message?.takeIf { it.isNotBlank() } ?: "Echec du transfert global des colis."
+                    )
+                }
+        }
+    }
+
+    fun resetCargoActionState() {
+        _cargoActionState.value = CargoActionState.Idle
+    }
+
+    fun toSettlementPreviewUiModel(recap: TripCompletionRecap): SettlementPreviewUiModel {
         return SettlementPreviewUiModel(
-            settlementId = dto.settlementId,
-            status = dto.status,
-            officeName = dto.officeName,
-            expectedTotalCashLabel = formatCurrency(dto.expectedTotalCash),
-            expensesToReimburseLabel = formatCurrency(dto.expensesToReimburse),
-            netCashExpectedLabel = formatCurrency(dto.netCashExpected),
-            agencyPresaleLabel = formatCurrency(dto.agencyPresaleTotal),
-            outstandingCargoDeliveryLabel = formatCurrency(dto.outstandingCargoDelivery),
+            passengerCount = recap.passengerCount,
+            cargoCount = recap.cargoCount,
+            passengerCashLabel = formatCurrency(recap.passengerCashTotal, recap.currency),
+            cargoCashLabel = formatCurrency(recap.cargoCashTotal, recap.currency),
+            expensesLabel = formatCurrency(recap.expensesTotal, recap.currency),
+            cashExpectedLabel = formatCurrency(recap.cashExpected, recap.currency),
         )
     }
 
-    private fun TripDetailDto.toTripDetailUiModel(): TripDetailUiModel {
+    private fun TripDetail.toTripDetailUiModel(): TripDetailUiModel {
         val userRole = tokenManager.getUserRole().orEmpty()
-        val canCreateCargoItems = status in setOf("scheduled", "in_progress") && userRole in setOf("admin", "office_staff")
+        val canCreateCargoItems = status in setOf("scheduled", "in_progress") &&
+            userRole in setOf("admin", "office_staff", "conductor")
 
         val statusLabel = when (status) {
             "scheduled" -> "Planifie"
@@ -249,15 +315,17 @@ class TripDetailViewModel @Inject constructor(
             subtitle = passengerName.ifBlank { "Passager" },
             meta = listOfNotNull(
                 seatNumber.ifBlank { null }?.let { "Siege $it" }
-            ).ifEmpty { listOf("Billet passager") }.joinToString(" • "),
+            ).ifEmpty { listOf("Billet passager") }.joinToString(" - "),
             amountLabel = formatCurrency(price, currency),
             kind = OfflineActivityKind.Passenger
         )
     }
 
     private fun CargoTicketEntity.toOfflineCargoUiModel(): OfflineActivityUiModel {
+        val normalizedStatus = status.trim().lowercase()
         return OfflineActivityUiModel(
             id = "cargo_$id",
+            localId = id,
             title = ticketNumber,
             subtitle = "$senderName -> $receiverName",
             meta = when (cargoTier) {
@@ -267,7 +335,11 @@ class TripDetailViewModel @Inject constructor(
                 else -> cargoTier
             },
             amountLabel = formatCurrency(price, currency),
-            kind = OfflineActivityKind.Cargo
+            kind = OfflineActivityKind.Cargo,
+            status = normalizedStatus,
+            statusLabel = cargoStatusLabel(normalizedStatus),
+            canDeliverToReceiver = normalizedStatus in setOf("created", "loaded", "in_transit"),
+            canHandoverToAgency = normalizedStatus in setOf("created", "loaded", "in_transit"),
         )
     }
 
@@ -293,11 +365,17 @@ class TripDetailViewModel @Inject constructor(
         TripException.Unauthenticated -> "Session expiree. Veuillez vous reconnecter."
         TripException.NotAssigned -> "Vous n'avez pas acces a ce trajet."
         is TripException.InvalidStatus -> message
-        is TripException.DeserializationError -> "Erreur de donnees. Mettez l'application a jour."
-        is TripException.ServerError -> if (code == 404) {
-            "Ce trajet n'existe plus."
-        } else {
-            "Erreur serveur $code. Reessayez."
-        }
+        is TripException.DataError -> detail
+    }
+
+    private fun cargoStatusLabel(status: String): String = when (status) {
+        "created" -> "Cree"
+        "loaded" -> "Charge"
+        "in_transit" -> "En transit"
+        "arrived" -> "Arrive agence"
+        "delivered" -> "Livre"
+        "cancelled" -> "Annule"
+        else -> status
     }
 }
+

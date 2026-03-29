@@ -1,7 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
-
 from .mixins import SoftDeleteManager, TimestampMixin, SoftDeleteMixin
 
 
@@ -37,6 +36,13 @@ class Trip(TimestampMixin, SoftDeleteMixin, models.Model):
     destination_office = models.ForeignKey(
         'api.Office', on_delete=models.PROTECT, related_name='trips_to',
     )
+    route_template = models.ForeignKey(
+        "api.RouteTemplate",
+        on_delete=models.PROTECT,
+        related_name="trips",
+        null=True,
+        blank=True,
+    )
     bus = models.ForeignKey(
         'api.Bus', on_delete=models.PROTECT, related_name='trips',
     )
@@ -53,6 +59,8 @@ class Trip(TimestampMixin, SoftDeleteMixin, models.Model):
     cargo_medium_price = models.PositiveIntegerField()
     cargo_large_price = models.PositiveIntegerField()
     currency = models.CharField(max_length=3, default='DZD')
+    route_stop_snapshot = models.JSONField(default=list, blank=True)
+    route_segment_tariff_snapshot = models.JSONField(default=list, blank=True)
 
     objects = TripManager()
 
@@ -69,6 +77,7 @@ class Trip(TimestampMixin, SoftDeleteMixin, models.Model):
                 name='idx_trips_conductor_status',
                 condition=Q(status__in=['scheduled', 'in_progress']),
             ),
+            models.Index(fields=["route_template"], name="idx_trips_route_template"),
         ]
 
     def clean(self):
@@ -86,6 +95,14 @@ class Trip(TimestampMixin, SoftDeleteMixin, models.Model):
                     raise ValidationError('Assigned user must be a conductor.')
             except User.DoesNotExist:
                 pass
+
+        if self.route_template_id:
+            template = self.route_template
+            if template:
+                if self.origin_office_id and self.origin_office_id != template.start_office_id:
+                    raise ValidationError("Trip origin must match route template start office.")
+                if self.destination_office_id and self.destination_office_id != template.end_office_id:
+                    raise ValidationError("Trip destination must match route template end office.")
 
     def save(self, *args, **kwargs):
         skip = kwargs.pop('skip_validation', False)

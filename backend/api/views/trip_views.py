@@ -10,7 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 
-from api.models import Trip, Bus, Office, TripExpense, User
+from api.models import Bus, Office, RouteTemplate, Trip, TripExpense, User
 from api.serializers.settlement import SettlementPreviewSerializer
 from api.serializers.trip import TripSerializer, TripListSerializer
 from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission, IsAdminUser
@@ -111,7 +111,7 @@ class TripViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         qs = Trip.objects.select_related(
-            'origin_office', 'destination_office', 'conductor', 'bus',
+            'origin_office', 'destination_office', 'conductor', 'bus', 'route_template',
         ).annotate(
             passenger_count=Count(
                 'passenger_tickets',
@@ -165,10 +165,16 @@ class TripViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        """Enforce: staff can only create trips from their own office. Bus must match origin."""
+        """Enforce template-based trip creation and overlap checks."""
         user = self.request.user
+        route_template = serializer.validated_data.get("route_template")
+        if route_template is None:
+            raise ValidationError({"route_template": "route_template is required."})
+
+        origin = route_template.start_office
+        destination = route_template.end_office
+
         if user.role == 'office_staff':
-            origin = serializer.validated_data.get('origin_office')
             if origin.id != user.office_id:
                 raise PermissionDenied(
                     'You can only create trips originating from your office.'
@@ -202,7 +208,7 @@ class TripViewSet(viewsets.ModelViewSet):
             if overlapping_cond:
                 raise ValidationError({'conductor': 'Conductor is already assigned to an overlapping trip within a 4-hour window.'})
 
-        serializer.save()
+        serializer.save(origin_office=origin, destination_office=destination)
 
     # ------------------------------------------------------------------
     # Custom actions
@@ -215,6 +221,12 @@ class TripViewSet(viewsets.ModelViewSet):
         Avoids exposing admin-only CRUD endpoints to office staff.
         """
         offices_qs = Office.objects.filter(is_active=True).order_by('name')
+        templates_qs = (
+            RouteTemplate.objects.filter(is_active=True, is_deleted=False)
+            .select_related("start_office", "end_office")
+            .prefetch_related("stops__office", "segment_tariffs__from_stop", "segment_tariffs__to_stop")
+            .order_by("name")
+        )
         conductors_qs = User.objects.filter(
             role='conductor',
             is_active=True,
@@ -245,11 +257,48 @@ class TripViewSet(viewsets.ModelViewSet):
             }
             for c in conductors_qs
         ]
+        route_templates = []
+        for template in templates_qs:
+            stops = [
+                {
+                    "id": stop.id,
+                    "office_id": stop.office_id,
+                    "office_name": stop.office.name if stop.office else "",
+                    "stop_order": stop.stop_order,
+                }
+                for stop in template.stops.all().order_by("stop_order")
+            ]
+            segment_tariffs = [
+                {
+                    "id": segment.id,
+                    "from_stop_order": segment.from_stop.stop_order if segment.from_stop else None,
+                    "to_stop_order": segment.to_stop.stop_order if segment.to_stop else None,
+                    "passenger_price": segment.passenger_price,
+                    "currency": segment.currency,
+                    "is_active": segment.is_active,
+                }
+                for segment in template.segment_tariffs.all().order_by("from_stop__stop_order")
+            ]
+            route_templates.append(
+                {
+                    "id": template.id,
+                    "name": template.name,
+                    "code": template.code,
+                    "direction": template.direction,
+                    "start_office_id": template.start_office_id,
+                    "start_office_name": template.start_office.name if template.start_office_id else "",
+                    "end_office_id": template.end_office_id,
+                    "end_office_name": template.end_office.name if template.end_office_id else "",
+                    "stops": stops,
+                    "segment_tariffs": segment_tariffs,
+                }
+            )
 
         return Response({
             'offices': offices,
             'buses': buses,
             'conductors': conductors,
+            'route_templates': route_templates,
         })
 
     @action(detail=True, methods=['post'])

@@ -76,6 +76,12 @@ interface PassengerTicketDao {
     @Query("SELECT COUNT(*) FROM passenger_tickets WHERE tripId = :tripId")
     suspend fun getCount(tripId: Long): Int
 
+    @Query(
+        "SELECT COALESCE(SUM(price), 0) FROM passenger_tickets " +
+            "WHERE tripId = :tripId AND status = 'active' AND lower(paymentSource) = 'cash'"
+    )
+    suspend fun getCashTotalByTrip(tripId: Long): Long
+
     @Query("SELECT * FROM passenger_tickets WHERE serverId = :serverId LIMIT 1")
     suspend fun getByServerId(serverId: Long): PassengerTicketEntity?
 

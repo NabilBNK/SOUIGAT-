@@ -1,4 +1,4 @@
-package com.souigat.mobile.data.connectivity
+﻿package com.souigat.mobile.data.connectivity
 
 import android.content.Context
 import android.net.ConnectivityManager
@@ -11,64 +11,45 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class BackendConnectionState {
+enum class AppConnectionState {
     Checking,
     Online,
-    BackendUnavailable,
-    Offline
+    Offline,
 }
 
 @Singleton
-class BackendConnectionMonitor @Inject constructor(
-    @ApplicationContext context: Context
+class AppConnectionMonitor @Inject constructor(
+    @ApplicationContext context: Context,
 ) {
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
     private val _state = MutableStateFlow(initialState())
-    val state: StateFlow<BackendConnectionState> = _state.asStateFlow()
+    val state: StateFlow<AppConnectionState> = _state.asStateFlow()
 
     init {
         connectivityManager.registerDefaultNetworkCallback(
             object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    if (_state.value == BackendConnectionState.Offline) {
-                        _state.value = BackendConnectionState.Online
-                    }
+                    _state.value = AppConnectionState.Online
                 }
 
                 override fun onLost(network: Network) {
-                    _state.value = BackendConnectionState.Offline
+                    _state.value = AppConnectionState.Offline
                 }
 
                 override fun onUnavailable() {
-                    _state.value = BackendConnectionState.Offline
+                    _state.value = AppConnectionState.Offline
                 }
-            }
+            },
         )
     }
 
-    fun markBackendSuccess() {
-        if (_state.value != BackendConnectionState.Offline) {
-            _state.value = BackendConnectionState.Online
-        }
-    }
-
-    fun markBackendFailure() {
-        // Local-first mobile should continue operating from SQLite/Firebase even when
-        // Django API is temporarily unreachable. If internet exists, keep the UX online.
-        _state.value = if (hasInternet()) {
-            BackendConnectionState.Online
-        } else {
-            BackendConnectionState.Offline
-        }
-    }
-
-    private fun initialState(): BackendConnectionState {
+    private fun initialState(): AppConnectionState {
         return if (hasInternet()) {
-            BackendConnectionState.Online
+            AppConnectionState.Online
         } else {
-            BackendConnectionState.Offline
+            AppConnectionState.Offline
         }
     }
 

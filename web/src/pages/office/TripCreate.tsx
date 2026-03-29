@@ -1,14 +1,13 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createTrip, getTripReferenceData } from '../../api/trips'
 import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { AlertCircle, ArrowLeft, Calendar, Bus as BusIcon, MapPin, User as UserIcon } from 'lucide-react'
-import type { TripCreate } from '../../types/trip'
-import type { Office, Bus } from '../../types/admin'
+import type { TripCreate, RouteTemplateRef } from '../../types/trip'
+import type { Bus } from '../../types/admin'
 import type { User } from '../../types/auth'
-import { Link } from 'react-router-dom'
 import { queueTripUpsert } from '../../sync/tripSync'
 
 export function TripCreatePage() {
@@ -17,24 +16,29 @@ export function TripCreatePage() {
     const queryClient = useQueryClient()
     const [error, setError] = useState<string | null>(null)
 
-    // Form State
-    const [originId, setOriginId] = useState<string>(user?.office?.toString() || '')
-    const [destinationId, setDestinationId] = useState<string>('')
+    const [routeTemplateId, setRouteTemplateId] = useState<string>('')
     const [busId, setBusId] = useState<string>('')
     const [conductorId, setConductorId] = useState<string>('')
-
-    // Date and Time (combining into ISO string later)
     const [departureDate, setDepartureDate] = useState<string>('')
     const [departureTime, setDepartureTime] = useState<string>('')
 
-    // Reference Data Queries
     const { data: referenceData } = useQuery({
         queryKey: ['trip_reference_data'],
         queryFn: () => getTripReferenceData(),
     })
-    const offices = referenceData?.offices || []
+
+    const routeTemplates = referenceData?.route_templates || []
     const buses = referenceData?.buses || []
     const conductors = referenceData?.conductors || []
+
+    const filteredTemplates = useMemo(() => {
+        if (user?.role !== 'office_staff' || !user.office) {
+            return routeTemplates
+        }
+        return routeTemplates.filter((template) => template.start_office_id === user.office)
+    }, [routeTemplates, user?.office, user?.role])
+
+    const selectedTemplate = filteredTemplates.find((template) => template.id.toString() === routeTemplateId)
 
     const { mutate, isPending } = useMutation({
         mutationFn: (data: TripCreate) => createTrip(data),
@@ -46,7 +50,7 @@ export function TripCreatePage() {
             navigate(`/office/trips/${newTrip.id}`)
         },
         onError: (err: unknown) => {
-            let msg = 'Erreur lors de la création du voyage.'
+            let msg = 'Erreur lors de la creation du voyage.'
             if (err && typeof err === 'object' && 'response' in err) {
                 const response = (err as any).response
                 if (response?.data) {
@@ -54,13 +58,14 @@ export function TripCreatePage() {
                         msg = response.data
                     } else if (response.data.detail) {
                         msg = response.data.detail
-                    } else if (response.data.route) {
-                        msg = Array.isArray(response.data.route) ? response.data.route.join(' ') : response.data.route
+                    } else if (response.data.route_template) {
+                        msg = Array.isArray(response.data.route_template)
+                            ? response.data.route_template.join(' ')
+                            : response.data.route_template
                     } else {
-                        // Extract first error from values
-                        const firstErrorKey = Object.keys(response.data)[0];
+                        const firstErrorKey = Object.keys(response.data)[0]
                         if (firstErrorKey && Array.isArray(response.data[firstErrorKey])) {
-                            msg = `${firstErrorKey}: ${response.data[firstErrorKey].join(' ')}`;
+                            msg = `${firstErrorKey}: ${response.data[firstErrorKey].join(' ')}`
                         } else {
                             msg = JSON.stringify(response.data)
                         }
@@ -75,25 +80,16 @@ export function TripCreatePage() {
         e.preventDefault()
         setError(null)
 
-        if (!originId || !destinationId || !busId || !conductorId || !departureDate || !departureTime) {
+        if (!routeTemplateId || !busId || !conductorId || !departureDate || !departureTime) {
             setError('Tous les champs sont requis.')
             return
         }
 
-        if (originId === destinationId) {
-            setError('Le point de départ et d\'arrivée doivent être différents.')
-            return
-        }
-
-        // Determine timezone offset or just send simple ISO if backend handles it
-        // Django expects an ISO 8601 string: YYYY-MM-DDTHH:MM:SSZ
-        // Here we'll construct a local datetime string that the backend can parse
         const datetimeStr = `${departureDate}T${departureTime}:00`
         const isoDate = new Date(datetimeStr).toISOString()
 
         mutate({
-            origin_office: Number(originId),
-            destination_office: Number(destinationId),
+            route_template: Number(routeTemplateId),
             bus: Number(busId),
             conductor: Number(conductorId),
             departure_datetime: isoDate,
@@ -112,66 +108,62 @@ export function TripCreatePage() {
                 <div>
                     <h1 className="text-xl font-bold text-text-primary">Nouveau voyage</h1>
                     <p className="text-sm text-text-muted mt-1">
-                        Programmez un nouveau départ. Le prix sera figé lors de la création.
+                        Programmez un voyage depuis un template de route.
                     </p>
                 </div>
             </div>
 
             <form onSubmit={handleSubmit} className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-6 space-y-8">
                 {error && (
-                    <div className="bg-red-500/10 bg-red-500/10 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
+                    <div className="bg-red-500/10 border border-status-error/20 rounded-lg p-4 flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                     </div>
                 )}
 
                 <div className="space-y-6">
-                    {/* Itinerary */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider flex items-center gap-2 border-b border-surface-700/50 pb-2">
                             <MapPin className="w-4 h-4 text-brand-400" />
-                            Itinéraire
+                            Itineraire
                         </h3>
+
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-1.5">Template</label>
+                            <select
+                                value={routeTemplateId}
+                                onChange={(e) => {
+                                    setRouteTemplateId(e.target.value)
+                                    setBusId('')
+                                }}
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow"
+                                required
+                            >
+                                <option value="" disabled>Selectionner un template</option>
+                                {filteredTemplates.map((template: RouteTemplateRef) => (
+                                    <option key={template.id} value={template.id}>
+                                        {template.name} ({template.start_office_name} -&gt; {template.end_office_name})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1.5">Départ</label>
-                                <select
-                                    value={originId}
-                                    onChange={(e) => {
-                                        setOriginId(e.target.value)
-                                        setBusId('')
-                                    }}
-                                    className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow disabled:opacity-50"
-                                    required
-                                >
-                                    <option value="" disabled>Sélectionner un bureau</option>
-                                    {offices.map((o: Office) => (
-                                        <option key={o.id} value={o.id}>{o.name} ({o.city})</option>
-                                    ))}
-                                </select>
+                                <label className="block text-sm font-medium text-text-secondary mb-1.5">Depart</label>
+                                <div className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary">
+                                    {selectedTemplate?.start_office_name || 'Template requis'}
+                                </div>
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1.5">Arrivée</label>
-                                <select
-                                    value={destinationId}
-                                    onChange={(e) => setDestinationId(e.target.value)}
-                                    className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow"
-                                    required
-                                >
-                                    <option value="" disabled>Sélectionner la destination</option>
-                                    {offices.map((o: Office) => (
-                                        <option key={o.id} value={o.id} disabled={o.id.toString() === originId}>
-                                            {o.name} ({o.city})
-                                        </option>
-                                    ))}
-                                </select>
+                                <label className="block text-sm font-medium text-text-secondary mb-1.5">Arrivee</label>
+                                <div className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary">
+                                    {selectedTemplate?.end_office_name || 'Template requis'}
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Schedule */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider flex items-center gap-2 border-b border-surface-700/50 pb-2">
                             <Calendar className="w-4 h-4 text-brand-400" />
@@ -180,19 +172,18 @@ export function TripCreatePage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1.5">Date de départ</label>
+                                <label className="block text-sm font-medium text-text-secondary mb-1.5">Date de depart</label>
                                 <input
                                     type="date"
                                     value={departureDate}
                                     onChange={(e) => setDepartureDate(e.target.value)}
-                                    min={new Date().toISOString().split('T')[0]} // Prevents past dates
+                                    min={new Date().toISOString().split('T')[0]}
                                     className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow [color-scheme:dark]"
                                     required
                                 />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1.5">Heure de départ</label>
+                                <label className="block text-sm font-medium text-text-secondary mb-1.5">Heure de depart</label>
                                 <input
                                     type="time"
                                     value={departureTime}
@@ -204,7 +195,6 @@ export function TripCreatePage() {
                         </div>
                     </div>
 
-                    {/* Resources */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider flex items-center gap-2 border-b border-surface-700/50 pb-2">
                             <BusIcon className="w-4 h-4 text-brand-400" />
@@ -219,10 +209,10 @@ export function TripCreatePage() {
                                     onChange={(e) => setBusId(e.target.value)}
                                     className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow"
                                     required
-                                    disabled={!originId}
+                                    disabled={!routeTemplateId}
                                 >
                                     <option value="" disabled>
-                                        {!originId ? 'Sélectionnez un départ d\'abord' : 'Sélectionner un bus (Disponible)'}
+                                        {!routeTemplateId ? 'Selectionnez un template d abord' : 'Selectionner un bus disponible'}
                                     </option>
                                     {buses.map((b: Bus) => (
                                         <option key={b.id} value={b.id}>
@@ -230,9 +220,6 @@ export function TripCreatePage() {
                                         </option>
                                     ))}
                                 </select>
-                                {originId && buses.length === 0 && (
-                                    <p className="text-[12px] text-yellow-600 dark:text-yellow-400 mt-1">Aucun bus actif disponible actuellement.</p>
-                                )}
                             </div>
 
                             <div>
@@ -246,7 +233,7 @@ export function TripCreatePage() {
                                     className="w-full bg-surface-900 border border-surface-700 rounded-lg px-4 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow"
                                     required
                                 >
-                                    <option value="" disabled>Sélectionner un conducteur</option>
+                                    <option value="" disabled>Selectionner un conducteur</option>
                                     {conductors.map((c: User) => (
                                         <option key={c.id} value={c.id}>
                                             {c.first_name} {c.last_name} ({c.phone})

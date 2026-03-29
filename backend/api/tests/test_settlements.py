@@ -18,7 +18,7 @@ from api.models import (
     TripExpense,
     User,
 )
-from api.services import compute_settlement, initiate_settlement_for_trip
+from api.services import SettlementComputation, compute_settlement, initiate_settlement_for_trip
 
 
 class SettlementWorkflowTests(TestCase):
@@ -396,6 +396,61 @@ class SettlementWorkflowTests(TestCase):
         logs = AuditLog.objects.filter(table_name='settlements').order_by('created_at')
         self.assertEqual(logs.count(), 2)
         self.assertEqual(list(logs.values_list('action', flat=True)), ['create', 'update'])
+
+    @patch(
+        'api.views.settlement_views.get_trip_mirror_completion',
+        return_value=(True, timezone.now() - timedelta(minutes=5)),
+    )
+    def test_initiate_reconciles_backend_trip_when_mirror_is_completed(self, mocked_mirror_completion):
+        trip = self._make_trip(
+            status='in_progress',
+            departure_datetime=timezone.now() - timedelta(hours=2),
+            arrival_datetime=None,
+        )
+        self.client.force_authenticate(self.destination_staff)
+
+        response = self.client.post(f'/api/settlements/initiate/{trip.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        trip.refresh_from_db()
+        self.assertEqual(trip.status, 'completed')
+        self.assertIsNotNone(trip.arrival_datetime)
+        self.assertTrue(Settlement.objects.filter(trip=trip).exists())
+        self.assertEqual(mocked_mirror_completion.call_count, 1)
+
+    def test_compute_settlement_prefers_mirror_computation_when_available(self):
+        trip = self._make_trip()
+        PassengerTicket.objects.create(
+            trip=trip,
+            ticket_number='PT-LOCAL-001',
+            passenger_name='Backend Rider',
+            price=1000,
+            currency='DZD',
+            payment_source='cash',
+            created_by=self.conductor,
+            synced_at=timezone.now(),
+        )
+
+        mirror_computation = SettlementComputation(
+            expected_passenger_cash=7000,
+            expected_cargo_cash=2000,
+            expected_total_cash=9000,
+            agency_presale_total=500,
+            outstanding_cargo_delivery=1200,
+            expenses_to_reimburse=300,
+            net_cash_expected=8700,
+            active_passenger_cash_count=7,
+            active_passenger_presale_count=1,
+            prepaid_cargo_count=2,
+            pod_cargo_count=1,
+            expense_count=1,
+        )
+
+        with patch('api.services.settlements._compute_settlement_from_mirror', return_value=mirror_computation):
+            computed = compute_settlement(trip)
+
+        self.assertEqual(computed.expected_total_cash, 9000)
+        self.assertEqual(computed.net_cash_expected, 8700)
 
     def test_closed_trip_sync_is_quarantined_without_mutating_settlement_inputs(self):
         trip = self._make_trip()

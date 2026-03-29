@@ -33,6 +33,8 @@ data class PassengerTicketEntity(
     val currency: String,
     val paymentSource: String,       // cash | prepaid
     val seatNumber: String,
+    val boardingPoint: String = "",
+    val alightingPoint: String = "",
     val status: String,              // active | cancelled
     val createdAt: Long = System.currentTimeMillis()
 )

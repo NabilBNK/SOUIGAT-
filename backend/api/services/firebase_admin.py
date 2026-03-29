@@ -103,7 +103,7 @@ def build_firebase_claims_for_user(user, platform='web'):
         'platform': platform,
     }
 
-    if user.office_id is not None:
+    if user.office_id is not None and user.role != 'conductor':
         claims['office_id'] = int(user.office_id)
 
     if user.department:
@@ -114,6 +114,10 @@ def build_firebase_claims_for_user(user, platform='web'):
 
 def firebase_uid_for_user(user) -> str:
     return f'souigat-user-{int(user.id)}'
+
+
+def firebase_uid_for_user_id(user_id: int) -> str:
+    return f'souigat-user-{int(user_id)}'
 
 
 def firebase_email_for_phone(phone: str) -> str:
@@ -206,6 +210,59 @@ def schedule_firebase_auth_user_sync(user_id: int, raw_password: str | None = No
             close_old_connections()
 
     Thread(target=_run, daemon=True, name=f'firebase-auth-sync-{user_id}').start()
+
+
+def delete_firebase_auth_user(user_id: int, phone: str | None = None):
+    app = get_firebase_app()
+    if auth is None:
+        raise FirebaseConfigurationError(
+            'firebase-admin package is not installed in this environment.',
+        )
+
+    uid = firebase_uid_for_user_id(user_id)
+    deleted_uid = False
+    deleted_email = False
+
+    try:
+        auth.delete_user(uid, app=app)
+        deleted_uid = True
+    except auth.UserNotFoundError:
+        pass
+
+    if phone:
+        try:
+            email = firebase_email_for_phone(phone)
+            user_record = auth.get_user_by_email(email, app=app)
+            auth.delete_user(user_record.uid, app=app)
+            deleted_email = True
+        except auth.UserNotFoundError:
+            pass
+
+    return {
+        'uid': uid,
+        'deleted_uid': deleted_uid,
+        'deleted_email': deleted_email,
+    }
+
+
+def schedule_firebase_auth_user_delete(user_id: int, phone: str | None = None):
+    """Delete Firebase Auth account in background after backend hard delete."""
+
+    def _run():
+        try:
+            result = delete_firebase_auth_user(user_id=user_id, phone=phone)
+            logger.info(
+                'Firebase auth delete completed for user=%s deleted_uid=%s deleted_email=%s',
+                user_id,
+                result.get('deleted_uid'),
+                result.get('deleted_email'),
+            )
+        except Exception:
+            logger.exception('Background Firebase auth delete failed for user=%s', user_id)
+        finally:
+            close_old_connections()
+
+    Thread(target=_run, daemon=True, name=f'firebase-auth-delete-{user_id}').start()
 
 
 def reset_firebase_user_password(user, raw_password: str):

@@ -1,5 +1,5 @@
 import client from './client'
-import type { Trip, TripActionResponse, TripCreate, TripFilters, TripStatus } from '../types/trip'
+import type { RouteTemplateRef, Trip, TripActionResponse, TripCreate, TripFilters, TripStatus } from '../types/trip'
 import type { Office, Bus } from '../types/admin'
 import type { User } from '../types/auth'
 
@@ -14,6 +14,7 @@ export interface TripReferenceData {
     offices: Office[]
     buses: Bus[]
     conductors: User[]
+    route_templates: RouteTemplateRef[]
 }
 
 export async function getTrips(filters?: TripFilters): Promise<PaginatedResponse<Trip>> {

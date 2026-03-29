@@ -1,50 +1,49 @@
-package com.souigat.mobile.data.repository
+﻿package com.souigat.mobile.data.repository
 
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.souigat.mobile.data.firebase.CargoTicketMirrorDto
+import com.souigat.mobile.data.firebase.FirebaseTripDataSource
 import com.souigat.mobile.data.firebase.PassengerTicketMirrorDto
 import com.souigat.mobile.data.firebase.TripExpenseMirrorDto
 import com.souigat.mobile.data.local.TokenManager
-import com.souigat.mobile.data.local.dao.TripDao
 import com.souigat.mobile.data.local.dao.CargoTicketDao
 import com.souigat.mobile.data.local.dao.ExpenseDao
 import com.souigat.mobile.data.local.dao.PassengerTicketDao
 import com.souigat.mobile.data.local.dao.SyncQueueDao
+import com.souigat.mobile.data.local.dao.TripDao
 import com.souigat.mobile.data.local.entity.CargoTicketEntity
 import com.souigat.mobile.data.local.entity.ExpenseEntity
 import com.souigat.mobile.data.local.entity.PassengerTicketEntity
 import com.souigat.mobile.data.local.entity.SyncQueueEntity
 import com.souigat.mobile.data.local.entity.TripEntity
-import com.souigat.mobile.data.firebase.FirebaseTripDataSource
-import com.google.firebase.firestore.ListenerRegistration
-import com.souigat.mobile.notification.TripReminderScheduler
-import com.souigat.mobile.data.remote.api.TripApi
-import com.souigat.mobile.data.remote.dto.TripDetailDto
-import com.souigat.mobile.data.remote.dto.TripListDto
-import com.souigat.mobile.data.remote.dto.TripStatusDto
+import com.souigat.mobile.domain.model.TripCompletionRecap
+import com.souigat.mobile.domain.model.TripDetail
+import com.souigat.mobile.domain.model.TripListItem
+import com.souigat.mobile.domain.model.TripRouteSegmentTariff
+import com.souigat.mobile.domain.model.TripRouteStop
+import com.souigat.mobile.domain.model.TripStatusResult
+import com.souigat.mobile.domain.model.SyncStatus
 import com.souigat.mobile.domain.repository.TripException
 import com.souigat.mobile.domain.repository.TripRepository
-import com.souigat.mobile.domain.model.SyncStatus
+import com.souigat.mobile.notification.TripReminderScheduler
 import com.souigat.mobile.util.Constants
 import com.souigat.mobile.util.isOlderThan
 import com.souigat.mobile.worker.SyncScheduler
+import java.io.IOException
+import java.time.Instant
+import java.time.ZoneOffset
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerializationException
+import org.json.JSONArray
 import org.json.JSONObject
-import retrofit2.Response
 import timber.log.Timber
-import java.io.IOException
-import java.time.Instant
-import java.time.ZoneOffset
-import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class TripRepositoryImpl @Inject constructor(
-    private val tripApi: TripApi,
     private val tripDao: TripDao,
     private val passengerTicketDao: PassengerTicketDao,
     private val cargoTicketDao: CargoTicketDao,
@@ -56,163 +55,106 @@ class TripRepositoryImpl @Inject constructor(
     private val syncScheduler: SyncScheduler,
 ) : TripRepository {
 
-    private var tripMirrorListener: ListenerRegistration? = null
-    private var passengerMirrorListener: ListenerRegistration? = null
-    private var cargoMirrorListener: ListenerRegistration? = null
-    private var expenseMirrorListener: ListenerRegistration? = null
+    private var tripMirrorListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var passengerMirrorListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var cargoMirrorListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var expenseMirrorListener: com.google.firebase.firestore.ListenerRegistration? = null
     private var realtimeBoundUserId: Int? = null
     private val realtimeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override suspend fun getTripList(): Result<List<TripListDto>> {
+    override suspend fun getTripList(): Result<List<TripListItem>> {
         val localTrips = tripDao.getOperationalTripsNow()
         val latestLocalUpdate = tripDao.getLatestOperationalUpdateAt()
-        val shouldFetchRemote = localTrips.isEmpty() || latestLocalUpdate == null || latestLocalUpdate.isOlderThan(Constants.TRIP_LIST_STALE_MS)
+        val shouldFetchRemote = localTrips.isEmpty() ||
+            latestLocalUpdate == null ||
+            latestLocalUpdate.isOlderThan(Constants.TRIP_LIST_STALE_MS)
 
         if (!shouldFetchRemote) {
-            Timber.i("TripRepositoryImpl: using fresh local trips, skipping remote fetch.")
-            return Result.success(localTrips.map { it.toTripListDto() })
+            return Result.success(localTrips.map { it.toTripListItem() })
         }
 
-        val firebaseResult = firebaseTripDataSource.fetchTripList()
-        if (firebaseResult.isSuccess) {
-            val mirroredTrips = firebaseResult.getOrNull().orEmpty()
-            if (mirroredTrips.isNotEmpty()) {
-                persistTripListLocally(mirroredTrips)
-                return Result.success(mirroredTrips)
-            }
-
-            Timber.i("TripRepositoryImpl: Firestore returned no trips, fallback to backend API.")
-        } else {
-            Timber.w(
-                firebaseResult.exceptionOrNull(),
-                "TripRepositoryImpl: Firestore list read failed, fallback to backend API.",
-            )
-        }
-
-        val backendResult = safeApiCall { tripApi.getTripList() }
-        return backendResult
-            .mapCatching { page ->
-                persistTripListLocally(page.results)
-                page.results
+        return firebaseTripDataSource.fetchTripList()
+            .mapCatching { trips ->
+                persistTripListLocally(trips)
+                trips
             }
             .recoverCatching { error ->
                 if (localTrips.isNotEmpty()) {
-                    Timber.w(error, "TripRepositoryImpl: remote list fetch failed, serving local cached trips.")
-                    localTrips.map { it.toTripListDto() }
+                    localTrips.map { it.toTripListItem() }
                 } else {
-                    throw error
+                    throw error.toTripException()
                 }
             }
     }
 
-    override suspend fun getTripDetail(id: Long): Result<TripDetailDto> {
+    override suspend fun getTripDetail(id: Long): Result<TripDetail> {
         val localTrip = tripDao.getByLocalOrServerId(id)
         if (localTrip != null && !localTrip.updatedAt.isOlderThan(Constants.TRIP_LIST_STALE_MS)) {
-            Timber.i("TripRepositoryImpl: using fresh local trip detail for id=%d.", id)
-            return Result.success(localTrip.toTripDetailDto())
+            return Result.success(localTrip.toTripDetail())
         }
 
-        val firebaseResult = firebaseTripDataSource.fetchTripDetail(id)
-        if (firebaseResult.isSuccess) {
-            val mirroredDetail = firebaseResult.getOrNull()
-            if (mirroredDetail != null) {
-                persistTripDetailLocally(mirroredDetail)
-                return Result.success(mirroredDetail)
-            }
-        } else {
-            Timber.w(
-                firebaseResult.exceptionOrNull(),
-                "TripRepositoryImpl: Firestore detail read failed for trip=%s, fallback to backend API.",
-                id,
-            )
-        }
-
-        return safeApiCall { tripApi.getTripDetail(id) }
+        return firebaseTripDataSource.fetchTripDetail(id)
             .mapCatching { detail ->
                 persistTripDetailLocally(detail)
                 detail
             }
             .recoverCatching { error ->
                 if (localTrip != null) {
-                    Timber.w(error, "TripRepositoryImpl: remote detail fetch failed, serving local cached trip id=%d.", id)
-                    localTrip.toTripDetailDto()
+                    localTrip.toTripDetail()
                 } else {
-                    throw error
+                    throw error.toTripException()
                 }
             }
     }
 
-    override suspend fun startTrip(id: Long): Result<TripStatusDto> {
-        return safeApiCall { tripApi.startTrip(id) }
-            .mapCatching { status ->
-                updateLocalTripStatus(id, status.status)
-                status
-            }
-            .recoverCatching { error ->
-                if (!isRetryableLifecycleError(error)) {
-                    throw error
-                }
+    override suspend fun startTrip(id: Long): Result<TripStatusResult> {
+        val tripRef = tripDao.getByLocalOrServerId(id)
+            ?: return Result.failure(TripException.DataError("Trajet introuvable localement."))
 
-                Timber.w(error, "TripRepositoryImpl: backend startTrip failed, trying Firestore fallback.")
-                val tripRef = tripDao.getByLocalOrServerId(id)
-                val targetTripId = tripRef?.serverId ?: id
-                val transitionAtMillis = System.currentTimeMillis()
+        val targetTripId = tripRef.serverId ?: tripRef.id
 
-                queueTripStatusSync(targetTripId, "in_progress", transitionAtMillis)
-
-                firebaseTripDataSource.updateTripStatus(targetTripId, "in_progress")
-                    .onFailure { fallbackError ->
-                        Timber.w(
-                            fallbackError,
-                            "TripRepositoryImpl: Firestore start fallback failed for trip=%d.",
-                            targetTripId,
-                        )
+        return firebaseTripDataSource.updateTripStatus(targetTripId, "in_progress")
+            .fold(
+                onSuccess = {
+                    updateLocalTripStatus(id, "in_progress")
+                    Result.success(TripStatusResult(status = "in_progress"))
+                },
+                onFailure = { error ->
+                    if (isRetryableLifecycleError(error)) {
+                        queueTripStatusSync(targetTripId, "in_progress", System.currentTimeMillis())
+                        updateLocalTripStatus(id, "in_progress")
+                        Result.success(TripStatusResult(status = "in_progress"))
+                    } else {
+                        Result.failure(error.toTripException())
                     }
-
-                updateLocalTripStatus(id, "in_progress")
-                TripStatusDto(status = "in_progress")
-            }
+                },
+            )
     }
 
-    override suspend fun completeTrip(id: Long): Result<TripStatusDto> {
-        return safeApiCall { tripApi.completeTrip(id) }
-            .mapCatching { status ->
-                updateLocalTripStatus(id, status.status)
-                status
-            }
-            .recoverCatching { error ->
-                if (!isRetryableLifecycleError(error)) {
-                    throw error
-                }
+    override suspend fun completeTrip(id: Long): Result<TripStatusResult> {
+        val tripRef = tripDao.getByLocalOrServerId(id)
+            ?: return Result.failure(TripException.DataError("Trajet introuvable localement."))
 
-                Timber.w(error, "TripRepositoryImpl: backend completeTrip failed, trying Firestore fallback.")
-                val tripRef = tripDao.getByLocalOrServerId(id)
-                val targetTripId = tripRef?.serverId ?: id
-                val transitionAtMillis = System.currentTimeMillis()
+        val targetTripId = tripRef.serverId ?: tripRef.id
 
-                queueTripStatusSync(targetTripId, "completed", transitionAtMillis)
-
-                val completeDirect = firebaseTripDataSource.updateTripStatus(targetTripId, "completed")
-                if (completeDirect.isFailure) {
-                    Timber.w(
-                        completeDirect.exceptionOrNull(),
-                        "TripRepositoryImpl: direct complete transition failed, trying in_progress -> completed chain."
-                    )
-
-                    firebaseTripDataSource.updateTripStatus(targetTripId, "in_progress")
-                    val chainComplete = firebaseTripDataSource.updateTripStatus(targetTripId, "completed")
-                    if (chainComplete.isFailure) {
-                        Timber.w(
-                            chainComplete.exceptionOrNull(),
-                            "TripRepositoryImpl: Firestore completion fallback failed for trip=%d.",
-                            targetTripId,
-                        )
+        return firebaseTripDataSource.updateTripStatus(targetTripId, "completed")
+            .fold(
+                onSuccess = {
+                    updateLocalTripStatus(id, "completed")
+                    val recap = buildLocalCompletionRecap(id)
+                    Result.success(TripStatusResult(status = "completed", completionRecap = recap))
+                },
+                onFailure = { error ->
+                    if (isRetryableLifecycleError(error)) {
+                        queueTripStatusSync(targetTripId, "completed", System.currentTimeMillis())
+                        updateLocalTripStatus(id, "completed")
+                        val recap = buildLocalCompletionRecap(id)
+                        Result.success(TripStatusResult(status = "completed", completionRecap = recap))
+                    } else {
+                        Result.failure(error.toTripException())
                     }
-                }
-
-                updateLocalTripStatus(id, "completed")
-                TripStatusDto(status = "completed")
-            }
+                },
+            )
     }
 
     override suspend fun refreshTripActivity(id: Long): Result<Unit> {
@@ -237,49 +179,51 @@ class TripRepositoryImpl @Inject constructor(
         ).firstOrNull()
 
         if (
-            firstFailure != null
-            && passengerResult.getOrNull().isNullOrEmpty()
-            && cargoResult.getOrNull().isNullOrEmpty()
-            && expenseResult.getOrNull().isNullOrEmpty()
+            firstFailure != null &&
+            passengerResult.getOrNull().isNullOrEmpty() &&
+            cargoResult.getOrNull().isNullOrEmpty() &&
+            expenseResult.getOrNull().isNullOrEmpty()
         ) {
-            return Result.failure(firstFailure)
+            return Result.failure(firstFailure.toTripException())
         }
 
         return Result.success(Unit)
     }
 
     private suspend fun queueTripStatusSync(tripServerId: Long, status: String, transitionAtMillis: Long) {
-        val eventId = UUID.randomUUID().toString()
         val payload = JSONObject()
             .put("status", status)
             .put("transition_at", transitionAtMillis)
-            .put("device_event_id", eventId)
             .toString()
 
         val queued = syncQueueDao.enqueue(
             SyncQueueEntity(
                 tripId = tripServerId,
                 itemType = "trip_status",
-                idempotencyKey = "trip-status-$tripServerId-$status-$transitionAtMillis-$eventId",
+                idempotencyKey = "trip-status-$tripServerId-$status",
                 payload = payload,
                 status = SyncStatus.PENDING,
             )
         )
 
-        if (queued <= 0L) {
-            Timber.w("TripRepositoryImpl: trip status sync item ignored as duplicate for trip=%d status=%s", tripServerId, status)
-        } else {
-            Timber.i("TripRepositoryImpl: queued trip status sync for trip=%d status=%s", tripServerId, status)
+        if (queued > 0L) {
             syncScheduler.triggerOneTimeSync()
         }
     }
 
     private fun isRetryableLifecycleError(error: Throwable): Boolean {
-        return when (error) {
-            TripException.NetworkUnavailable -> true
-            is TripException.ServerError -> error.code >= 500 || error.code == 408 || error.code == 429
-            else -> false
+        if (error is IOException) {
+            return true
         }
+
+        if (error is FirebaseFirestoreException) {
+            return error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
+                error.code == FirebaseFirestoreException.Code.DEADLINE_EXCEEDED ||
+                error.code == FirebaseFirestoreException.Code.ABORTED ||
+                error.code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED
+        }
+
+        return false
     }
 
     override suspend fun startRealtimeTripSync(): Result<Unit> {
@@ -307,7 +251,7 @@ class TripRepositoryImpl @Inject constructor(
             },
         )
 
-        val tripRegistration = tripResult.getOrElse { return Result.failure(it) }
+        val tripRegistration = tripResult.getOrElse { return Result.failure(it.toTripException()) }
 
         tripMirrorListener = tripRegistration
         passengerMirrorListener = null
@@ -315,7 +259,6 @@ class TripRepositoryImpl @Inject constructor(
         expenseMirrorListener = null
         realtimeBoundUserId = currentUserId
 
-        Timber.i("TripRepositoryImpl: Firestore realtime trip listener started (active trip list/status only).")
         return Result.success(Unit)
     }
 
@@ -331,66 +274,7 @@ class TripRepositoryImpl @Inject constructor(
         realtimeBoundUserId = null
     }
 
-    private suspend fun <T> safeApiCall(apiCall: suspend () -> Response<T>): Result<T> {
-        return try {
-            val response = apiCall()
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body != null) {
-                    Result.success(body)
-                } else {
-                    Timber.e("safeApiCall: successful response but null body. code=${response.code()}")
-                    Result.failure(TripException.ServerError(response.code()))
-                }
-            } else {
-                val errorCode = response.code()
-                val errorBody = response.errorBody()?.string()
-                Timber.w("safeApiCall: HTTP $errorCode — body: $errorBody")
-
-                var message = "Erreur inconnue"
-                if (!errorBody.isNullOrEmpty() && errorCode == 400) {
-                    try {
-                        val json = JSONObject(errorBody)
-                        if (json.has("error_code") && json.has("detail")) {
-                            message = json.getString("detail")
-                        } else if (json.length() > 0) {
-                            val firstKey = json.keys().next()
-                            val value = json.get(firstKey)
-                            message = if (value is org.json.JSONArray && value.length() > 0) {
-                                value.getString(0)
-                            } else {
-                                value.toString()
-                            }
-                        }
-                    } catch (e: Exception) {
-                        message = errorBody
-                    }
-                }
-
-                Result.failure(
-                    when (errorCode) {
-                        401  -> TripException.Unauthenticated
-                        403  -> TripException.NotAssigned
-                        400  -> TripException.InvalidStatus(message)
-                        else -> TripException.ServerError(errorCode)
-                    }
-                )
-            }
-        } catch (e: IOException) {
-            Timber.e(e, "safeApiCall: IOException (network unavailable)")
-            Result.failure(TripException.NetworkUnavailable)
-        } catch (e: SerializationException) {
-            // JSON schema mismatch — likely DTO doesn't match server response
-            Timber.e(e, "safeApiCall: SerializationException — DTO mismatch with backend response")
-            Result.failure(TripException.DeserializationError(e.message ?: "Unknown"))
-        } catch (e: Exception) {
-            // Catch-all — log actual exception so logcat shows what really happened
-            Timber.e(e, "safeApiCall: Unexpected exception — ${e.javaClass.simpleName}")
-            Result.failure(TripException.ServerError(500))
-        }
-    }
-
-    private suspend fun persistTripListLocally(trips: List<TripListDto>) {
+    private suspend fun persistTripListLocally(trips: List<TripListItem>) {
         val serverIds = trips.map { it.id }
         if (serverIds.isEmpty()) {
             tripDao.clearOperationalServerTrips()
@@ -398,7 +282,6 @@ class TripRepositoryImpl @Inject constructor(
             return
         }
 
-        // Keep local operational list aligned with server scope (per logged-in user).
         tripDao.pruneOperationalServerTrips(serverIds)
 
         val existingByServerId = tripDao.getByServerIds(serverIds)
@@ -423,7 +306,9 @@ class TripRepositoryImpl @Inject constructor(
                 cargoMediumPrice = dto.cargoMediumPrice ?: existing?.cargoMediumPrice ?: 0L,
                 cargoLargePrice = dto.cargoLargePrice ?: existing?.cargoLargePrice ?: 0L,
                 currency = dto.currency,
-                updatedAt = updatedAt
+                routeStopSnapshot = existing?.routeStopSnapshot ?: "[]",
+                routeSegmentTariffSnapshot = existing?.routeSegmentTariffSnapshot ?: "[]",
+                updatedAt = updatedAt,
             )
         }
 
@@ -431,7 +316,7 @@ class TripRepositoryImpl @Inject constructor(
         tripReminderScheduler.syncTrips(entities)
     }
 
-    private suspend fun persistTripDetailLocally(detail: TripDetailDto) {
+    private suspend fun persistTripDetailLocally(detail: TripDetail) {
         val serverTripId = detail.id
         val existing = tripDao.getByLocalOrServerId(serverTripId)
 
@@ -440,7 +325,7 @@ class TripRepositoryImpl @Inject constructor(
             serverId = serverTripId,
             originOffice = detail.originName,
             destinationOffice = detail.destinationName,
-            conductorId = detail.conductor.toLong(),
+            conductorId = detail.conductorId.toLong(),
             busPlate = detail.busPlate,
             status = detail.status,
             departureDateTime = parseEpochMillis(detail.departureDatetime),
@@ -449,7 +334,9 @@ class TripRepositoryImpl @Inject constructor(
             cargoMediumPrice = detail.cargoMediumPrice,
             cargoLargePrice = detail.cargoLargePrice,
             currency = detail.currency,
-            updatedAt = System.currentTimeMillis()
+            routeStopSnapshot = encodeRouteStops(detail.routeStops),
+            routeSegmentTariffSnapshot = encodeRouteSegmentTariffs(detail.routeSegmentTariffs),
+            updatedAt = System.currentTimeMillis(),
         )
         tripDao.upsert(entity)
         tripReminderScheduler.syncTrip(entity)
@@ -462,15 +349,32 @@ class TripRepositoryImpl @Inject constructor(
         tripReminderScheduler.syncTrip(updatedTrip)
     }
 
+    private suspend fun buildLocalCompletionRecap(tripRefId: Long): TripCompletionRecap {
+        val localTrip = tripDao.getByLocalOrServerId(tripRefId)
+            ?: throw TripException.DataError("Trajet introuvable pour le recapitulatif.")
+
+        val tripId = localTrip.id
+        val passengerCashTotal = passengerTicketDao.getCashTotalByTrip(tripId)
+        val cargoCashTotal = cargoTicketDao.getCashTotalByTrip(tripId)
+        val expensesTotal = expenseDao.getTotalAmount(tripId) ?: 0L
+        val passengerCount = passengerTicketDao.getActiveCount(tripId)
+        val cargoCount = cargoTicketDao.getActiveCount(tripId)
+
+        return TripCompletionRecap(
+            passengerCashTotal = passengerCashTotal,
+            cargoCashTotal = cargoCashTotal,
+            expensesTotal = expensesTotal,
+            cashExpected = passengerCashTotal + cargoCashTotal - expensesTotal,
+            passengerCount = passengerCount,
+            cargoCount = cargoCount,
+            currency = localTrip.currency,
+        )
+    }
+
     private suspend fun persistPassengerTicketsLocally(tickets: List<PassengerTicketMirrorDto>) {
         tickets.forEach { dto ->
             val localTrip = tripDao.getByLocalOrServerId(dto.tripId)
             if (localTrip == null) {
-                Timber.w(
-                    "TripRepositoryImpl: skip mirrored passenger ticket=%d, missing local trip for serverTrip=%d.",
-                    dto.id,
-                    dto.tripId,
-                )
                 return@forEach
             }
 
@@ -488,6 +392,8 @@ class TripRepositoryImpl @Inject constructor(
                 currency = dto.currency,
                 paymentSource = dto.paymentSource,
                 seatNumber = dto.seatNumber,
+                boardingPoint = dto.boardingPoint,
+                alightingPoint = dto.alightingPoint,
                 status = dto.status,
                 createdAt = parseEpochMillis(dto.createdAtIso),
             )
@@ -510,11 +416,6 @@ class TripRepositoryImpl @Inject constructor(
         tickets.forEach { dto ->
             val localTrip = tripDao.getByLocalOrServerId(dto.tripId)
             if (localTrip == null) {
-                Timber.w(
-                    "TripRepositoryImpl: skip mirrored cargo ticket=%d, missing local trip for serverTrip=%d.",
-                    dto.id,
-                    dto.tripId,
-                )
                 return@forEach
             }
 
@@ -558,11 +459,6 @@ class TripRepositoryImpl @Inject constructor(
         expenses.forEach { dto ->
             val localTrip = tripDao.getByLocalOrServerId(dto.tripId)
             if (localTrip == null) {
-                Timber.w(
-                    "TripRepositoryImpl: skip mirrored expense=%d, missing local trip for serverTrip=%d.",
-                    dto.id,
-                    dto.tripId,
-                )
                 return@forEach
             }
 
@@ -594,6 +490,27 @@ class TripRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun Throwable.toTripException(): TripException {
+        return when (this) {
+            is TripException -> this
+            is IOException -> TripException.NetworkUnavailable
+            is FirebaseFirestoreException -> {
+                when (code) {
+                    FirebaseFirestoreException.Code.UNAUTHENTICATED -> TripException.Unauthenticated
+                    FirebaseFirestoreException.Code.PERMISSION_DENIED -> TripException.NotAssigned
+                    FirebaseFirestoreException.Code.UNAVAILABLE,
+                    FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+                    FirebaseFirestoreException.Code.ABORTED,
+                    FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED -> TripException.NetworkUnavailable
+                    FirebaseFirestoreException.Code.INVALID_ARGUMENT,
+                    FirebaseFirestoreException.Code.FAILED_PRECONDITION -> TripException.InvalidStatus(message ?: "Transition invalide")
+                    else -> TripException.DataError(message ?: "Erreur Firebase")
+                }
+            }
+            else -> TripException.DataError(message ?: "Erreur inconnue")
+        }
+    }
+
     private fun parseEpochMillis(raw: String): Long {
         return try {
             java.time.OffsetDateTime.parse(raw).toInstant().toEpochMilli()
@@ -608,27 +525,30 @@ class TripRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun TripEntity.toTripListDto(): TripListDto {
-        return TripListDto(
+    private fun TripEntity.toTripListItem(): TripListItem {
+        return TripListItem(
             id = serverId ?: id,
             origin = originOffice,
             destination = destinationOffice,
-            conductor = "",
+            conductorName = "",
             plate = busPlate,
             departureDatetime = departureDateTime.toIsoOffsetDateTime(),
             status = status,
             passengerBasePrice = passengerBasePrice,
+            cargoSmallPrice = cargoSmallPrice,
+            cargoMediumPrice = cargoMediumPrice,
+            cargoLargePrice = cargoLargePrice,
             currency = currency,
         )
     }
 
-    private fun TripEntity.toTripDetailDto(): TripDetailDto {
-        return TripDetailDto(
+    private fun TripEntity.toTripDetail(): TripDetail {
+        return TripDetail(
             id = serverId ?: id,
-            originOffice = 0,
-            destinationOffice = 0,
-            conductor = conductorId.toInt(),
-            bus = 0,
+            originOfficeId = 0,
+            destinationOfficeId = 0,
+            conductorId = conductorId.toInt(),
+            busId = 0,
             departureDatetime = departureDateTime.toIsoOffsetDateTime(),
             arrivalDatetime = null,
             status = status,
@@ -641,10 +561,90 @@ class TripRepositoryImpl @Inject constructor(
             busPlate = busPlate,
             originName = originOffice,
             destinationName = destinationOffice,
+            routeStops = decodeRouteStops(routeStopSnapshot),
+            routeSegmentTariffs = decodeRouteSegmentTariffs(routeSegmentTariffSnapshot),
         )
     }
 
     private fun Long.toIsoOffsetDateTime(): String {
         return Instant.ofEpochMilli(this).atOffset(ZoneOffset.UTC).toString()
     }
+
+    private fun encodeRouteStops(stops: List<TripRouteStop>): String {
+        val array = JSONArray()
+        stops.sortedBy { it.stopOrder }.forEach { stop ->
+            array.put(
+                JSONObject()
+                    .put("office_id", stop.officeId)
+                    .put("office_name", stop.officeName)
+                    .put("stop_order", stop.stopOrder)
+            )
+        }
+        return array.toString()
+    }
+
+    private fun encodeRouteSegmentTariffs(segments: List<TripRouteSegmentTariff>): String {
+        val array = JSONArray()
+        segments.sortedBy { it.fromStopOrder }.forEach { segment ->
+            array.put(
+                JSONObject()
+                    .put("from_stop_order", segment.fromStopOrder)
+                    .put("to_stop_order", segment.toStopOrder)
+                    .put("passenger_price", segment.passengerPrice)
+                    .put("currency", segment.currency)
+            )
+        }
+        return array.toString()
+    }
+
+    private fun decodeRouteStops(raw: String): List<TripRouteStop> {
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (i in 0 until array.length()) {
+                    val item = array.optJSONObject(i) ?: continue
+                    val officeName = item.optString("office_name", "")
+                    val officeId = item.optInt("office_id", -1)
+                    val stopOrder = item.optInt("stop_order", -1)
+                    if (officeName.isBlank() || officeId < 0 || stopOrder < 0) {
+                        continue
+                    }
+                    add(
+                        TripRouteStop(
+                            officeId = officeId,
+                            officeName = officeName,
+                            stopOrder = stopOrder,
+                        )
+                    )
+                }
+            }.sortedBy { it.stopOrder }
+        }.getOrElse { emptyList() }
+    }
+
+    private fun decodeRouteSegmentTariffs(raw: String): List<TripRouteSegmentTariff> {
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (i in 0 until array.length()) {
+                    val item = array.optJSONObject(i) ?: continue
+                    val fromStopOrder = item.optInt("from_stop_order", -1)
+                    val toStopOrder = item.optInt("to_stop_order", -1)
+                    val passengerPrice = item.optLong("passenger_price", -1L)
+                    val currency = item.optString("currency", "DZD")
+                    if (fromStopOrder < 0 || toStopOrder < 0 || passengerPrice < 0) {
+                        continue
+                    }
+                    add(
+                        TripRouteSegmentTariff(
+                            fromStopOrder = fromStopOrder,
+                            toStopOrder = toStopOrder,
+                            passengerPrice = passengerPrice,
+                            currency = currency,
+                        )
+                    )
+                }
+            }.sortedBy { it.fromStopOrder }
+        }.getOrElse { emptyList() }
+    }
 }
+

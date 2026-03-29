@@ -1,18 +1,9 @@
 package com.souigat.mobile.util
 
-import com.souigat.mobile.BuildConfig
-
 /**
  * Application-wide constants.
  */
 object Constants {
-
-    // Build-type specific API base URL provided from Gradle buildConfigField.
-    val BASE_URL: String = BuildConfig.API_BASE_URL
-
-    const val CONNECT_TIMEOUT_S = 30L
-    const val READ_TIMEOUT_S = 30L
-    const val WRITE_TIMEOUT_S = 30L
 
     const val SYNC_BATCH_SIZE = 80
     const val MAX_SYNC_DRAIN_ROUNDS = 10

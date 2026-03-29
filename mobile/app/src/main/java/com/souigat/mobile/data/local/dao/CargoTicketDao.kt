@@ -32,11 +32,35 @@ interface CargoTicketDao {
     @Query("SELECT COUNT(*) FROM cargo_tickets WHERE tripId = :tripId")
     suspend fun getCount(tripId: Long): Int
 
+    @Query("SELECT COUNT(*) FROM cargo_tickets WHERE tripId = :tripId AND status != 'cancelled'")
+    suspend fun getActiveCount(tripId: Long): Int
+
+    @Query(
+        "SELECT COALESCE(SUM(price), 0) FROM cargo_tickets " +
+            "WHERE tripId = :tripId AND status != 'cancelled' AND lower(paymentSource) = 'cash'"
+    )
+    suspend fun getCashTotalByTrip(tripId: Long): Long
+
     @Query("SELECT * FROM cargo_tickets WHERE serverId = :serverId LIMIT 1")
     suspend fun getByServerId(serverId: Long): CargoTicketEntity?
 
+    @Query("SELECT * FROM cargo_tickets WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): CargoTicketEntity?
+
     @Query("SELECT * FROM cargo_tickets WHERE ticketNumber = :ticketNumber LIMIT 1")
     suspend fun getByTicketNumber(ticketNumber: String): CargoTicketEntity?
+
+    @Query(
+        "SELECT * FROM cargo_tickets " +
+            "WHERE (tripId = :tripId " +
+            "OR tripId = COALESCE((SELECT id FROM trips WHERE serverId = :tripId LIMIT 1), -1)) " +
+            "AND status IN (:statuses) " +
+            "ORDER BY createdAt ASC"
+    )
+    suspend fun getByTripOrServerIdAndStatuses(
+        tripId: Long,
+        statuses: List<String>,
+    ): List<CargoTicketEntity>
 
     @Query("SELECT * FROM cargo_tickets ORDER BY createdAt DESC LIMIT 12")
     fun observeRecentGlobal(): Flow<List<CargoTicketEntity>>
@@ -81,4 +105,7 @@ interface CargoTicketDao {
 
     @Query("UPDATE cargo_tickets SET status = :newStatus WHERE id = :id")
     suspend fun updateStatus(id: Long, newStatus: String)
+
+    @Query("UPDATE cargo_tickets SET status = :newStatus WHERE id IN (:ids)")
+    suspend fun updateStatusByIds(ids: List<Long>, newStatus: String): Int
 }

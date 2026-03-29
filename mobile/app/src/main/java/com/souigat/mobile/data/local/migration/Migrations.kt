@@ -95,5 +95,21 @@ object Migrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE trips ADD COLUMN routeStopSnapshot TEXT NOT NULL DEFAULT '[]'")
+            db.execSQL("ALTER TABLE trips ADD COLUMN routeSegmentTariffSnapshot TEXT NOT NULL DEFAULT '[]'")
+            db.execSQL("ALTER TABLE passenger_tickets ADD COLUMN boardingPoint TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE passenger_tickets ADD COLUMN alightingPoint TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(
+        MIGRATION_1_2,
+        MIGRATION_2_3,
+        MIGRATION_3_4,
+        MIGRATION_4_5,
+        MIGRATION_5_6,
+        MIGRATION_6_7,
+    )
 }

@@ -30,6 +30,9 @@ router.register(r'admin/buses', admin_management_views.BusManagementViewSet, bas
 router.register(r'admin/offices', admin_management_views.OfficeManagementViewSet, basename='admin-office')
 router.register(r'admin/pricing', admin_management_views.PricingManagementViewSet, basename='admin-pricing')
 router.register(r'admin/audit-log', admin_management_views.AuditLogViewSet, basename='admin-audit-log')
+router.register(r'admin/route-templates', admin_management_views.RouteTemplateManagementViewSet, basename='admin-route-template')
+router.register(r'admin/route-template-stops', admin_management_views.RouteTemplateStopManagementViewSet, basename='admin-route-template-stop')
+router.register(r'admin/route-template-segment-tariffs', admin_management_views.RouteTemplateSegmentTariffManagementViewSet, basename='admin-route-template-segment-tariff')
 
 urlpatterns = [
     path('', health_check, name='api-health'),

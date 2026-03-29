@@ -220,4 +220,5 @@ class FirebaseSessionManager @Inject constructor(
         val digits = uid.substringAfterLast('-').trim()
         return digits.toIntOrNull()
     }
+
 }

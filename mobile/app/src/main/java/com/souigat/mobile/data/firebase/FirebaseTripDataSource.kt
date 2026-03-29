@@ -5,8 +5,10 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.souigat.mobile.data.local.TokenManager
-import com.souigat.mobile.data.remote.dto.TripDetailDto
-import com.souigat.mobile.data.remote.dto.TripListDto
+import com.souigat.mobile.domain.model.TripRouteSegmentTariff
+import com.souigat.mobile.domain.model.TripRouteStop
+import com.souigat.mobile.domain.model.TripDetail
+import com.souigat.mobile.domain.model.TripListItem
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
@@ -23,6 +25,8 @@ data class PassengerTicketMirrorDto(
     val currency: String,
     val paymentSource: String,
     val status: String,
+    val boardingPoint: String,
+    val alightingPoint: String,
     val createdAtIso: String,
 )
 
@@ -64,7 +68,7 @@ class FirebaseTripDataSource @Inject constructor(
     private val cargoCollection = firestore.collection("cargo_ticket_mirror_v1")
     private val expenseCollection = firestore.collection("trip_expense_mirror_v1")
 
-    suspend fun fetchTripList(limit: Long = 100): Result<List<TripListDto>> {
+    suspend fun fetchTripList(limit: Long = 100): Result<List<TripListItem>> {
         if (!firebaseSessionManager.ensureSignedIn()) {
             return Result.failure(IllegalStateException("Firebase session is not ready."))
         }
@@ -79,28 +83,35 @@ class FirebaseTripDataSource @Inject constructor(
                 if (!isScopedForCurrentUser(data)) {
                     return@mapNotNull null
                 }
-                mapToTripListDto(data)
+                mapToTripListDto(document.id, data)
             }
         }.onFailure { error ->
             Timber.w(error, "FirebaseTripDataSource: failed to fetch trip list from Firestore.")
         }
     }
 
-    suspend fun fetchTripDetail(id: Long): Result<TripDetailDto> {
+    suspend fun fetchTripDetail(id: Long): Result<TripDetail> {
         if (!firebaseSessionManager.ensureSignedIn()) {
             return Result.failure(IllegalStateException("Firebase session is not ready."))
         }
 
         return runCatching {
-            val snapshot = collection.document(id.toString()).get().await()
+            val directSnapshot = collection.document(id.toString()).get().await()
+            val snapshot = if (directSnapshot.exists()) {
+                directSnapshot
+            } else {
+                collection.whereEqualTo("id", id).limit(1).get().await().documents.firstOrNull()
+                    ?: throw IllegalStateException("Trip $id not found in Firestore mirror.")
+            }
+
             val data = snapshot.data
-                ?: throw IllegalStateException("Trip $id not found in Firestore mirror.")
+                ?: throw IllegalStateException("Trip $id has empty mirror payload.")
 
             if (!isScopedForCurrentUser(data)) {
                 throw IllegalStateException("Trip $id is outside current user scope.")
             }
 
-            mapToTripDetailDto(data)
+            mapToTripDetailDto(snapshot.id, data)
                 ?: throw IllegalStateException("Trip $id has incomplete mirror payload.")
         }.onFailure { error ->
             Timber.w(error, "FirebaseTripDataSource: failed to fetch trip detail from Firestore.")
@@ -152,7 +163,7 @@ class FirebaseTripDataSource @Inject constructor(
 
     suspend fun listenTripList(
         limit: Long = 100,
-        onUpdate: (List<TripListDto>) -> Unit,
+        onUpdate: (List<TripListItem>) -> Unit,
         onError: (Throwable) -> Unit,
     ): Result<ListenerRegistration> {
         if (!firebaseSessionManager.ensureSignedIn()) {
@@ -178,7 +189,7 @@ class FirebaseTripDataSource @Inject constructor(
                     if (!isScopedForCurrentUser(data)) {
                         return@mapNotNull null
                     }
-                    mapToTripListDto(data)
+                    mapToTripListDto(document.id, data)
                 }
                 onUpdate(trips)
             }
@@ -463,19 +474,19 @@ class FirebaseTripDataSource @Inject constructor(
         }
     }
 
-    private fun mapToTripListDto(data: Map<String, Any>): TripListDto? {
+    private fun mapToTripListDto(documentId: String, data: Map<String, Any>): TripListItem? {
         if (data.booleanValue("is_deleted") == true) {
             return null
         }
 
-        val id = data.longValue("id") ?: return null
+        val id = documentId.toLongOrNull() ?: data.longValue("id") ?: return null
         val departureDatetime = data.stringValue("departure_datetime") ?: return null
 
-        return TripListDto(
+        return TripListItem(
             id = id,
             origin = data.stringValue("origin_office_name") ?: "",
             destination = data.stringValue("destination_office_name") ?: "",
-            conductor = data.stringValue("conductor_name") ?: "",
+            conductorName = data.stringValue("conductor_name") ?: "",
             plate = data.stringValue("bus_plate") ?: "",
             departureDatetime = departureDatetime,
             status = data.stringValue("status") ?: "scheduled",
@@ -487,24 +498,24 @@ class FirebaseTripDataSource @Inject constructor(
         )
     }
 
-    private fun mapToTripDetailDto(data: Map<String, Any>): TripDetailDto? {
+    private fun mapToTripDetailDto(documentId: String, data: Map<String, Any>): TripDetail? {
         if (data.booleanValue("is_deleted") == true) {
             return null
         }
 
-        val id = data.longValue("id") ?: return null
+        val id = documentId.toLongOrNull() ?: data.longValue("id") ?: return null
         val originOffice = data.intValue("origin_office_id") ?: return null
         val destinationOffice = data.intValue("destination_office_id") ?: return null
         val conductor = data.intValue("conductor_id") ?: return null
         val bus = data.intValue("bus_id") ?: return null
         val departureDatetime = data.stringValue("departure_datetime") ?: return null
 
-        return TripDetailDto(
+        return TripDetail(
             id = id,
-            originOffice = originOffice,
-            destinationOffice = destinationOffice,
-            conductor = conductor,
-            bus = bus,
+            originOfficeId = originOffice,
+            destinationOfficeId = destinationOffice,
+            conductorId = conductor,
+            busId = bus,
             departureDatetime = departureDatetime,
             arrivalDatetime = data.stringValue("arrival_datetime"),
             status = data.stringValue("status") ?: "scheduled",
@@ -516,7 +527,9 @@ class FirebaseTripDataSource @Inject constructor(
             conductorName = data.stringValue("conductor_name") ?: "",
             busPlate = data.stringValue("bus_plate") ?: "",
             originName = data.stringValue("origin_office_name") ?: "",
-            destinationName = data.stringValue("destination_office_name") ?: ""
+            destinationName = data.stringValue("destination_office_name") ?: "",
+            routeStops = mapToTripRouteStops(data),
+            routeSegmentTariffs = mapToTripRouteSegmentTariffs(data),
         )
     }
 
@@ -541,6 +554,8 @@ class FirebaseTripDataSource @Inject constructor(
             currency = data.stringValue("currency") ?: "DZD",
             paymentSource = data.stringValue("payment_source") ?: "cash",
             status = data.stringValue("status") ?: "active",
+            boardingPoint = data.stringValue("boarding_point") ?: "",
+            alightingPoint = data.stringValue("alighting_point") ?: "",
             createdAtIso = sourceCreatedAt,
         )
     }
@@ -596,6 +611,58 @@ class FirebaseTripDataSource @Inject constructor(
         )
     }
 }
+
+private fun mapToTripRouteStops(data: Map<String, Any>): List<TripRouteStop> {
+    val raw = data["route_stop_snapshot"]
+    if (raw !is List<*>) {
+        return emptyList()
+    }
+    return raw.mapNotNull { item ->
+        val stop = item as? Map<*, *> ?: return@mapNotNull null
+        val officeName = stop["office_name"] as? String ?: return@mapNotNull null
+        val officeId = numberToInt(stop["office_id"]) ?: return@mapNotNull null
+        val stopOrder = numberToInt(stop["stop_order"]) ?: return@mapNotNull null
+        TripRouteStop(
+            officeId = officeId,
+            officeName = officeName,
+            stopOrder = stopOrder,
+        )
+    }.sortedBy { it.stopOrder }
+}
+
+private fun mapToTripRouteSegmentTariffs(data: Map<String, Any>): List<TripRouteSegmentTariff> {
+    val raw = data["route_segment_tariff_snapshot"]
+    if (raw !is List<*>) {
+        return emptyList()
+    }
+    return raw.mapNotNull { item ->
+        val segment = item as? Map<*, *> ?: return@mapNotNull null
+        val fromStopOrder = numberToInt(segment["from_stop_order"]) ?: return@mapNotNull null
+        val toStopOrder = numberToInt(segment["to_stop_order"]) ?: return@mapNotNull null
+        val passengerPrice = numberToLong(segment["passenger_price"]) ?: return@mapNotNull null
+        val currency = segment["currency"] as? String ?: "DZD"
+        TripRouteSegmentTariff(
+            fromStopOrder = fromStopOrder,
+            toStopOrder = toStopOrder,
+            passengerPrice = passengerPrice,
+            currency = currency,
+        )
+    }.sortedBy { it.fromStopOrder }
+}
+
+private fun numberToLong(value: Any?): Long? {
+    return when (value) {
+        is Long -> value
+        is Int -> value.toLong()
+        is Double -> value.toLong()
+        is Float -> value.toLong()
+        is Number -> value.toLong()
+        is String -> value.toLongOrNull()
+        else -> null
+    }
+}
+
+private fun numberToInt(value: Any?): Int? = numberToLong(value)?.toInt()
 
 private fun Map<String, Any>.stringValue(key: String): String? {
     val raw = this[key] ?: return null

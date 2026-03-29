@@ -81,6 +81,7 @@ export function TripDetailPage() {
     const effectiveArrivalDatetime = shouldUseMirror ? (mirrorArrivalDatetime ?? trip?.arrival_datetime) : trip?.arrival_datetime
     const backendCompleted = trip?.status === 'completed'
     const mirrorCompletedPendingBackend = effectiveStatus === 'completed' && trip?.status !== 'completed'
+    const settlementTripCompleted = backendCompleted || mirrorCompletedPendingBackend
     const canAccessSettlementSection = !!trip && (
         user?.role === 'admin' || (
             user?.role === 'office_staff'
@@ -95,7 +96,7 @@ export function TripDetailPage() {
     } = useQuery({
         queryKey: ['settlement', id],
         queryFn: () => getSettlement(Number(id)),
-        enabled: !!id && !!trip && backendCompleted && canAccessSettlementSection,
+        enabled: !!id && !!trip && settlementTripCompleted && canAccessSettlementSection,
         retry: false,
     })
 
@@ -633,23 +634,23 @@ export function TripDetailPage() {
 
                                 {mirrorCompletedPendingBackend && (
                                     <div className="rounded-lg border border-brand-500/20 bg-[#137fec]/10 p-4 text-sm text-brand-300">
-                                        Cloture detectee cote terrain. Synchronisation en cours vers le backend avant ouverture du reglement.
+                                        Cloture detectee cote terrain. Le reglement peut etre initie des maintenant.
                                     </div>
                                 )}
 
-                                {!backendCompleted && !mirrorCompletedPendingBackend && (
+                                {!settlementTripCompleted && (
                                     <div className="rounded-lg border border-brand-500/20 bg-[#137fec]/10 p-4 text-sm text-brand-300">
                                         Le reglement sera disponible une fois le voyage cloture.
                                     </div>
                                 )}
 
-                                {backendCompleted && isSettlementLoading && (
+                                {settlementTripCompleted && isSettlementLoading && (
                                     <div className="rounded-lg border border-surface-700 bg-surface-900/40 p-4 text-sm text-text-muted">
                                         Chargement du reglement...
                                     </div>
                                 )}
 
-                                {backendCompleted && !isSettlementLoading && settlement && (
+                                {settlementTripCompleted && !isSettlementLoading && settlement && (
                                     <>
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                             <SettlementValue label="Especes attendues" value={formatCurrency(settlement.expected_total_cash)} />
@@ -693,7 +694,7 @@ export function TripDetailPage() {
                                     </>
                                 )}
 
-                                {backendCompleted && !isSettlementLoading && settlementMissing && (
+                                {settlementTripCompleted && !isSettlementLoading && settlementMissing && (
                                     <div className="rounded-lg border border-status-warning/20 bg-status-warning/10 p-4 space-y-3">
                                         <p className="text-sm text-yellow-600 dark:text-yellow-400">
                                             Aucun reglement n'a encore ete cree pour ce voyage.
@@ -707,7 +708,7 @@ export function TripDetailPage() {
                                     </div>
                                 )}
 
-                                {backendCompleted && !isSettlementLoading && !settlement && !settlementMissing && settlementError && (
+                                {settlementTripCompleted && !isSettlementLoading && !settlement && !settlementMissing && settlementError && (
                                     <div className="rounded-lg border border-status-error/20 bg-red-500/10 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">
                                         Impossible de charger le reglement.
                                     </div>

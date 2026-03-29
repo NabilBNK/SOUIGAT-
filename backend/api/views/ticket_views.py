@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from api.models import PassengerTicket, Trip
 from api.serializers.ticket import PassengerTicketSerializer, PassengerTicketListSerializer
 from api.permissions import MatrixPermission, OfficeScopePermission
+from api.services.route_templates import compute_forward_passenger_price
 
 
 class PassengerTicketViewSet(viewsets.ModelViewSet):
@@ -115,6 +116,19 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
             if boarding_point == alighting_point:
                 raise ValidationError({'alighting_point': 'Alighting point must differ from boarding point.'})
 
+            route_stops = trip.route_stop_snapshot or []
+            route_segments = trip.route_segment_tariff_snapshot or []
+            if route_stops and route_segments:
+                final_price = compute_forward_passenger_price(
+                    route_stop_snapshot=route_stops,
+                    route_segment_tariff_snapshot=route_segments,
+                    boarding_point=boarding_point,
+                    alighting_point=alighting_point,
+                )
+            else:
+                provided_price = serializer.validated_data.get('price')
+                final_price = provided_price if provided_price is not None else trip.passenger_base_price
+
             active_qs = PassengerTicket.objects.filter(trip=trip, status='active')
             occupied_count = active_qs.count() - active_qs.filter(
                 alighting_point__iexact=boarding_point,
@@ -127,8 +141,6 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
             total_count = PassengerTicket.objects.filter(trip=trip).count()
             ticket_number = f'PT-{trip.id}-{total_count + 1:03d}'
 
-            provided_price = serializer.validated_data.get('price')
-            final_price = provided_price if provided_price is not None else trip.passenger_base_price
             if final_price < 100:
                 raise ValidationError({'price': 'Ticket price must be at least 100 DA for financial integrity.'})
 
