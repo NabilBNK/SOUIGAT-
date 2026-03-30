@@ -46,6 +46,7 @@ data class TripDetail(
     val busPlate: String,
     val originName: String,
     val destinationName: String,
+    val routeTemplateName: String = "",
     val routeStops: List<TripRouteStop> = emptyList(),
     val routeSegmentTariffs: List<TripRouteSegmentTariff> = emptyList(),
 )

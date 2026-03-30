@@ -8,7 +8,7 @@ from typing import Any, Dict, Tuple
 from django.db import transaction
 from django.utils import timezone
 
-from api.models import CargoTicket, FirebaseMirrorEvent, PassengerTicket, PricingConfig, Settlement, Trip, TripExpense
+from api.models import CargoTicket, FirebaseMirrorEvent, PassengerTicket, PricingConfig, RouteTemplate, Settlement, Trip, TripExpense
 from api.services.firebase_admin import FirebaseConfigurationError, get_firebase_app
 
 try:
@@ -24,6 +24,7 @@ ENTITY_CARGO_TICKET = 'cargo_ticket'
 ENTITY_TRIP_EXPENSE = 'trip_expense'
 ENTITY_SETTLEMENT = 'settlement'
 ENTITY_PRICING_CONFIG = 'pricing_config'
+ENTITY_ROUTE_TEMPLATE = 'route_template'
 
 ENTITY_COLLECTIONS = {
     ENTITY_TRIP: 'trip_mirror_v1',
@@ -32,6 +33,7 @@ ENTITY_COLLECTIONS = {
     ENTITY_TRIP_EXPENSE: 'trip_expense_mirror_v1',
     ENTITY_SETTLEMENT: 'settlement_mirror_v1',
     ENTITY_PRICING_CONFIG: 'pricing_config_mirror_v1',
+    ENTITY_ROUTE_TEMPLATE: 'route_template_mirror_v1',
 }
 
 
@@ -96,6 +98,8 @@ def resolve_entity_type(instance: Any) -> str:
         return ENTITY_SETTLEMENT
     if isinstance(instance, PricingConfig):
         return ENTITY_PRICING_CONFIG
+    if isinstance(instance, RouteTemplate):
+        return ENTITY_ROUTE_TEMPLATE
     raise ValueError(f'Unsupported entity type for Firebase mirror: {instance.__class__.__name__}')
 
 
@@ -271,6 +275,55 @@ def _build_settlement_payload(settlement: Settlement) -> Dict[str, Any]:
     }
 
 
+def _build_route_template_payload(template: RouteTemplate) -> Dict[str, Any]:
+    source_created_at = _to_iso(template.created_at)
+    source_updated_at = _to_iso(template.updated_at)
+    stops = [
+        {
+            'stop_order': stop.stop_order,
+            'office_id': stop.office_id,
+            'office_name': stop.office.name if stop.office_id and stop.office else '',
+            'stop_name': stop.stop_name or '',
+        }
+        for stop in template.stops.select_related('office').order_by('stop_order')
+    ]
+    segment_tariffs = [
+        {
+            'from_stop_order': tariff.from_stop.stop_order,
+            'to_stop_order': tariff.to_stop.stop_order,
+            'passenger_price': tariff.passenger_price,
+            'currency': tariff.currency or template.currency,
+            'is_active': tariff.is_active,
+        }
+        for tariff in template.segment_tariffs.select_related('from_stop', 'to_stop').order_by('from_stop__stop_order')
+    ]
+    return {
+        'entity': ENTITY_ROUTE_TEMPLATE,
+        'id': template.id,
+        'name': template.name,
+        'code': template.code,
+        'direction': template.direction,
+        'is_active': template.is_active,
+        'start_office_id': template.start_office_id,
+        'start_office_name': template.start_office.name if template.start_office_id and template.start_office else '',
+        'end_office_id': template.end_office_id,
+        'end_office_name': template.end_office.name if template.end_office_id and template.end_office else '',
+        'source_template_id': template.source_template_id,
+        'cargo_small_price': template.cargo_small_price,
+        'cargo_medium_price': template.cargo_medium_price,
+        'cargo_large_price': template.cargo_large_price,
+        'currency': template.currency,
+        'stops': stops,
+        'segment_tariffs': segment_tariffs,
+        'office_scope_ids': [template.start_office_id, template.end_office_id],
+        'source_created_at': source_created_at,
+        'source_updated_at': source_updated_at,
+        'is_deleted': bool(getattr(template, 'is_deleted', False)),
+        'deleted_at': _to_iso(getattr(template, 'deleted_at', None)),
+        'sync_version': 1,
+    }
+
+
 def _build_pricing_config_payload(pricing: PricingConfig) -> Dict[str, Any]:
     source_created_at = _to_iso(pricing.created_at)
     source_updated_at = _to_iso(pricing.updated_at)
@@ -312,6 +365,8 @@ def build_payload_from_instance(entity_type: str, instance: Any) -> Dict[str, An
         return _build_settlement_payload(instance)
     if entity_type == ENTITY_PRICING_CONFIG:
         return _build_pricing_config_payload(instance)
+    if entity_type == ENTITY_ROUTE_TEMPLATE:
+        return _build_route_template_payload(instance)
     raise ValueError(f'Unsupported mirror entity: {entity_type}')
 
 
@@ -391,10 +446,20 @@ def enqueue_instance_delete(instance: Any) -> FirebaseMirrorEvent:
     )
 
 
-def schedule_mirror_event(event_id: int) -> None:
+def schedule_mirror_event(event_id: int, *, immediate: bool = False) -> None:
     from api.tasks import process_firebase_mirror_event
 
     def _dispatch():
+        if immediate:
+            try:
+                process_firebase_mirror_event(event_id)
+                return
+            except Exception:
+                logger.exception(
+                    'Immediate Firebase mirror processing failed for event %s. Falling back to async dispatch.',
+                    event_id,
+                )
+
         def _run():
             try:
                 process_firebase_mirror_event.delay(event_id)

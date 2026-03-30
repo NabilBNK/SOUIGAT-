@@ -85,6 +85,7 @@ class ExpensesViewModel @Inject constructor(
             tripId = id,
             origin = originOffice,
             destination = destinationOffice,
+            routeTemplateName = routeTemplateName,
             busPlate = busPlate,
             departureLabel = departureDateTime.toRouteDateTime(),
             currency = currency,

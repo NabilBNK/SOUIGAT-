@@ -140,3 +140,53 @@ export async function queueSettlementUpsert(settlement: Settlement): Promise<voi
         sourceUpdatedAt: resolveSourceUpdatedAt(settlement),
     })
 }
+
+export async function queuePricingConfigUpsert(config: unknown): Promise<void> {
+    if (!config || typeof config !== 'object') {
+        return
+    }
+    const payload = config as Record<string, unknown>
+    const id = typeof payload.id === 'number' ? payload.id : Number(payload.id)
+    if (!Number.isFinite(id)) {
+        return
+    }
+    await queueEntityUpsert({
+        entityType: 'pricing_config',
+        entityId: id,
+        payload,
+        sourceUpdatedAt: resolveSourceUpdatedAt(payload),
+    })
+}
+
+export async function queuePricingConfigDelete(configId: number): Promise<void> {
+    await queueEntityDelete({
+        entityType: 'pricing_config',
+        entityId: configId,
+        sourceUpdatedAt: new Date().toISOString(),
+    })
+}
+
+export async function queueRouteTemplateUpsert(template: unknown): Promise<void> {
+    if (!template || typeof template !== 'object') {
+        return
+    }
+    const payload = template as Record<string, unknown>
+    const id = typeof payload.id === 'number' ? payload.id : Number(payload.id)
+    if (!Number.isFinite(id)) {
+        return
+    }
+    await queueEntityUpsert({
+        entityType: 'route_template',
+        entityId: id,
+        payload,
+        sourceUpdatedAt: resolveSourceUpdatedAt(payload),
+    })
+}
+
+export async function queueRouteTemplateDelete(templateId: number): Promise<void> {
+    await queueEntityDelete({
+        entityType: 'route_template',
+        entityId: templateId,
+        sourceUpdatedAt: new Date().toISOString(),
+    })
+}

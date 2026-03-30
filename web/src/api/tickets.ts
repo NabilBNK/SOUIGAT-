@@ -33,7 +33,13 @@ export async function getPassengerTickets(params?: Record<string, unknown>): Pro
 
 export async function createPassengerTicket(
     tripId: number,
-    data: { passenger_name: string; seat_number?: string; payment_source: string }
+    data: {
+        passenger_name: string
+        seat_number?: string
+        payment_source: string
+        boarding_point?: string
+        alighting_point?: string
+    }
 ): Promise<PassengerTicket> {
     const response = await client.post<PassengerTicket>(`/tickets/`, { ...data, trip: tripId })
     return response.data

@@ -89,10 +89,6 @@ class TripRepositoryImpl @Inject constructor(
 
     override suspend fun getTripDetail(id: Long): Result<TripDetail> {
         val localTrip = tripDao.getByLocalOrServerId(id)
-        if (localTrip != null && !localTrip.updatedAt.isOlderThan(Constants.TRIP_LIST_STALE_MS)) {
-            return Result.success(localTrip.toTripDetail())
-        }
-
         return firebaseTripDataSource.fetchTripDetail(id)
             .mapCatching { detail ->
                 persistTripDetailLocally(detail)
@@ -306,6 +302,7 @@ class TripRepositoryImpl @Inject constructor(
                 cargoMediumPrice = dto.cargoMediumPrice ?: existing?.cargoMediumPrice ?: 0L,
                 cargoLargePrice = dto.cargoLargePrice ?: existing?.cargoLargePrice ?: 0L,
                 currency = dto.currency,
+                routeTemplateName = existing?.routeTemplateName ?: "",
                 routeStopSnapshot = existing?.routeStopSnapshot ?: "[]",
                 routeSegmentTariffSnapshot = existing?.routeSegmentTariffSnapshot ?: "[]",
                 updatedAt = updatedAt,
@@ -334,6 +331,7 @@ class TripRepositoryImpl @Inject constructor(
             cargoMediumPrice = detail.cargoMediumPrice,
             cargoLargePrice = detail.cargoLargePrice,
             currency = detail.currency,
+            routeTemplateName = detail.routeTemplateName,
             routeStopSnapshot = encodeRouteStops(detail.routeStops),
             routeSegmentTariffSnapshot = encodeRouteSegmentTariffs(detail.routeSegmentTariffs),
             updatedAt = System.currentTimeMillis(),
@@ -561,6 +559,7 @@ class TripRepositoryImpl @Inject constructor(
             busPlate = busPlate,
             originName = originOffice,
             destinationName = destinationOffice,
+            routeTemplateName = routeTemplateName,
             routeStops = decodeRouteStops(routeStopSnapshot),
             routeSegmentTariffs = decodeRouteSegmentTariffs(routeSegmentTariffSnapshot),
         )
@@ -573,10 +572,12 @@ class TripRepositoryImpl @Inject constructor(
     private fun encodeRouteStops(stops: List<TripRouteStop>): String {
         val array = JSONArray()
         stops.sortedBy { it.stopOrder }.forEach { stop ->
+            val label = stop.officeName.trim()
             array.put(
                 JSONObject()
                     .put("office_id", stop.officeId)
-                    .put("office_name", stop.officeName)
+                    .put("office_name", label)
+                    .put("stop_name", label)
                     .put("stop_order", stop.stopOrder)
             )
         }
@@ -603,16 +604,18 @@ class TripRepositoryImpl @Inject constructor(
             buildList {
                 for (i in 0 until array.length()) {
                     val item = array.optJSONObject(i) ?: continue
+                    val stopName = item.optString("stop_name", "")
                     val officeName = item.optString("office_name", "")
+                    val displayName = stopName.takeIf { it.isNotBlank() } ?: officeName
                     val officeId = item.optInt("office_id", -1)
                     val stopOrder = item.optInt("stop_order", -1)
-                    if (officeName.isBlank() || officeId < 0 || stopOrder < 0) {
+                    if (displayName.isBlank() || stopOrder < 0) {
                         continue
                     }
                     add(
                         TripRouteStop(
                             officeId = officeId,
-                            officeName = officeName,
+                            officeName = displayName,
                             stopOrder = stopOrder,
                         )
                     )

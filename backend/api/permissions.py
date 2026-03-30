@@ -25,7 +25,7 @@ PERMISSION_MATRIX = {
         'all': [
             'create_trip', 'view_office_trips', 'cancel_trip',
             'create_passenger_ticket', 'create_cargo_ticket',
-            'receive_cargo', 'transition_cargo_status', 'view_office_reports', 'export_excel',
+            'receive_cargo', 'transition_cargo_status',
             'view_settlements', 'record_settlement',
         ],
         'cargo': [

@@ -5,7 +5,7 @@ import { formatDateTime } from '../../utils/formatters'
 import { DataTable } from '../../components/ui/DataTable'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { useTripStatusMirrorMap } from '../../hooks/useTripMirrorData'
-import { shouldPreferMirrorStatus } from '../../utils/tripStatusSource'
+import { inferTripStatusFromActivity } from '../../utils/tripStatusSource'
 import { Link } from 'react-router-dom'
 import { Plus, Filter, RefreshCw, TriangleAlert } from 'lucide-react'
 import type { Trip, TripStatus, TripFilters } from '../../types/trip'
@@ -43,12 +43,16 @@ export function TripList() {
             .map((trip) => trip.id),
         [data?.results],
     )
-    const { statuses: mirrorStatuses } = useTripStatusMirrorMap(activeVisibleTripIds)
+    const { statuses: mirrorStatuses } = useTripStatusMirrorMap(activeVisibleTripIds, {
+        // Voyage list uses Firebase mirror as source of truth with cached pulls to reduce reads.
+        enableRealtime: false,
+        cacheTtlMs: 60_000,
+    })
     const mirrorStatusTripIds = useMemo(() => {
         const tripIds = new Set<number>()
         ;(data?.results ?? []).forEach((trip) => {
             const mirrored = mirrorStatuses[trip.id]
-            if (shouldPreferMirrorStatus(trip, mirrored)) {
+            if (mirrored?.status) {
                 tripIds.add(trip.id)
             }
         })
@@ -58,13 +62,16 @@ export function TripList() {
     const effectiveTrips = useMemo<Trip[]>(() => {
         return (data?.results ?? []).map((trip) => {
             const mirrored = mirrorStatuses[trip.id]
-            if (!shouldPreferMirrorStatus(trip, mirrored)) {
-                return trip
+            if (!mirrored?.status) {
+                return {
+                    ...trip,
+                    status: inferTripStatusFromActivity(trip),
+                }
             }
 
             return {
                 ...trip,
-                status: mirrored.status ?? trip.status,
+                status: mirrored.status,
                 arrival_datetime: mirrored.arrivalDatetime ?? trip.arrival_datetime,
             }
         })

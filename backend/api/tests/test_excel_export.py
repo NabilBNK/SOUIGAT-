@@ -29,6 +29,11 @@ class ExcelExportTests(TestCase):
             first_name='Cond', last_name='A',
             role='conductor', office=self.office,
         )
+        self.office_staff = User.objects.create_user(
+            phone='0550000004', password='pass',
+            first_name='Staff', last_name='A',
+            role='office_staff', office=self.office,
+        )
         self.bus = Bus.objects.create(
             plate_number='EXP-001', capacity=50, office=self.office,
         )
@@ -61,6 +66,14 @@ class ExcelExportTests(TestCase):
     def test_conductor_cannot_export(self):
         """Conductors are denied export access."""
         self.client.force_authenticate(self.conductor)
+        resp = self.client.post('/api/exports/', {
+            'report_type': 'daily',
+        }, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_office_staff_cannot_export(self):
+        """Office staff are denied export access."""
+        self.client.force_authenticate(self.office_staff)
         resp = self.client.post('/api/exports/', {
             'report_type': 'daily',
         }, format='json')

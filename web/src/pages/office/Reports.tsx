@@ -61,7 +61,6 @@ export function ReportsPage() {
     const [dateFrom, setDateFrom] = useState(defaultFrom)
     const [dateTo, setDateTo] = useState(today)
     const [selectedOffice, setSelectedOffice] = useState<string>('all')
-    const [onlyWithActivity, setOnlyWithActivity] = useState(true)
     const dateFromInputRef = useRef<HTMLInputElement | null>(null)
     const dateToInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -92,19 +91,8 @@ export function ReportsPage() {
     const rows = useMemo<DailyReport[]>(() => reports || [], [reports])
 
     const visibleRows = useMemo<DailyReport[]>(() => {
-        if (!onlyWithActivity) {
-            return rows
-        }
-
-        return rows.filter((row) => (
-            (row.total_trips ?? 0) > 0
-            || (row.total_passengers ?? 0) > 0
-            || (row.total_cargo ?? 0) > 0
-            || (row.passenger_revenue ?? 0) > 0
-            || (row.cargo_revenue ?? 0) > 0
-            || (row.net_revenue ?? 0) > 0
-        ))
-    }, [onlyWithActivity, rows])
+        return rows.filter((row) => (row.total_trips ?? 0) > 0)
+    }, [rows])
 
     const reportErrorMessage = useMemo(() => {
         if (!error || typeof error !== 'object') {
@@ -356,15 +344,6 @@ export function ReportsPage() {
                         </div>
                     </div>
                 )}
-                <label className="inline-flex items-center gap-2 text-xs text-text-secondary select-none mb-1">
-                    <input
-                        type="checkbox"
-                        checked={onlyWithActivity}
-                        onChange={(e) => setOnlyWithActivity(e.target.checked)}
-                        className="rounded border-surface-700 bg-surface-900"
-                    />
-                    Afficher seulement les lignes actives
-                </label>
                 <Button type="submit" variant="primary">Filtrer</Button>
             </form>
 
@@ -406,9 +385,7 @@ export function ReportsPage() {
                         data={visibleRows}
                         columns={columns}
                         isLoading={isLoading}
-                        emptyMessage={onlyWithActivity
-                            ? 'Aucune activité trouvée pour cette période. Désactivez le filtre pour voir toutes les lignes.'
-                            : 'Aucun rapport trouvé pour cette période.'}
+                        emptyMessage='Aucun voyage trouvé pour cette période.'
                         pageCount={1}
                         pageIndex={0}
                         onPageChange={() => { }}

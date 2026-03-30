@@ -3,7 +3,7 @@ import logging
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from api.models import CargoTicket, PassengerTicket, PricingConfig, Settlement, Trip, TripExpense
+from api.models import CargoTicket, PassengerTicket, PricingConfig, RouteTemplate, Settlement, Trip, TripExpense
 from api.services.firebase_mirror import (
     enqueue_instance_delete,
     enqueue_instance_upsert,
@@ -13,10 +13,10 @@ from api.services.firebase_mirror import (
 logger = logging.getLogger(__name__)
 
 
-def _queue_upsert(instance):
+def _queue_upsert(instance, *, immediate: bool = False):
     try:
         event = enqueue_instance_upsert(instance)
-        schedule_mirror_event(event.id)
+        schedule_mirror_event(event.id, immediate=immediate)
     except Exception:
         logger.exception(
             'Failed to queue Firebase mirror upsert for %s id=%s',
@@ -25,10 +25,10 @@ def _queue_upsert(instance):
         )
 
 
-def _queue_delete(instance):
+def _queue_delete(instance, *, immediate: bool = False):
     try:
         event = enqueue_instance_delete(instance)
-        schedule_mirror_event(event.id)
+        schedule_mirror_event(event.id, immediate=immediate)
     except Exception:
         logger.exception(
             'Failed to queue Firebase mirror delete for %s id=%s',
@@ -49,22 +49,22 @@ def queue_trip_mirror_on_delete(sender, instance, **kwargs):
 
 @receiver(post_save, sender=PassengerTicket)
 def queue_passenger_ticket_mirror_on_save(sender, instance, **kwargs):
-    _queue_upsert(instance)
+    _queue_upsert(instance, immediate=True)
 
 
 @receiver(post_delete, sender=PassengerTicket)
 def queue_passenger_ticket_mirror_on_delete(sender, instance, **kwargs):
-    _queue_delete(instance)
+    _queue_delete(instance, immediate=True)
 
 
 @receiver(post_save, sender=CargoTicket)
 def queue_cargo_ticket_mirror_on_save(sender, instance, **kwargs):
-    _queue_upsert(instance)
+    _queue_upsert(instance, immediate=True)
 
 
 @receiver(post_delete, sender=CargoTicket)
 def queue_cargo_ticket_mirror_on_delete(sender, instance, **kwargs):
-    _queue_delete(instance)
+    _queue_delete(instance, immediate=True)
 
 
 @receiver(post_save, sender=TripExpense)
@@ -94,4 +94,14 @@ def queue_pricing_config_mirror_on_save(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=PricingConfig)
 def queue_pricing_config_mirror_on_delete(sender, instance, **kwargs):
+    _queue_delete(instance)
+
+
+@receiver(post_save, sender=RouteTemplate)
+def queue_route_template_mirror_on_save(sender, instance, **kwargs):
+    _queue_upsert(instance)
+
+
+@receiver(post_delete, sender=RouteTemplate)
+def queue_route_template_mirror_on_delete(sender, instance, **kwargs):
     _queue_delete(instance)

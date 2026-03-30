@@ -164,11 +164,49 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
 
 class RouteTemplateStopSerializer(serializers.ModelSerializer):
-    office_name = serializers.CharField(source="office.name", read_only=True)
+    office_name = serializers.SerializerMethodField()
+    stop_label = serializers.SerializerMethodField()
 
     class Meta:
         model = RouteTemplateStop
-        fields = ["id", "route_template", "office", "office_name", "stop_order"]
+        fields = ["id", "route_template", "office", "office_name", "stop_name", "stop_label", "stop_order"]
+
+    def get_office_name(self, obj):
+        return obj.office.name if obj.office_id and obj.office else None
+
+    def get_stop_label(self, obj):
+        if obj.office_id and obj.office:
+            return obj.office.name
+        return obj.stop_name
+
+    def validate(self, data):
+        office = data.get("office", getattr(self.instance, "office", None))
+        stop_name = str(data.get("stop_name", getattr(self.instance, "stop_name", "")) or "").strip()
+
+        if office is None and not stop_name:
+            raise serializers.ValidationError("Choose an agency or enter a stop name.")
+
+        if office is not None and stop_name:
+            raise serializers.ValidationError("Provide either agency or stop name, not both.")
+
+        if office is not None:
+            if getattr(office, "is_deleted", False):
+                raise serializers.ValidationError("Stop office must be an existing agency.")
+
+            if not bool(getattr(office, "is_active", False)):
+                raise serializers.ValidationError("Stop office must be an active agency.")
+
+        data["stop_name"] = stop_name
+
+        route_template = data.get("route_template", getattr(self.instance, "route_template", None))
+        if route_template and stop_name:
+            qs = RouteTemplateStop.objects.filter(route_template=route_template, stop_name__iexact=stop_name)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError("This text stop already exists in the selected template.")
+
+        return data
 
 
 class RouteTemplateSegmentTariffSerializer(serializers.ModelSerializer):
@@ -198,8 +236,8 @@ class RouteTemplateSegmentTariffSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("from_stop must belong to route_template.")
         if route_template and to_stop and to_stop.route_template_id != route_template.id:
             raise serializers.ValidationError("to_stop must belong to route_template.")
-        if from_stop and to_stop and to_stop.stop_order != from_stop.stop_order + 1:
-            raise serializers.ValidationError("Segment tariffs must connect adjacent stops.")
+        if from_stop and to_stop and to_stop.stop_order <= from_stop.stop_order:
+            raise serializers.ValidationError("to_stop must be after from_stop in route order.")
         return data
 
 
@@ -221,6 +259,10 @@ class RouteTemplateManagementSerializer(serializers.ModelSerializer):
             "end_office",
             "end_office_name",
             "source_template",
+            "cargo_small_price",
+            "cargo_medium_price",
+            "cargo_large_price",
+            "currency",
             "is_active",
             "stops",
             "segment_tariffs",

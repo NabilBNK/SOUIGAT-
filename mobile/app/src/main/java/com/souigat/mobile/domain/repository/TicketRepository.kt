@@ -25,7 +25,7 @@ interface TicketRepository {
         seatNumber: String,
         boardingPoint: String = "",
         alightingPoint: String = ""
-    ): Result<Int>
+    ): Result<List<String>>
 
     suspend fun createCargoTicket(
         tripId: Long,

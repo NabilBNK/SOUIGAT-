@@ -99,7 +99,7 @@ export function CargoTickets({ trip }: CargoTicketsProps) {
         user?.role === 'admin'
         || (
             user?.role === 'office_staff'
-            && (user.office === trip.origin_office || user.office === trip.destination_office)
+            && user.office === trip.origin_office
         )
     )
 

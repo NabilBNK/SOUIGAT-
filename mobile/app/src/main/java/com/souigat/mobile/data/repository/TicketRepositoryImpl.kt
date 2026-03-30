@@ -154,7 +154,7 @@ class TicketRepositoryImpl @Inject constructor(
         seatNumber: String,
         boardingPoint: String,
         alightingPoint: String
-    ): Result<Int> = withContext(Dispatchers.IO) {
+    ): Result<List<String>> = withContext(Dispatchers.IO) {
         val localTripId = resolveLocalTripId(tripId)
             ?: run {
                 Timber.w("createPassengerTicketBatch aborted: trip not found locally. requestedTripId=%d", tripId)
@@ -226,10 +226,13 @@ class TicketRepositoryImpl @Inject constructor(
 
                     passengerDao.insertBatch(entities)
                     syncQueueDao.enqueueAll(syncItems)
-                }
 
-                syncScheduler.triggerOneTimeSync()
-                return@withContext Result.success(count)
+                    entities.map { it.ticketNumber }
+                }
+                .let { ticketNumbers ->
+                    syncScheduler.triggerOneTimeSync()
+                    return@withContext Result.success(ticketNumbers)
+                }
             } catch (e: Exception) {
                 if (isForeignKeyConstraint(e)) {
                     Timber.w(e, "createPassengerTicketBatch FK violation. requestedTripId=%d localTripId=%d", tripId, localTripId)

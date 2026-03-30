@@ -459,8 +459,8 @@ def _create_cargo_ticket(payload, trip, user, trip_state):
     if user.role not in ('admin', 'office_staff'):
         raise ValidationError('Only admin or office staff can create cargo tickets.')
 
-    if user.role == 'office_staff' and user.office_id not in (trip.origin_office_id, trip.destination_office_id):
-        raise ValidationError('Office staff can only create cargo tickets for trips linked to their office.')
+    if user.role == 'office_staff' and user.office_id != trip.origin_office_id:
+        raise ValidationError('Office staff can only create cargo tickets for trips starting from their office.')
 
     tier = payload.get('cargo_tier', 'small')
 

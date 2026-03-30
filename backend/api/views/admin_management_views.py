@@ -1,7 +1,9 @@
 import logging
 
 from django.db import transaction
+from django.db.models import Q
 from django.db.models.deletion import ProtectedError
+from django.db.models import Prefetch
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -26,6 +28,7 @@ from api.services.firebase_admin import (
     schedule_firebase_auth_user_sync,
 )
 from api.services.route_templates import create_reverse_template
+from api.services.route_templates import sync_route_template_to_firebase
 from api.serializers.admin_serializers import (
     AuditLogSerializer,
     BusManagementSerializer,
@@ -255,7 +258,27 @@ class RouteTemplateManagementViewSet(AdminViewSetMixin, viewsets.ModelViewSet):
         "start_office",
         "end_office",
         "source_template",
-    ).prefetch_related("stops__office", "segment_tariffs__from_stop", "segment_tariffs__to_stop").order_by("name")
+    ).prefetch_related(
+        Prefetch(
+            "stops",
+            queryset=RouteTemplateStop.objects.select_related("office").filter(
+                Q(office__isnull=True)
+                | Q(
+                    office__is_deleted=False,
+                    office__is_active=True,
+                ),
+            ).order_by("stop_order"),
+        ),
+        Prefetch(
+            "segment_tariffs",
+            queryset=RouteTemplateSegmentTariff.objects.select_related(
+                "from_stop",
+                "to_stop",
+                "from_stop__office",
+                "to_stop__office",
+            ).order_by("from_stop__stop_order"),
+        ),
+    ).order_by("name")
     serializer_class = RouteTemplateManagementSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["direction", "is_active", "start_office", "end_office"]
@@ -267,6 +290,21 @@ class RouteTemplateManagementViewSet(AdminViewSetMixin, viewsets.ModelViewSet):
         reverse_template = create_reverse_template(template)
         serializer = self.get_serializer(reverse_template)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="sync-firebase")
+    def sync_firebase(self, request, pk=None):
+        template = self.get_object()
+        payload = sync_route_template_to_firebase(template)
+        return Response(
+            {
+                "detail": "Template synced to Firebase.",
+                "template_id": template.id,
+                "document_id": f"rt_{template.id}",
+                "collection": "route_template_mirror_v1",
+                "source_updated_at": payload.get("source_updated_at"),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class RouteTemplateStopManagementViewSet(AdminViewSetMixin, viewsets.ModelViewSet):

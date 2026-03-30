@@ -4,6 +4,8 @@ export type SyncEntityType =
     | 'cargo_ticket'
     | 'trip_expense'
     | 'settlement'
+    | 'pricing_config'
+    | 'route_template'
 export type SyncOperation = 'upsert' | 'delete'
 export type SyncRecordStatus = 'pending' | 'in_progress' | 'synced' | 'failed' | 'conflict'
 

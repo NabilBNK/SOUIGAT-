@@ -88,6 +88,18 @@ class CargoWorkflowTests(TestCase):
         cargo = CargoTicket.objects.first()
         self.assertEqual(cargo.price, 1000)  # medium price
 
+    def test_destination_office_staff_cannot_create_cargo(self):
+        """Destination office staff cannot create cargo for a trip they don't originate."""
+        self.client.force_authenticate(self.staff_b)
+        resp = self.client.post('/api/cargo/', {
+            'trip': self.trip.id,
+            'sender_name': 'Sender',
+            'receiver_name': 'Receiver',
+            'cargo_tier': 'medium',
+            'payment_source': 'prepaid',
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_transition_created_to_in_transit(self):
         cargo = self._make_cargo()
         self.client.force_authenticate(self.conductor)

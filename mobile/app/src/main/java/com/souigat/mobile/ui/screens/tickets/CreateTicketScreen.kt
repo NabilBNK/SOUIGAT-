@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,14 +61,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,6 +101,7 @@ fun CreateTicketScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
     val draftState by viewModel.draftState.collectAsStateWithLifecycle()
+    val ticketPreviewEnabled by viewModel.ticketPreviewEnabled.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var selectedTab by rememberSaveable { mutableIntStateOf(if (startWithCargo) 1 else 0) }
@@ -108,6 +121,8 @@ fun CreateTicketScreen(
     var cargoPaymentSource by rememberSaveable { mutableStateOf("prepaid") }
     var hasHydratedDraft by rememberSaveable { mutableStateOf(false) }
     var showCreateConfirmDialog by rememberSaveable { mutableStateOf(false) }
+    var showTicketPreviewDialog by rememberSaveable { mutableStateOf(false) }
+    var ticketPreviewModel by remember { mutableStateOf<PassengerTicketPreviewModel?>(null) }
 
     LaunchedEffect(draftState, hasHydratedDraft) {
         if (hasHydratedDraft) return@LaunchedEffect
@@ -169,17 +184,19 @@ fun CreateTicketScreen(
 
     LaunchedEffect(formState) {
         val ready = formState as? TicketFormHeaderState.Ready ?: return@LaunchedEffect
+        val normalizedStops = normalizeStops(ready.routeStops)
+        val boardingOptions = boardingStopOptions(normalizedStops)
         if (cargoTier.isBlank() || ready.cargoTierPrices.none { it.tier == cargoTier }) {
             cargoTier = ready.cargoTierPrices.firstOrNull()?.tier.orEmpty()
         }
-        if (boardingPoint.isBlank()) {
-            boardingPoint = ready.routeStops.firstOrNull() ?: ready.header.origin
+        if (boardingPoint.isBlank() || boardingOptions.none { it.equals(boardingPoint.trim(), ignoreCase = true) }) {
+            boardingPoint = boardingOptions.firstOrNull() ?: ready.header.origin
         }
-        if (alightingPoint.isBlank() || !isForwardPathSelected(ready.routeStops, boardingPoint, alightingPoint)) {
-            alightingPoint = forwardDestinationOptions(ready.routeStops, boardingPoint).firstOrNull()
+        if (alightingPoint.isBlank() || !isForwardPathSelected(normalizedStops, boardingPoint, alightingPoint)) {
+            alightingPoint = forwardDestinationOptions(normalizedStops, boardingPoint).firstOrNull()
                 ?: ready.header.destination
         }
-        val fare = computeForwardFare(ready.routeStops, ready.routeSegments, boardingPoint, alightingPoint)
+        val fare = computeForwardFare(normalizedStops, ready.routeSegments, boardingPoint, alightingPoint)
             ?: ready.passengerBasePriceCentimes
         passengerPriceInput = formatCompact(fare)
     }
@@ -187,8 +204,14 @@ fun CreateTicketScreen(
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is CreateTicketUiState.Success -> {
-                viewModel.resetState()
-                onNavigateBack()
+                if (ticketPreviewEnabled && state.preview != null) {
+                    ticketPreviewModel = state.preview
+                    showTicketPreviewDialog = true
+                    viewModel.resetState()
+                } else {
+                    viewModel.resetState()
+                    onNavigateBack()
+                }
             }
             is CreateTicketUiState.Error -> {
                 snackbarHostState.showSnackbar(state.message)
@@ -196,6 +219,37 @@ fun CreateTicketScreen(
             }
             else -> Unit
         }
+    }
+
+    if (showTicketPreviewDialog && ticketPreviewModel != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showTicketPreviewDialog = false
+                ticketPreviewModel = null
+                onNavigateBack()
+            },
+            title = { Text("Apercu du billet") },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    PassengerTicketPreviewCard(model = ticketPreviewModel!!)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showTicketPreviewDialog = false
+                        ticketPreviewModel = null
+                        onNavigateBack()
+                    }
+                ) {
+                    Text("Fermer")
+                }
+            },
+        )
     }
 
     val isLoading = uiState is CreateTicketUiState.Loading
@@ -373,8 +427,6 @@ fun CreateTicketScreen(
                     item("content") {
                         if (selectedTab == 0) {
                             PassengerTicketForm(
-                                routeOrigin = state.header.origin,
-                                routeDestination = state.header.destination,
                                 stopOptions = state.routeStops,
                                 passengerPriceLabel = formatCurrency(passengerPriceCentimes, state.header.currency),
                                 suggestedPriceLabel = formatCurrency(state.passengerBasePriceCentimes, state.header.currency),
@@ -591,8 +643,6 @@ private fun TicketTabButton(
 
 @Composable
 private fun PassengerTicketForm(
-    routeOrigin: String,
-    routeDestination: String,
     stopOptions: List<String>,
     passengerPriceLabel: String,
     suggestedPriceLabel: String,
@@ -609,13 +659,11 @@ private fun PassengerTicketForm(
     onPaymentSourceChange: (String) -> Unit,
     isLoading: Boolean
 ) {
-    val normalizedStops = remember(stopOptions, routeOrigin, routeDestination) {
-        val candidates = if (stopOptions.isNotEmpty()) {
-            stopOptions
-        } else {
-            listOf(routeOrigin, routeDestination)
-        }
-        candidates.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    val normalizedStops = remember(stopOptions) {
+        normalizeStops(stopOptions)
+    }
+    val boardingOptions = remember(normalizedStops) {
+        boardingStopOptions(normalizedStops)
     }
     val destinationOptions = remember(normalizedStops, boardingPoint) {
         forwardDestinationOptions(normalizedStops, boardingPoint)
@@ -707,6 +755,42 @@ private fun PassengerTicketForm(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            StitchSectionLabel("Arret de montee")
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                boardingOptions.forEach { stop ->
+                    val selected = stop == boardingPoint
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest
+                            )
+                            .border(
+                                width = if (selected) 0.dp else 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                                shape = RoundedCornerShape(999.dp)
+                            )
+                            .clickable(enabled = !isLoading) { onBoardingPointChange(stop) }
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = stop,
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             StitchSectionLabel("Arret de destination")
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -758,20 +842,6 @@ private fun PassengerTicketForm(
                 placeholder = "Optionnel",
                 enabled = !isLoading,
                 keyboardType = KeyboardType.Number
-            )
-            TicketField(
-                label = "Point de montee",
-                value = boardingPoint,
-                onValueChange = onBoardingPointChange,
-                placeholder = routeOrigin,
-                enabled = !isLoading
-            )
-            TicketField(
-                label = "Point de descente",
-                value = alightingPoint,
-                onValueChange = onAlightingPointChange,
-                placeholder = routeDestination,
-                enabled = !isLoading
             )
         }
 
@@ -1190,6 +1260,274 @@ private fun TicketFooterBar(
 }
 
 @Composable
+private fun PassengerTicketPreviewCard(model: PassengerTicketPreviewModel) {
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 320.dp
+            val horizontalPadding = if (compact) 8.dp else 12.dp
+            val blockSpacing = if (compact) 8.dp else 10.dp
+            val paperWidth = when {
+                maxWidth < 290.dp -> maxWidth
+                maxWidth < 360.dp -> maxWidth - 8.dp
+                else -> 320.dp
+            }
+            val routeFont = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
+            val titleFont = if (compact) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.displaySmall
+            val numberFont = if (compact) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.displaySmall
+
+            Box(
+                modifier = Modifier
+                    .width(paperWidth)
+                    .background(Color.White, RoundedCornerShape(6.dp))
+                    .border(1.dp, Color(0xFFDDDDDD), RoundedCornerShape(6.dp))
+                    .padding(horizontal = horizontalPadding, vertical = 10.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(blockSpacing)) {
+                Text(
+                    text = "شركة آل سويقات لنقل المسافرين",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "النقال : ",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.Black,
+                    )
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Text(
+                            text = "0660 82 69 83 / 0671 75 75 42 / 0671 75 75 41",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.Black,
+                            textAlign = TextAlign.Center,
+                            maxLines = if (compact) 2 else 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(2.dp, Color.Black, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = if (compact) 5.dp else 6.dp)
+                ) {
+                    Text(
+                        text = model.routeLabel,
+                        style = routeFont.copy(fontWeight = FontWeight.Black),
+                        color = Color.Black,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    text = "تذكرة سفر",
+                    style = titleFont.copy(fontWeight = FontWeight.Black),
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "ممنوع التدخين",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "№ ${ticketIdForPreview(model.ticketNumber, if (compact) 10 else 12)}",
+                            style = numberFont.copy(
+                                fontWeight = FontWeight.Normal,
+                                fontFamily = FontFamily.Serif,
+                            ),
+                            color = Color.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                TicketPreviewDottedRow(
+                    rightLabel = "الصعود",
+                    rightValue = model.boardingPoint,
+                    leftLabel = "النزول",
+                    leftValue = model.destinationPoint,
+                    compact = compact,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "السعر",
+                            style = (if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium).copy(fontWeight = FontWeight.Black),
+                            color = Color.Black,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(if (compact) 82.dp else 100.dp)
+                                .border(1.5.dp, Color.Black)
+                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = model.priceLabel.replace("DZD", "").trim(),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                                color = Color.Black,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        Text(
+                            text = "دج",
+                            style = (if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium).copy(fontWeight = FontWeight.Black),
+                            color = Color.Black,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "التاريخ",
+                            style = (if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium).copy(fontWeight = FontWeight.Black),
+                            color = Color.Black,
+                        )
+                        TicketPreviewDottedValue(
+                            value = model.dateLabel,
+                            modifier = Modifier.weight(1f),
+                            compact = compact,
+                        )
+                    }
+                }
+                HorizontalDivider(color = Color(0xFFCCCCCC))
+                Text(
+                    text = "إحتفظ بالتذكرة مدة السفر لتقديمها عند الطلب",
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "المؤسسة غير مسؤولة عن الأمتعة الغير مسجلة",
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TicketPreviewDottedRow(
+    rightLabel: String,
+    rightValue: String,
+    leftLabel: String,
+    leftValue: String,
+    compact: Boolean,
+) {
+    if (compact) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = rightLabel,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black),
+                    color = Color.Black,
+                )
+                TicketPreviewDottedValue(value = rightValue, modifier = Modifier.weight(1f), compact = true)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = leftLabel,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black),
+                    color = Color.Black,
+                )
+                TicketPreviewDottedValue(value = leftValue, modifier = Modifier.weight(1f), compact = true)
+            }
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = rightLabel,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                color = Color.Black,
+            )
+            TicketPreviewDottedValue(value = rightValue, modifier = Modifier.weight(1f), compact = false)
+            Text(
+                text = leftLabel,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                color = Color.Black,
+            )
+            TicketPreviewDottedValue(value = leftValue, modifier = Modifier.weight(1f), compact = false)
+        }
+    }
+}
+
+@Composable
+private fun TicketPreviewDottedValue(
+    value: String,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
+    Box(
+        modifier = modifier
+            .drawBehind {
+                val y = size.height - 1.dp.toPx()
+                drawLine(
+                    color = Color.Black,
+                    start = androidx.compose.ui.geometry.Offset(0f, y),
+                    end = androidx.compose.ui.geometry.Offset(size.width, y),
+                    strokeWidth = 1.5.dp.toPx(),
+                    cap = StrokeCap.Butt,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f), 0f),
+                )
+            }
+            .padding(bottom = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = value,
+            style = (if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium).copy(fontWeight = FontWeight.Bold),
+            color = Color.Black,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
 private fun stitchFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -1204,7 +1542,7 @@ private fun formatTicketTotal(amount: Long, currency: String): String {
 }
 
 private fun forwardDestinationOptions(stops: List<String>, boardingPoint: String): List<String> {
-    val normalized = stops.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    val normalized = normalizeStops(stops)
     val boardingIndex = normalized.indexOfFirst { it.equals(boardingPoint.trim(), ignoreCase = true) }
     if (boardingIndex == -1) {
         return emptyList()
@@ -1213,7 +1551,7 @@ private fun forwardDestinationOptions(stops: List<String>, boardingPoint: String
 }
 
 private fun isForwardPathSelected(stops: List<String>, boardingPoint: String, alightingPoint: String): Boolean {
-    val normalized = stops.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    val normalized = normalizeStops(stops)
     val boardingIndex = normalized.indexOfFirst { it.equals(boardingPoint.trim(), ignoreCase = true) }
     val alightingIndex = normalized.indexOfFirst { it.equals(alightingPoint.trim(), ignoreCase = true) }
     return boardingIndex >= 0 && alightingIndex > boardingIndex
@@ -1225,7 +1563,7 @@ private fun computeForwardFare(
     boardingPoint: String,
     alightingPoint: String,
 ): Long? {
-    val normalizedStops = routeStops.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+    val normalizedStops = normalizeStops(routeStops)
     val boardingIndex = normalizedStops.indexOfFirst { it.equals(boardingPoint.trim(), ignoreCase = true) }
     val alightingIndex = normalizedStops.indexOfFirst { it.equals(alightingPoint.trim(), ignoreCase = true) }
     if (boardingIndex == -1 || alightingIndex <= boardingIndex) {
@@ -1242,4 +1580,27 @@ private fun computeForwardFare(
         total += segment.passengerPrice
     }
     return total
+}
+
+private fun normalizeStops(stops: List<String>): List<String> {
+    return stops.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+}
+
+private fun boardingStopOptions(stops: List<String>): List<String> {
+    val normalized = normalizeStops(stops)
+    return if (normalized.size > 1) normalized.dropLast(1) else normalized
+}
+
+private fun compactTicketNumber(value: String, maxChars: Int): String {
+    val trimmed = value.trim()
+    if (trimmed.length <= maxChars) return trimmed
+    return trimmed.take(maxChars)
+}
+
+private fun ticketIdForPreview(ticketNumber: String, maxChars: Int): String {
+    val compactId = ticketNumber.substringAfterLast('-').trim()
+    if (compactId.isNotBlank()) {
+        return compactTicketNumber(compactId, maxChars)
+    }
+    return compactTicketNumber(ticketNumber, maxChars)
 }

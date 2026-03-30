@@ -5,16 +5,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.souigat.mobile.data.local.FormDraftStore
 import com.souigat.mobile.data.local.TicketFormDraft
+import com.souigat.mobile.data.local.TicketPreviewSettingsStore
 import com.souigat.mobile.data.local.dao.TripDao
 import com.souigat.mobile.data.local.entity.TripEntity
 import com.souigat.mobile.domain.model.TripRouteSegmentTariff
 import com.souigat.mobile.domain.model.TripRouteStop
 import com.souigat.mobile.domain.repository.TicketRepository
+import com.souigat.mobile.domain.repository.TripRepository
 import com.souigat.mobile.ui.model.CargoTierPriceUiModel
 import com.souigat.mobile.ui.model.TripFormHeaderUiModel
 import com.souigat.mobile.util.formatCurrency
 import com.souigat.mobile.util.toRouteDateTime
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,9 +34,21 @@ import org.json.JSONArray
 sealed class CreateTicketUiState {
     object Idle : CreateTicketUiState()
     object Loading : CreateTicketUiState()
-    data class Success(val message: String) : CreateTicketUiState()
+    data class Success(
+        val message: String,
+        val preview: PassengerTicketPreviewModel? = null,
+    ) : CreateTicketUiState()
     data class Error(val message: String) : CreateTicketUiState()
 }
+
+data class PassengerTicketPreviewModel(
+    val ticketNumber: String,
+    val boardingPoint: String,
+    val destinationPoint: String,
+    val routeLabel: String,
+    val priceLabel: String,
+    val dateLabel: String,
+)
 
 sealed class TicketFormHeaderState {
     object Loading : TicketFormHeaderState()
@@ -51,6 +67,8 @@ sealed class TicketFormHeaderState {
 @HiltViewModel
 class CreateTicketViewModel @Inject constructor(
     private val ticketRepository: TicketRepository,
+    private val tripRepository: TripRepository,
+    private val ticketPreviewSettingsStore: TicketPreviewSettingsStore,
     private val formDraftStore: FormDraftStore,
     tripDao: TripDao,
     savedStateHandle: SavedStateHandle
@@ -84,6 +102,11 @@ class CreateTicketViewModel @Inject constructor(
 
     private val _draftState = MutableStateFlow(formDraftStore.getTicketDraft(tripId))
     val draftState: StateFlow<TicketFormDraft> = _draftState.asStateFlow()
+    val ticketPreviewEnabled: StateFlow<Boolean> = ticketPreviewSettingsStore.enabled
+
+    init {
+        refreshTripDetail()
+    }
 
     fun createPassengerTicketBatch(
         count: Int,
@@ -132,10 +155,24 @@ class CreateTicketViewModel @Inject constructor(
                 seatNumber = seatNumber.trim(),
                 boardingPoint = boarding,
                 alightingPoint = alighting
-            ).onSuccess { savedCount ->
+            ).onSuccess { ticketNumbers ->
                 clearDraft()
+                val firstTicketNumber = ticketNumbers.firstOrNull().orEmpty()
+                val preview = firstTicketNumber.takeIf { it.isNotBlank() }?.let {
+                    PassengerTicketPreviewModel(
+                        ticketNumber = it,
+                        boardingPoint = boarding,
+                        destinationPoint = alighting,
+                        routeLabel = form.header.routeTemplateName.ifBlank {
+                            "${form.header.origin} - ${form.header.destination}"
+                        },
+                        priceLabel = formatCurrency(computedPrice, form.header.currency),
+                        dateLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy")),
+                    )
+                }
                 _uiState.value = CreateTicketUiState.Success(
-                    "$savedCount billet(s) crees hors ligne avec succes."
+                    "${ticketNumbers.size} billet(s) crees hors ligne avec succes.",
+                    preview = preview,
                 )
             }.onFailure { error ->
                 _uiState.value = CreateTicketUiState.Error(
@@ -201,7 +238,7 @@ class CreateTicketViewModel @Inject constructor(
             ).onSuccess { ticket ->
                 clearDraft()
                 _uiState.value = CreateTicketUiState.Success(
-                    "Billet colis ${ticket.ticketNumber} cree hors ligne avec succes."
+                    "Billet colis ${ticket.ticketNumber} cree hors ligne avec succes.",
                 )
             }.onFailure { error ->
                 _uiState.value = CreateTicketUiState.Error(
@@ -216,7 +253,14 @@ class CreateTicketViewModel @Inject constructor(
     }
 
     fun retryLookup() {
+        refreshTripDetail()
         lookupRequests.value += 1
+    }
+
+    private fun refreshTripDetail() {
+        viewModelScope.launch {
+            tripRepository.getTripDetail(tripId)
+        }
     }
 
     fun persistDraft(draft: TicketFormDraft) {
@@ -235,6 +279,7 @@ class CreateTicketViewModel @Inject constructor(
             tripId = id,
             origin = originOffice,
             destination = destinationOffice,
+            routeTemplateName = routeTemplateName,
             busPlate = busPlate,
             departureLabel = departureDateTime.toRouteDateTime(),
             currency = currency,
@@ -293,9 +338,27 @@ class CreateTicketViewModel @Inject constructor(
     }
 
     private fun routeStopsForUi(trip: TripEntity): List<String> {
-        val decoded = decodeRouteStops(trip.routeStopSnapshot).map { it.officeName.trim() }.filter { it.isNotBlank() }
+        val decoded = decodeRouteStops(trip.routeStopSnapshot)
+            .map { it.officeName.trim() }
+            .filter { it.isNotBlank() }
         if (decoded.isNotEmpty()) {
-            return decoded
+            val merged = mutableListOf<String>()
+            fun addDistinct(value: String) {
+                if (merged.none { it.equals(value, ignoreCase = true) }) {
+                    merged += value
+                }
+            }
+
+            val origin = trip.originOffice.trim()
+            val destination = trip.destinationOffice.trim()
+            if (origin.isNotBlank()) {
+                addDistinct(origin)
+            }
+            decoded.forEach(::addDistinct)
+            if (destination.isNotBlank()) {
+                addDistinct(destination)
+            }
+            return merged
         }
         return listOf(trip.originOffice, trip.destinationOffice).map { it.trim() }.filter { it.isNotBlank() }.distinct()
     }
@@ -306,16 +369,18 @@ class CreateTicketViewModel @Inject constructor(
             buildList {
                 for (i in 0 until array.length()) {
                     val item = array.optJSONObject(i) ?: continue
+                    val stopName = item.optString("stop_name", "")
                     val officeName = item.optString("office_name", "")
+                    val displayName = stopName.takeIf { it.isNotBlank() } ?: officeName
                     val officeId = item.optInt("office_id", -1)
                     val stopOrder = item.optInt("stop_order", -1)
-                    if (officeName.isBlank() || officeId < 0 || stopOrder < 0) {
+                    if (displayName.isBlank() || stopOrder < 0) {
                         continue
                     }
                     add(
                         TripRouteStop(
                             officeId = officeId,
-                            officeName = officeName,
+                            officeName = displayName,
                             stopOrder = stopOrder,
                         )
                     )

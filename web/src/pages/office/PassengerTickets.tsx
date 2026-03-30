@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import {
     createPassengerTicket,
@@ -25,6 +25,9 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
     const [passengerName, setPassengerName] = useState('')
     const [seatNumber, setSeatNumber] = useState('')
     const [paymentSource, setPaymentSource] = useState('cash')
+    const [boardingPoint, setBoardingPoint] = useState(trip.origin_office_name)
+    const [alightingPoint, setAlightingPoint] = useState(trip.destination_office_name)
+    const [quantity, setQuantity] = useState(1)
 
     const {
         data: tickets,
@@ -43,16 +46,26 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
     }
 
     const createMutation = useMutation({
-        mutationFn: () => createPassengerTicket(trip.id, {
-            passenger_name: passengerName,
-            seat_number: seatNumber || undefined,
-            payment_source: paymentSource
-        }),
+        mutationFn: async () => {
+            for (let index = 0; index < quantity; index += 1) {
+                const suffix = quantity > 1 ? ` (${index + 1}/${quantity})` : ''
+                await createPassengerTicket(trip.id, {
+                    passenger_name: `${passengerName}${suffix}`,
+                    seat_number: quantity > 1 ? undefined : (seatNumber || undefined),
+                    payment_source: paymentSource,
+                    boarding_point: boardingPoint,
+                    alighting_point: alightingPoint,
+                })
+            }
+        },
         onSuccess: () => {
             setIsCreating(false)
             setPassengerName('')
             setSeatNumber('')
             setPaymentSource('cash')
+            setBoardingPoint(trip.origin_office_name)
+            setAlightingPoint(trip.destination_office_name)
+            setQuantity(1)
             setActionError(null)
         },
         onError: (err) => setActionError(extractErrorMsg(err, "Erreur lors de la création du billet."))
@@ -71,10 +84,36 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
         onError: (err) => setActionError(extractErrorMsg(err, 'Erreur lors de la suppression du billet.')),
     })
 
+    const stopOptions = useMemo(() => {
+        const pool = [
+            trip.origin_office_name,
+            trip.destination_office_name,
+            ...tickets.map((t) => t.boarding_point || ''),
+            ...tickets.map((t) => t.alighting_point || ''),
+        ]
+
+        return pool
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+            .filter((value, index, list) => list.findIndex((entry) => entry.toLowerCase() === value.toLowerCase()) === index)
+    }, [tickets, trip.destination_office_name, trip.origin_office_name])
+
     const handleCreateSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!passengerName) {
             setActionError("Le nom du passager est requis.")
+            return
+        }
+        if (quantity < 1 || quantity > 20) {
+            setActionError('La quantité doit être entre 1 et 20.')
+            return
+        }
+        if (!boardingPoint.trim() || !alightingPoint.trim()) {
+            setActionError('Veuillez sélectionner un point de montée et un point de descente.')
+            return
+        }
+        if (boardingPoint.trim().toLowerCase() === alightingPoint.trim().toLowerCase()) {
+            setActionError('Le point de montée doit être différent du point de descente.')
             return
         }
         createMutation.mutate()
@@ -138,6 +177,44 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
                             />
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">De (montée)</label>
+                            <select
+                                value={boardingPoint}
+                                onChange={(e) => {
+                                    const nextBoarding = e.target.value
+                                    setBoardingPoint(nextBoarding)
+                                    if (nextBoarding === alightingPoint) {
+                                        const fallback = stopOptions.find((stop) => stop !== nextBoarding)
+                                        if (fallback) {
+                                            setAlightingPoint(fallback)
+                                        }
+                                    }
+                                }}
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            >
+                                {stopOptions.map((stop) => (
+                                    <option key={`boarding-${stop}`} value={stop}>{stop}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">À (descente)</label>
+                            <select
+                                value={alightingPoint}
+                                onChange={(e) => setAlightingPoint(e.target.value)}
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            >
+                                {stopOptions
+                                    .filter((stop) => stop !== boardingPoint)
+                                    .map((stop) => (
+                                        <option key={`alighting-${stop}`} value={stop}>{stop}</option>
+                                    ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Siège (Optionnel)</label>
                             <input
                                 type="text"
@@ -146,6 +223,9 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
                                 className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
                                 placeholder="ex: 12A"
                             />
+                            {quantity > 1 && (
+                                <p className="text-xs text-text-muted mt-1">Le siège est ignoré pour création multiple.</p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Paiement</label>
@@ -157,6 +237,17 @@ export function PassengerTickets({ trip }: PassengerTicketsProps) {
                                 <option value="cash">Espèces</option>
                                 <option value="prepaid">Prépayé</option>
                             </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Qté billets</label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={20}
+                                value={quantity}
+                                onChange={(e) => setQuantity(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            />
                         </div>
                     </div>
                     <div className="flex justify-end gap-2 pt-2 border-t border-surface-700/50">

@@ -55,6 +55,13 @@ def _load_credentials():
     if google_application_credentials:
         return credentials.ApplicationDefault()
 
+    # Last fallback: try Application Default Credentials even when env var is not explicitly set.
+    # This supports local environments already authenticated via gcloud ADC.
+    try:
+        return credentials.ApplicationDefault()
+    except Exception:
+        pass
+
     raise FirebaseConfigurationError(
         'Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT_PATH, FIREBASE_SERVICE_ACCOUNT_JSON, or GOOGLE_APPLICATION_CREDENTIALS.',
     )

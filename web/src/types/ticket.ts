@@ -10,6 +10,8 @@ export interface PassengerTicket {
     currency: string
     payment_source: PaymentSource
     seat_number: string | null
+    boarding_point: string | null
+    alighting_point: string | null
     status: TicketStatus
     created_by: number
     created_by_name: string

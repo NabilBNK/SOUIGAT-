@@ -22,14 +22,19 @@ from api.models import (
 from api.permissions import get_cached_user_permissions
 
 
-REPORT_ROLES = ('admin', 'office_staff')
+REPORT_ROLES = ('admin',)
 MAX_REPORT_RANGE_DAYS = 31
+GLOBAL_REPORT_OFFICE_ID = 0
+GLOBAL_REPORT_OFFICE_LABEL = 'Toutes les agences'
 
 def _check_report_perm(request, required_perm='view_office_reports'):
-    """Reports accessible by users with 'view_office_reports' in their matrix permissions."""
+    """Reports are admin-only and still require the report matrix permission."""
     if not request.user.is_authenticated:
         raise PermissionDenied('Authentication required.')
-        
+
+    if request.user.role != 'admin':
+        raise PermissionDenied('Reports are admin-only.')
+
     perms = get_cached_user_permissions(request)
     if required_perm not in perms:
         raise PermissionDenied('Insufficient permissions for reports.')
@@ -71,6 +76,15 @@ def _scope_trips(user, qs):
     return qs.filter(
         Q(origin_office_id=user.office_id)
         | Q(destination_office_id=user.office_id)
+    )
+
+
+def _reportable_trips_for_day(day):
+    """Trips that are eligible for financial reporting on a given departure date."""
+    return Trip.objects.filter(
+        departure_datetime__date=day,
+        status='completed',
+        settlement__status='settled',
     )
 
 
@@ -126,11 +140,63 @@ def _build_office_day_row(office, day, trip_ids):
     }
 
 
-def _merge_daily_rows(office, day, live_row, snapshot_rows):
+def _build_global_day_row(day, trip_ids):
+    """Build one global report row for all offices combined for a given day."""
+    if not trip_ids:
+        return {
+            'date': str(day),
+            'office_name': GLOBAL_REPORT_OFFICE_LABEL,
+            'office_id': GLOBAL_REPORT_OFFICE_ID,
+            'total_trips': 0,
+            'total_passengers': 0,
+            'total_cargo': 0,
+            'passenger_revenue': 0,
+            'cargo_revenue': 0,
+            'expense_total': 0,
+            'net_revenue': 0,
+        }
+
+    p_agg = PassengerTicket.objects.filter(
+        trip_id__in=trip_ids, status='active',
+    ).aggregate(
+        rev=Coalesce(Sum('price'), Value(0)),
+        cnt=Count('id'),
+    )
+    c_agg = CargoTicket.objects.filter(
+        trip_id__in=trip_ids,
+    ).exclude(status='cancelled').aggregate(
+        rev=Coalesce(Sum('price'), Value(0)),
+        cnt=Count('id'),
+    )
+    e_agg = TripExpense.objects.filter(
+        trip_id__in=trip_ids,
+    ).aggregate(
+        total=Coalesce(Sum('amount'), Value(0)),
+    )
+
+    p_rev = p_agg['rev']
+    c_rev = c_agg['rev']
+    exp = e_agg['total']
+
+    return {
+        'date': str(day),
+        'office_name': GLOBAL_REPORT_OFFICE_LABEL,
+        'office_id': GLOBAL_REPORT_OFFICE_ID,
+        'total_trips': len(trip_ids),
+        'total_passengers': p_agg['cnt'],
+        'total_cargo': c_agg['cnt'],
+        'passenger_revenue': p_rev,
+        'cargo_revenue': c_rev,
+        'expense_total': exp,
+        'net_revenue': p_rev + c_rev - exp,
+    }
+
+
+def _merge_daily_rows(office_name, office_id, day, live_row, snapshot_rows):
     merged = {
         'date': str(day),
-        'office_name': office.name,
-        'office_id': office.id,
+        'office_name': office_name,
+        'office_id': office_id,
         'total_trips': int(live_row['total_trips']),
         'total_passengers': int(live_row['total_passengers']),
         'total_cargo': int(live_row['total_cargo']),
@@ -163,55 +229,33 @@ def daily_report(request):
     _check_report_perm(request)
     date_from, date_to = _parse_date_range(request)
 
-    # Determine office scope
     office_id_param = request.query_params.get('office_id')
-    if request.user.role == 'admin':
-        if office_id_param:
-            office_scope = str(office_id_param)
-        else:
-            office_scope = 'all'
-    else:
-        office_scope = str(request.user.office_id)
+    office_scope = str(office_id_param) if office_id_param else 'all'
+    global_scope = not office_id_param
 
     cache_key = f'report:daily:{office_scope}:{date_from}:{date_to}'
     cached = cache.get(cache_key)
     if cached:
         return Response(cached)
 
-    # Resolve offices to iterate
-    if request.user.role == 'admin':
-        if office_id_param:
-            offices = list(Office.objects.filter(id=office_id_param, is_active=True))
-        else:
-            offices = list(Office.objects.filter(is_active=True))
-    else:
-        offices = list(Office.objects.filter(id=request.user.office_id))
-
-    office_ids = [office.id for office in offices]
-    snapshot_rows = TripReportSnapshot.objects.filter(
-        office_id__in=office_ids,
-        report_date__gte=date_from,
-        report_date__lte=date_to,
-        settlement_status='settled',
-    )
-    snapshot_by_scope = defaultdict(dict)
-    for snapshot in snapshot_rows:
-        scope_key = (snapshot.office_id, snapshot.report_date)
-        snapshot_by_scope[scope_key][snapshot.trip_id] = snapshot
-
-    # Iterate every date in range × every office
     rows = []
-    current = date_from
-    while current <= date_to:
-        for office in offices:
-            trips = Trip.objects.filter(
-                departure_datetime__date=current,
-            ).filter(
-                Q(origin_office=office) | Q(destination_office=office)
-            )
-            trip_ids = list(trips.values_list('id', flat=True))
+    if global_scope:
+        snapshot_rows = TripReportSnapshot.objects.filter(
+            report_date__gte=date_from,
+            report_date__lte=date_to,
+            settlement_status='settled',
+        )
+        snapshot_by_day = defaultdict(dict)
+        for snapshot in snapshot_rows:
+            snapshot_by_day[snapshot.report_date].setdefault(snapshot.trip_id, snapshot)
 
-            scoped_snapshots = snapshot_by_scope.get((office.id, current), {})
+        current = date_from
+        while current <= date_to:
+            trip_ids = list(
+                _reportable_trips_for_day(current).values_list('id', flat=True)
+            )
+
+            scoped_snapshots = snapshot_by_day.get(current, {})
             matching_snapshots = [
                 scoped_snapshots[trip_id]
                 for trip_id in trip_ids
@@ -220,13 +264,59 @@ def daily_report(request):
             snapshot_trip_ids = {snapshot.trip_id for snapshot in matching_snapshots}
             live_trip_ids = [trip_id for trip_id in trip_ids if trip_id not in snapshot_trip_ids]
 
-            live_row = _build_office_day_row(office, current, live_trip_ids)
-            rows.append(_merge_daily_rows(office, current, live_row, matching_snapshots))
-        current += timedelta(days=1)
+            live_row = _build_global_day_row(current, live_trip_ids)
+            rows.append(_merge_daily_rows(
+                GLOBAL_REPORT_OFFICE_LABEL,
+                GLOBAL_REPORT_OFFICE_ID,
+                current,
+                live_row,
+                matching_snapshots,
+            ))
+            current += timedelta(days=1)
+    else:
+        offices = list(Office.objects.filter(id=office_id_param, is_active=True))
+        office_ids = [office.id for office in offices]
+
+        snapshot_rows = TripReportSnapshot.objects.filter(
+            office_id__in=office_ids,
+            report_date__gte=date_from,
+            report_date__lte=date_to,
+            settlement_status='settled',
+        )
+        snapshot_by_scope = defaultdict(dict)
+        for snapshot in snapshot_rows:
+            scope_key = (snapshot.office_id, snapshot.report_date)
+            snapshot_by_scope[scope_key][snapshot.trip_id] = snapshot
+
+        current = date_from
+        while current <= date_to:
+            for office in offices:
+                trips = _reportable_trips_for_day(current).filter(
+                    Q(origin_office=office) | Q(destination_office=office)
+                )
+                trip_ids = list(trips.values_list('id', flat=True))
+
+                scoped_snapshots = snapshot_by_scope.get((office.id, current), {})
+                matching_snapshots = [
+                    scoped_snapshots[trip_id]
+                    for trip_id in trip_ids
+                    if trip_id in scoped_snapshots
+                ]
+                snapshot_trip_ids = {snapshot.trip_id for snapshot in matching_snapshots}
+                live_trip_ids = [trip_id for trip_id in trip_ids if trip_id not in snapshot_trip_ids]
+
+                live_row = _build_office_day_row(office, current, live_trip_ids)
+                rows.append(_merge_daily_rows(
+                    office.name,
+                    office.id,
+                    current,
+                    live_row,
+                    matching_snapshots,
+                ))
+            current += timedelta(days=1)
 
     cache.set(cache_key, rows, timeout=900)  # 15-min cache
     return Response(rows)
-
 
 @api_view(['GET'])
 def trip_report(request, trip_id):
@@ -309,6 +399,8 @@ def route_report(request):
     trips = Trip.objects.filter(
         departure_datetime__date__gte=date_from,
         departure_datetime__date__lte=date_to,
+        status='completed',
+        settlement__status='settled',
     )
     trips = _scope_trips(request.user, trips)
 
@@ -372,6 +464,8 @@ def conductor_report(request):
     trips_in_range = Trip.objects.filter(
         departure_datetime__date__gte=date_from,
         departure_datetime__date__lte=date_to,
+        status='completed',
+        settlement__status='settled',
     )
     conductor_ids = list(
         trips_in_range.values_list('conductor_id', flat=True).distinct()
@@ -420,3 +514,5 @@ def conductor_report(request):
         })
 
     return Response(data)
+
+

@@ -16,7 +16,26 @@ Operational guide for coding agents working in `C:\Users\Lamine\Desktop\SOUIGAT`
 - `.github/copilot-instructions.md`: **not found**.
 - If these files are added later, treat them as higher-priority local agent policy.
 
-## 3) Build / Lint / Test Commands
+## 3) Port Configuration (Single Source of Truth)
+
+> **`web/.env.local` → `API_PROXY_URL`** is the canonical backend port setting.
+> `vite.config.ts` reads this value automatically. **Never hardcode the port elsewhere.**
+>
+> Default: `API_PROXY_URL=http://127.0.0.1:8002`
+>
+> If port 8002 is already in use, free it first (see below), rather than changing `API_PROXY_URL`.
+> If you must use a different port, update `API_PROXY_URL` in `web/.env.local` AND restart the frontend.
+
+### How to Check / Free Port 8002 (Windows)
+
+```powershell
+# Check what is holding port 8002
+netstat -ano | findstr :8002
+# Kill by PID (replace 12345 with the actual PID)
+Stop-Process -Id 12345 -Force
+```
+
+## 4) Build / Lint / Test Commands
 
 Run commands from the correct subdirectory unless specified.
 
@@ -26,7 +45,7 @@ Run commands from the correct subdirectory unless specified.
   - Windows: `./.venv/Scripts/python.exe -m pip install -r requirements.txt`
 - System checks:
   - `env DB_HOST=sqlite DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0 "./.venv/Scripts/python.exe" manage.py check`
-- Run server (local sqlite):
+- Run server (local sqlite) — port must match `API_PROXY_URL` in `web/.env.local`:
   - `env DB_HOST=sqlite DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0 "./.venv/Scripts/python.exe" manage.py runserver 0.0.0.0:8002`
 - Run full test suite:
   - `env DB_HOST=sqlite "./.venv/Scripts/python.exe" manage.py test`
@@ -41,7 +60,7 @@ Run commands from the correct subdirectory unless specified.
 
 - Install deps:
   - `npm install`
-- Dev server:
+- Dev server (reads `API_PROXY_URL` from `web/.env.local` automatically):
   - `npm run dev -- --host 0.0.0.0 --port 5173`
 - Lint:
   - `npm run lint`
@@ -89,14 +108,14 @@ Run commands from the correct subdirectory unless specified.
 - Start Firebase MCP server:
   - `npx -y firebase-tools@latest mcp`
 
-## 4) Local-First Architecture Constraints
+## 5) Local-First Architecture Constraints
 
 - Do **not** bypass backend or Room for core writes.
 - Canonical write flow is local/backend first, Firebase mirror second.
 - Web sync to Firestore must be asynchronous and non-blocking for user actions.
 - Mobile reads can prefer Firestore but must keep backend fallback.
 
-## 5) Language-Specific Style
+## 6) Language-Specific Style
 
 ### TypeScript / React (web)
 
@@ -129,14 +148,14 @@ Run commands from the correct subdirectory unless specified.
 - Keep Firebase session/read logic in `data/firebase`.
 - Respect existing package naming and build-variant behavior.
 
-## 6) Imports and Formatting
+## 7) Imports and Formatting
 
 - Keep imports grouped and minimal; remove unused imports.
 - Match existing formatting in each file; do not introduce a new formatter style.
 - Keep line length reasonable and readability-first.
 - Avoid comment noise; add comments only for non-obvious logic.
 
-## 7) Naming and API Conventions
+## 8) Naming and API Conventions
 
 - Prefer descriptive names (`queueTripUpsert`, `ensureSignedIn`) over abbreviations.
 - Use consistent suffixes:
@@ -146,21 +165,21 @@ Run commands from the correct subdirectory unless specified.
   - `*Serializer` for DRF serializers
 - Maintain stable endpoint naming under `/api/...`.
 
-## 8) Error Handling and Retries
+## 9) Error Handling and Retries
 
 - Distinguish retryable vs terminal errors in sync code.
 - Track status transitions explicitly (`pending`, `in_progress`, `synced`, `failed`, `conflict`).
 - Include enough context in logs (entity, id, op) without leaking secrets.
 - Never log tokens, passwords, service account JSON, or private keys.
 
-## 9) Security Practices
+## 10) Security Practices
 
 - Keep credentials in env files, never hardcode secrets.
 - Respect Firestore claims/rules model (role + office/conductor scope).
 - Backend custom token endpoint must require authenticated user.
 - Do not commit private keys, service-account files, or `.env` secrets.
 
-## 10) Agent Workflow Expectations
+## 11) Agent Workflow Expectations
 
 - Make incremental, focused changes; avoid broad rewrites.
 - Validate with the smallest relevant command first, then broader checks.

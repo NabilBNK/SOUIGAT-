@@ -36,15 +36,15 @@ def test_guichetier_cannot_access_reports_and_trips(api_client, office_staff_car
     response = api_client.post('/api/exports/', data={'report_type': 'daily'})
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
-def test_office_staff_all_can_access_reports_and_trips(api_client, office_staff_user, office):
+def test_office_staff_all_cannot_access_reports_but_can_access_trips(api_client, office_staff_user, office):
     """
     Test that a general office staff user (department='all') CAN access these endpoints.
     """
     api_client.force_authenticate(user=office_staff_user)
 
-    # 1. GET /api/reports/daily/
+    # 1. GET /api/reports/daily/ (admin-only)
     response = api_client.get('/api/reports/daily/')
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
     # 2. POST /api/trips/ (will 400 bad request due to missing data, but NOT 403)
     response = api_client.post('/api/trips/', data={})

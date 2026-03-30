@@ -1,8 +1,0 @@
-{
-    "login_phone_persisted":  true,
-    "login_phone_value":  "0700000001",
-    "after_login_dashboard":  false,
-    "after_login_still_login":  true,
-    "after_login_retry_dashboard":  false,
-    "e2e_blocker":  "Could not reach dashboard after login"
-}

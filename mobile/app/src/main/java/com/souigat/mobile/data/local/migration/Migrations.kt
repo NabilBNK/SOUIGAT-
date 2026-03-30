@@ -104,6 +104,12 @@ object Migrations {
         }
     }
 
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE trips ADD COLUMN routeTemplateName TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -111,5 +117,6 @@ object Migrations {
         MIGRATION_4_5,
         MIGRATION_5_6,
         MIGRATION_6_7,
+        MIGRATION_7_8,
     )
 }

@@ -65,8 +65,10 @@ export interface QuarantinedSync {
 export interface RouteTemplateStop {
     id: number
     route_template: number
-    office: number
-    office_name: string
+    office: number | null
+    office_name: string | null
+    stop_name: string
+    stop_label: string
     stop_order: number
 }
 
@@ -92,6 +94,10 @@ export interface RouteTemplate {
     end_office: number
     end_office_name: string
     source_template: number | null
+    cargo_small_price: number
+    cargo_medium_price: number
+    cargo_large_price: number
+    currency: string
     is_active: boolean
     stops: RouteTemplateStop[]
     segment_tariffs: RouteTemplateSegmentTariff[]

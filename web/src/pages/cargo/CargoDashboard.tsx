@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createCargoTicket, getCargoTickets } from '../../api/cargo'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { createCargoTicket } from '../../api/cargo'
 import { getTripsForCargoCreation } from '../../api/trips'
 import { formatCurrency, formatDateTime } from '../../utils/formatters'
 import { DataTable } from '../../components/ui/DataTable'
@@ -13,6 +13,9 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { useAuth } from '../../hooks/useAuth'
+import { useCargoMirrorFeed } from '../../hooks/useTripMirrorData'
+
+const PAGE_SIZE = 10
 
 const columnHelper = createColumnHelper<CargoTicket>()
 
@@ -71,7 +74,6 @@ const columns: ColumnDef<CargoTicket, any>[] = [
 
 export function CargoDashboard() {
     const navigate = useNavigate()
-    const queryClient = useQueryClient()
     const { user } = useAuth()
     const [page, setPage] = useState(1)
     const [search, setSearch] = useState('')
@@ -97,15 +99,52 @@ export function CargoDashboard() {
         setPage(1)
     }
 
-    const { data, isLoading, error } = useQuery({
-        queryKey: ['cargo', page, search, statusFilter],
-        queryFn: () => {
-            const params: Record<string, string | number> = { page }
-            if (search) params.search = search
-            if (statusFilter) params.status = statusFilter
-            return getCargoTickets(params)
-        },
+    const {
+        data: mirrorTickets,
+        isLoading,
+        error,
+    } = useCargoMirrorFeed({
+        enabled: user?.role === 'admin' || user?.role === 'office_staff',
+        officeId: user?.role === 'office_staff' ? user.office : null,
+        cacheTtlMs: 180_000,
+        limitCount: 1200,
     })
+
+    const filteredTickets = useMemo(() => {
+        const normalizedSearch = search.trim().toLowerCase()
+        return mirrorTickets.filter((ticket) => {
+            if (statusFilter && ticket.status !== statusFilter) {
+                return false
+            }
+            if (!normalizedSearch) {
+                return true
+            }
+            const haystack = [
+                ticket.ticket_number,
+                ticket.sender_name,
+                ticket.sender_phone,
+                ticket.receiver_name,
+                ticket.receiver_phone,
+            ]
+                .filter((value): value is string => typeof value === 'string' && value.length > 0)
+                .join(' ')
+                .toLowerCase()
+            return haystack.includes(normalizedSearch)
+        })
+    }, [mirrorTickets, search, statusFilter])
+
+    const pagedTickets = useMemo(() => {
+        const start = (page - 1) * PAGE_SIZE
+        return filteredTickets.slice(start, start + PAGE_SIZE)
+    }, [filteredTickets, page])
+
+    const pageCount = Math.max(1, Math.ceil(filteredTickets.length / PAGE_SIZE))
+
+    useEffect(() => {
+        if (page > pageCount) {
+            setPage(pageCount)
+        }
+    }, [page, pageCount])
 
     const {
         data: tripsForCreate,
@@ -117,17 +156,25 @@ export function CargoDashboard() {
         staleTime: 60_000,
     })
 
+    const availableTripsForCreate = useMemo(() => {
+        const trips = tripsForCreate ?? []
+        if (user?.role !== 'office_staff' || !user.office) {
+            return trips
+        }
+        return trips.filter((trip) => trip.origin_office === user.office)
+    }, [tripsForCreate, user?.office, user?.role])
+
     useEffect(() => {
-        if (!isCreateOpen || !tripsForCreate?.length) {
+        if (!isCreateOpen || !availableTripsForCreate.length) {
             return
         }
         if (!createForm.tripId) {
             setCreateForm((prev) => ({
                 ...prev,
-                tripId: String(tripsForCreate[0].id),
+                tripId: String(availableTripsForCreate[0].id),
             }))
         }
-    }, [isCreateOpen, tripsForCreate, createForm.tripId])
+    }, [isCreateOpen, availableTripsForCreate, createForm.tripId])
 
     const createMutation = useMutation({
         mutationFn: async () => {
@@ -155,7 +202,6 @@ export function CargoDashboard() {
                 paymentSource: 'prepaid',
                 description: '',
             })
-            queryClient.invalidateQueries({ queryKey: ['cargo'] })
         },
         onError: (err: any) => {
             const detail = err?.response?.data?.detail
@@ -250,13 +296,13 @@ export function CargoDashboard() {
                             disabled={isTripsLoading || createMutation.isPending}
                         >
                             <option value="">Sélectionner un trajet</option>
-                            {(tripsForCreate ?? []).map((trip) => (
+                            {availableTripsForCreate.map((trip) => (
                                 <option key={trip.id} value={trip.id}>
                                     #{trip.id} - {trip.origin_office_name} → {trip.destination_office_name} ({trip.status})
                                 </option>
                             ))}
                         </select>
-                        {!isTripsLoading && (tripsForCreate?.length ?? 0) === 0 && (
+                        {!isTripsLoading && availableTripsForCreate.length === 0 && (
                             <p className="text-xs text-yellow-400 mt-1">Aucun trajet planifié/en cours disponible pour votre scope.</p>
                         )}
                     </div>
@@ -361,7 +407,7 @@ export function CargoDashboard() {
                         <Button
                             type="submit"
                             isLoading={createMutation.isPending}
-                            disabled={isTripsLoading || (tripsForCreate?.length ?? 0) === 0}
+                            disabled={isTripsLoading || availableTripsForCreate.length === 0}
                         >
                             Créer le colis
                         </Button>
@@ -371,7 +417,7 @@ export function CargoDashboard() {
 
             {/* Simulated Metrics (In a real app, these would come from a specific /reports/cargo endpoint) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard title="Colis Aujourd'hui" value={data?.count || 0} icon={<Package className="w-5 h-5" />} trend="+12%" />
+                <StatCard title="Colis Aujourd'hui" value={filteredTickets.length} icon={<Package className="w-5 h-5" />} trend="Realtime" />
                 <StatCard title="En transit" value="..." icon={<Navigation className="w-5 h-5" />} />
                 <StatCard title="A réceptionner" value="..." icon={<AlertCircle className="w-5 h-5" />} />
                 <StatCard title="Revenus" value="..." icon={<TrendingUp className="w-5 h-5" />} />
@@ -415,10 +461,10 @@ export function CargoDashboard() {
                     </div>
                 ) : (
                     <DataTable
-                        data={data?.results || []}
+                        data={pagedTickets}
                         columns={columns}
                         isLoading={isLoading}
-                        pageCount={data ? Math.ceil(data.count / 10) : 1}
+                        pageCount={pageCount}
                         pageIndex={page - 1}
                         onPageChange={(newIndex) => setPage(newIndex + 1)}
                         onRowClick={(ticket) => navigate(`/cargo/tickets/${ticket.id}`)}

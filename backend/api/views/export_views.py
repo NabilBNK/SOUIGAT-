@@ -13,14 +13,17 @@ from api.tasks import generate_excel_report
 from api.permissions import get_cached_user_permissions
 
 
-EXPORT_ROLES = ('admin', 'office_staff')
+EXPORT_ROLES = ('admin',)
 
 
 def _check_export_perm(request, required_perm='export_excel'):
-    """Exports accessible by users with 'export_excel' in their matrix permissions."""
+    """Exports are admin-only and still require the export matrix permission."""
     if not request.user.is_authenticated:
         raise PermissionDenied('Authentication required.')
-        
+
+    if request.user.role != 'admin':
+        raise PermissionDenied('Exports are admin-only.')
+
     perms = get_cached_user_permissions(request)
     if required_perm not in perms:
         raise PermissionDenied('Insufficient permissions for exports.')
@@ -57,10 +60,6 @@ def trigger_export(request):
         )
 
     filters = request.data.get('filters', {})
-
-    # Scope: staff can only export their own office
-    if request.user.role == 'office_staff':
-        filters['office_id'] = request.user.office_id
 
     result = generate_excel_report.delay(
         report_type=report_type,

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -230,6 +231,11 @@ fun ProfileScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SettingRow(title = "Historique des trajets", icon = Icons.Default.History)
                     SettingRow(title = "Parametres de l'application", icon = Icons.Default.Settings)
+                    BluetoothPrinterSettingRow()
+                    TicketPreviewCheckboxRow(
+                        checked = state.ticketPreviewEnabled,
+                        onCheckedChange = viewModel::setTicketPreviewEnabled,
+                    )
                 }
             }
 
@@ -258,6 +264,37 @@ fun ProfileScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TicketPreviewCheckboxRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    StitchCard(shape = RoundedCornerShape(14.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onCheckedChange(!checked) }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Generer l'apercu du billet",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "Apres creation, affiche un ticket visuel.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Checkbox(checked = checked, onCheckedChange = onCheckedChange)
         }
     }
 }

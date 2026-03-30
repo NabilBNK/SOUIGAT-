@@ -44,14 +44,14 @@ class RouteReportAdminOnlyTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_staff_can_still_access_daily_report(self):
-        """Office staff can still access daily reports (not affected)."""
+    def test_staff_denied_daily_report(self):
+        """Office staff are denied daily reports."""
         self.client.force_authenticate(self.staff)
         today = timezone.now().strftime('%Y-%m-%d')
         resp = self.client.get(
             f'/api/reports/daily/?date_from={today}&date_to={today}'
         )
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class BusOfficeValidationTests(TestCase):

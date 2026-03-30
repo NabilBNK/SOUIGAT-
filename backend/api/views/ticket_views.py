@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from api.models import PassengerTicket, Trip
+from api.services.ticket_numbering import generate_ticket_number
 from api.serializers.ticket import PassengerTicketSerializer, PassengerTicketListSerializer
 from api.permissions import MatrixPermission, OfficeScopePermission
 from api.services.route_templates import compute_forward_passenger_price
@@ -139,7 +140,11 @@ class PassengerTicketViewSet(viewsets.ModelViewSet):
                 )
 
             total_count = PassengerTicket.objects.filter(trip=trip).count()
-            ticket_number = f'PT-{trip.id}-{total_count + 1:03d}'
+            ticket_number = generate_ticket_number(
+                departure_datetime=trip.departure_datetime,
+                trip_id=trip.id,
+                order_number=total_count + 1,
+            )
 
             if final_price < 100:
                 raise ValidationError({'price': 'Ticket price must be at least 100 DA for financial integrity.'})

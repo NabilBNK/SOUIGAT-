@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import PricingConfig, RouteTemplate, Trip
+from api.models import RouteTemplate, Trip
 from api.services.route_templates import build_route_snapshot
 
 
@@ -50,7 +50,7 @@ class TripSerializer(serializers.ModelSerializer):
         return getattr(obj, 'expense_total', 0)
 
     def create(self, validated_data):
-        """Freeze pricing snapshot from route template + cargo pricing config."""
+        """Freeze pricing snapshot directly from route template configuration."""
         route_template = validated_data.get("route_template")
         if route_template is None:
             raise serializers.ValidationError(
@@ -64,19 +64,15 @@ class TripSerializer(serializers.ModelSerializer):
         validated_data["route_stop_snapshot"] = route_snapshot.stops
         validated_data["route_segment_tariff_snapshot"] = route_snapshot.segment_tariffs
 
-        departure_date = validated_data['departure_datetime'].date()
-        pricing = PricingConfig.objects.get_active_pricing(
-            route_template.start_office, route_template.end_office, for_date=departure_date
-        )
-        if pricing is None:
+        if route_template.cargo_small_price <= 0 or route_template.cargo_medium_price <= 0 or route_template.cargo_large_price <= 0:
             raise serializers.ValidationError(
-                {'route': 'No active pricing configuration for this route.'}
+                {'route_template': 'Configure cargo S/M/L prices in template configuration before creating a trip.'}
             )
 
-        validated_data['cargo_small_price'] = pricing['cargo_small_price']
-        validated_data['cargo_medium_price'] = pricing['cargo_medium_price']
-        validated_data['cargo_large_price'] = pricing['cargo_large_price']
-        validated_data['currency'] = route_snapshot.currency or pricing['currency']
+        validated_data['cargo_small_price'] = route_template.cargo_small_price
+        validated_data['cargo_medium_price'] = route_template.cargo_medium_price
+        validated_data['cargo_large_price'] = route_template.cargo_large_price
+        validated_data['currency'] = route_snapshot.currency or route_template.currency
 
         return super().create(validated_data)
 

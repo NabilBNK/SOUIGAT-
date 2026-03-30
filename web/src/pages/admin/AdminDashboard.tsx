@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { getUsers, getBuses, getOffices, getPricingConfigs } from '../../api/admin'
-import { Users, Bus, Building2, CircleDollarSign, ShieldAlert, Activity, Route } from 'lucide-react'
+import { getUsers, getBuses, getOffices } from '../../api/admin'
+import { Users, Bus, Building2, ShieldAlert, Activity, Route } from 'lucide-react'
 
 export function AdminDashboard() {
     const { data: users } = useQuery({
@@ -17,11 +17,6 @@ export function AdminDashboard() {
     const { data: offices } = useQuery({
         queryKey: ['admin_offices_count'],
         queryFn: () => getOffices({ limit: 1 }),
-    })
-
-    const { data: pricing } = useQuery({
-        queryKey: ['admin_pricing_count'],
-        queryFn: () => getPricingConfigs(),
     })
 
     const StatCard = ({ title, value, icon, to, description }: { title: string, value: string | number, icon: React.ReactNode, to: string, description: string }) => (
@@ -71,18 +66,11 @@ export function AdminDashboard() {
                     description="Paramétrage des bureaux."
                 />
                 <StatCard
-                    title="Tarifications"
-                    value={pricing?.count ?? '...'}
-                    icon={<CircleDollarSign className="w-6 h-6" />}
-                    to="/admin/pricing"
-                    description="Prix par type de trajet et colis."
-                />
-                <StatCard
                     title="Templates Route"
                     value="Route"
                     icon={<Route className="w-6 h-6" />}
                     to="/admin/templates"
-                    description="Stops ordonnes, tarifs segmentaires, reverse."
+                    description="Stops + tarification segmentaire + reverse."
                 />
                 <StatCard
                     title="Journal d'Audit"

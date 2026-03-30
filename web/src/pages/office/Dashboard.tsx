@@ -31,14 +31,16 @@ type MetricTone = 'success' | 'info' | 'warning' | 'danger'
 export function OfficeDashboard() {
     const { user } = useAuth()
     const today = new Date().toISOString().split('T')[0]
+    const canUseReports = user?.role === 'admin'
     const [exportTaskId, setExportTaskId] = useState<string | null>(null)
     const [exportDownloadToken, setExportDownloadToken] = useState<string | null>(null)
     const [exportError, setExportError] = useState<string | null>(null)
     const [exportStartedAt, setExportStartedAt] = useState<number | null>(null)
 
     const { data: dailyReports, isError: isReportError } = useQuery({
-        queryKey: ['dashboard', 'daily-report', today],
+        queryKey: ['dashboard', 'daily-report', today, canUseReports],
         queryFn: () => getDailyReport({ date_from: today, date_to: today }),
+        enabled: canUseReports,
     })
 
     const { data: tripsData, isLoading: isTripsLoading, isError: isTripsError } = useQuery({
@@ -164,7 +166,10 @@ export function OfficeDashboard() {
             .map((trip) => trip.id),
         [recentTrips],
     )
-    const { statuses: recentTripMirrorStatuses } = useTripStatusMirrorMap(recentTripIds)
+    const { statuses: recentTripMirrorStatuses } = useTripStatusMirrorMap(recentTripIds, {
+        enableRealtime: false,
+        cacheTtlMs: 180_000,
+    })
     const recentMirrorStatusTripIds = useMemo(() => {
         const tripIds = new Set<number>()
         recentTrips.forEach((trip) => {
@@ -198,9 +203,10 @@ export function OfficeDashboard() {
     }, [pendingSettlements])
 
     const settlementListPath = user?.role === 'admin' ? '/admin/settlements' : '/office/trips'
-    const isExporting = !!exportTaskId && exportStatus?.status !== 'success' && exportStatus?.status !== 'failure'
+    const isExporting = canUseReports && !!exportTaskId && exportStatus?.status !== 'success' && exportStatus?.status !== 'failure'
     const officeLabel = user?.office_name || 'operations'
     const firstName = user?.first_name || 'Equipe'
+    const reportsPath = canUseReports ? '/office/reports' : '/office/trips'
 
     const metricCards = [
         {
@@ -209,7 +215,7 @@ export function OfficeDashboard() {
             meta: `${dailyTotals.totalTrips} trip(s) today`,
             icon: <Wallet className="h-5 w-5" />,
             tone: 'success' as const,
-            to: '/office/reports',
+            to: reportsPath,
         },
         {
             label: 'Active trips (backend)',
@@ -233,7 +239,7 @@ export function OfficeDashboard() {
             meta: `${formatCurrency(dailyTotals.netRevenue)} net expected`,
             icon: <TrendingDown className="h-5 w-5" />,
             tone: 'danger' as const,
-            to: '/office/reports',
+            to: reportsPath,
         },
     ]
 
@@ -257,15 +263,17 @@ export function OfficeDashboard() {
                     </div>
 
                     <div className="flex flex-col gap-3 sm:flex-row">
-                        <Button
-                            variant="secondary"
-                            icon={<Download className="h-4 w-4" />}
-                            isLoading={exportMutation.isPending || isExporting}
-                            disabled={isExporting}
-                            onClick={() => exportMutation.mutate()}
-                        >
-                            Daily report
-                        </Button>
+                        {canUseReports && (
+                            <Button
+                                variant="secondary"
+                                icon={<Download className="h-4 w-4" />}
+                                isLoading={exportMutation.isPending || isExporting}
+                                disabled={isExporting}
+                                onClick={() => exportMutation.mutate()}
+                            >
+                                Daily report
+                            </Button>
+                        )}
                         <Link
                             to="/office/trips/new"
                             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#137fec] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-500/30 transition-colors hover:bg-[#0b5ed7]"
@@ -276,7 +284,7 @@ export function OfficeDashboard() {
                     </div>
                 </div>
 
-                {(isExporting || exportError || isReportError || isTripsError || isSettlementsError) && (
+                {(isExporting || exportError || (canUseReports && isReportError) || isTripsError || isSettlementsError) && (
                     <div className="mt-5 space-y-3">
                         {isExporting && (
                             <div className="flex items-center gap-3 rounded-2xl border border-brand-500/20 bg-[#137fec]/10 px-4 py-3 text-sm text-brand-200">
@@ -288,7 +296,7 @@ export function OfficeDashboard() {
                         {exportError && (
                             <InlineAlert message={exportError} />
                         )}
-                        {(isReportError || isTripsError || isSettlementsError) && (
+                        {((canUseReports && isReportError) || isTripsError || isSettlementsError) && (
                             <InlineAlert message="Some dashboard sections could not be loaded. You can still use the available actions." />
                         )}
                     </div>

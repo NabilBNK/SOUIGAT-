@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from .mixins import SoftDeleteManager, SoftDeleteMixin, TimestampMixin
 
@@ -31,6 +32,10 @@ class RouteTemplate(TimestampMixin, SoftDeleteMixin, models.Model):
         blank=True,
         related_name="derived_templates",
     )
+    cargo_small_price = models.PositiveIntegerField(default=0)
+    cargo_medium_price = models.PositiveIntegerField(default=0)
+    cargo_large_price = models.PositiveIntegerField(default=0)
+    currency = models.CharField(max_length=3, default="DZD")
     is_active = models.BooleanField(default=True)
 
     objects = RouteTemplateManager()
@@ -57,7 +62,14 @@ class RouteTemplateStop(TimestampMixin, models.Model):
     route_template = models.ForeignKey(
         "api.RouteTemplate", on_delete=models.CASCADE, related_name="stops"
     )
-    office = models.ForeignKey("api.Office", on_delete=models.PROTECT, related_name="route_template_stops")
+    office = models.ForeignKey(
+        "api.Office",
+        on_delete=models.PROTECT,
+        related_name="route_template_stops",
+        null=True,
+        blank=True,
+    )
+    stop_name = models.CharField(max_length=120, blank=True, default="")
     stop_order = models.PositiveIntegerField()
 
     class Meta:
@@ -71,11 +83,23 @@ class RouteTemplateStop(TimestampMixin, models.Model):
             models.UniqueConstraint(
                 fields=["route_template", "office"],
                 name="uq_route_template_stop_office",
+                condition=Q(office__isnull=False),
+            ),
+            models.UniqueConstraint(
+                fields=["route_template", "stop_name"],
+                name="uq_route_template_stop_name",
+                condition=~Q(stop_name=""),
+            ),
+            models.CheckConstraint(
+                condition=(Q(office__isnull=False) & Q(stop_name=""))
+                | (Q(office__isnull=True) & ~Q(stop_name="")),
+                name="route_template_stop_exactly_one_source",
             ),
         ]
 
     def __str__(self):
-        return f"{self.route_template_id}#{self.stop_order}:{self.office_id}"
+        label = self.office.name if self.office_id else self.stop_name
+        return f"{self.route_template_id}#{self.stop_order}:{label}"
 
 
 class RouteTemplateSegmentTariff(TimestampMixin, models.Model):
@@ -119,8 +143,8 @@ class RouteTemplateSegmentTariff(TimestampMixin, models.Model):
             if self.route_template_id and from_template != self.route_template_id:
                 raise ValidationError("Segment route_template must match stop route_template.")
 
-            if self.to_stop.stop_order != self.from_stop.stop_order + 1:
-                raise ValidationError("Segment must connect adjacent ordered stops.")
+            if self.to_stop.stop_order <= self.from_stop.stop_order:
+                raise ValidationError("Segment to_stop must be after from_stop in route order.")
 
     def __str__(self):
         return f"{self.route_template_id}:{self.from_stop.stop_order}->{self.to_stop.stop_order}"

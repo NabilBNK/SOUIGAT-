@@ -2,7 +2,6 @@ import client from './client'
 import type {
     Office,
     Bus,
-    PricingConfig,
     AuditLogEntry,
     QuarantinedSync,
     RouteTemplate,
@@ -126,25 +125,6 @@ export async function bulkDeleteOffices(
     return response.data
 }
 
-// Pricing
-export async function getPricingConfigs(params?: Record<string, unknown>): Promise<{ count: number; results: PricingConfig[] }> {
-    const response = await client.get('/admin/pricing/', { params })
-    return response.data
-}
-
-export async function createPricing(data: Partial<PricingConfig>): Promise<PricingConfig> {
-    const response = await client.post<PricingConfig>('/admin/pricing/', data)
-    return response.data
-}
-
-export async function updatePricing(
-    id: number,
-    data: Partial<PricingConfig>
-): Promise<PricingConfig> {
-    const response = await client.patch<PricingConfig>(`/admin/pricing/${id}/`, data)
-    return response.data
-}
-
 // Audit Log
 export async function getAuditLogs(params?: {
     date_from?: string
@@ -188,6 +168,13 @@ export async function getRouteTemplates(params?: Record<string, unknown>): Promi
     )
 }
 
+export async function getRouteTemplate(id: number): Promise<RouteTemplate> {
+    return requestWithFallback<RouteTemplate>(
+        ROUTE_TEMPLATE_BASES.map((base) => `${base}${id}/`),
+        'get'
+    )
+}
+
 export async function createRouteTemplate(data: Partial<RouteTemplate>): Promise<RouteTemplate> {
     return requestWithFallback<RouteTemplate>(ROUTE_TEMPLATE_BASES, 'post', data as Record<string, unknown>)
 }
@@ -210,6 +197,16 @@ export async function deleteRouteTemplate(id: number): Promise<void> {
 export async function createReverseRouteTemplate(id: number): Promise<RouteTemplate> {
     return requestWithFallback<RouteTemplate>(
         ROUTE_TEMPLATE_BASES.map((base) => `${base}${id}/create-reverse/`),
+        'post',
+        {}
+    )
+}
+
+export async function syncRouteTemplateToFirebase(
+    id: number,
+): Promise<{ detail: string; template_id: number; document_id: string; collection: string; source_updated_at: string }> {
+    return requestWithFallback<{ detail: string; template_id: number; document_id: string; collection: string; source_updated_at: string }>(
+        ROUTE_TEMPLATE_BASES.map((base) => `${base}${id}/sync-firebase/`),
         'post',
         {}
     )

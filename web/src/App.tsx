@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { useAuth } from './hooks/useAuth'
 import { ProtectedRoute } from './components/guards/ProtectedRoute'
 import { RoleGuard } from './components/guards/RoleGuard'
@@ -20,8 +21,8 @@ import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { UserManagement } from './pages/admin/UserManagement'
 import { BusManagement } from './pages/admin/BusManagement'
 import { OfficeManagement } from './pages/admin/OfficeManagement'
-import { PricingManagement } from './pages/admin/PricingManagement'
 import { TemplateManagement } from './pages/admin/TemplateManagement'
+import { TemplateConfigure } from './pages/admin/TemplateConfigure'
 import { AuditLog } from './pages/admin/AuditLog'
 import { QuarantineReview } from './pages/admin/QuarantineReview'
 import { SettlementsPage } from './pages/admin/Settlements'
@@ -68,9 +69,10 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
             {/* Public */}
             <Route path="/login" element={<Login />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
@@ -87,7 +89,6 @@ export default function App() {
                   <Route path="/office/trips/new" element={<TripCreate />} />
                   <Route path="/office/trips/:id" element={<TripDetail />} />
                   <Route path="/office/tickets" element={<GlobalTicketList />} />
-                  <Route path="/office/reports" element={<Reports />} />
                 </Route>
 
                 {/* Cargo routes */}
@@ -99,11 +100,13 @@ export default function App() {
                 {/* Admin routes */}
                 <Route element={<RoleGuard allowedRoles={['admin']} />}>
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/office/reports" element={<Reports />} />
                   <Route path="/admin/users" element={<UserManagement />} />
                   <Route path="/admin/buses" element={<BusManagement />} />
                   <Route path="/admin/offices" element={<OfficeManagement />} />
-                  <Route path="/admin/pricing" element={<PricingManagement />} />
+                  <Route path="/admin/pricing" element={<Navigate to="/admin/templates" replace />} />
                   <Route path="/admin/templates" element={<TemplateManagement />} />
+                  <Route path="/admin/templates/:id/configure" element={<TemplateConfigure />} />
                   <Route path="/admin/settlements" element={<SettlementsPage />} />
                   <Route path="/admin/audit" element={<AuditLog />} />
                 </Route>
@@ -117,9 +120,10 @@ export default function App() {
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </QueryClientProvider>
   )
 }

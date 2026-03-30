@@ -1,9 +1,11 @@
 import { useAuth } from '../../hooks/useAuth'
-import { LogOut, User as UserIcon } from 'lucide-react'
+import { LogOut, MoonStar, Sun, User as UserIcon } from 'lucide-react'
 import { ROLE_LABELS, DEPARTMENT_LABELS } from '../../utils/constants'
+import { useTheme } from '../../context/ThemeContext'
 
 export function Header() {
     const { user, logout } = useAuth()
+    const { theme, toggleTheme } = useTheme()
     if (!user) return null
 
     const roleBadge = ROLE_LABELS[user.role]
@@ -20,6 +22,16 @@ export function Header() {
                 </div>
             </div>
             <div className="flex items-center gap-5">
+                <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="inline-flex items-center gap-2 rounded-lg border border-surface-700 bg-surface-800/80 px-3 py-2 text-xs font-semibold tracking-wide text-text-secondary hover:text-text-primary hover:border-brand-500/40 transition-colors"
+                    title={theme === 'dark' ? 'Activer le theme clair' : 'Activer le theme sombre'}
+                >
+                    {theme === 'dark' ? <Sun className="w-4 h-4" /> : <MoonStar className="w-4 h-4" />}
+                    <span>{theme === 'dark' ? 'Clair' : 'Sombre'}</span>
+                </button>
+
                 {/* Role badge */}
                 <div className="flex items-center gap-2">
                     <span className="px-3 py-1 rounded-md bg-brand-500/15 border border-brand-500/20 text-brand-400 text-xs font-bold tracking-wider uppercase shadow-sm">

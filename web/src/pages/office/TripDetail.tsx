@@ -35,7 +35,7 @@ import { PassengerTickets } from './PassengerTickets'
 import { CargoTickets } from './CargoTickets'
 import { TripExpenses } from './TripExpenses'
 import { useTripStatusMirror } from '../../hooks/useTripMirrorData'
-import { shouldPreferMirrorStatus } from '../../utils/tripStatusSource'
+import { inferTripStatusFromActivity, shouldPreferMirrorStatus } from '../../utils/tripStatusSource'
 
 type TabType = 'info' | 'passengers' | 'cargo' | 'expenses'
 
@@ -77,7 +77,15 @@ export function TripDetailPage() {
             sourceUpdatedAt: mirrorSourceUpdatedAt,
         })
         : false
-    const effectiveStatus = shouldUseMirror ? mirrorStatus : trip?.status
+    const inferredBackendStatus = trip
+        ? inferTripStatusFromActivity({
+            status: trip.status,
+            passenger_count: trip.passenger_count,
+            cargo_count: trip.cargo_count,
+            expense_total: trip.expense_total,
+        })
+        : undefined
+    const effectiveStatus = shouldUseMirror ? mirrorStatus : inferredBackendStatus
     const effectiveArrivalDatetime = shouldUseMirror ? (mirrorArrivalDatetime ?? trip?.arrival_datetime) : trip?.arrival_datetime
     const backendCompleted = trip?.status === 'completed'
     const mirrorCompletedPendingBackend = effectiveStatus === 'completed' && trip?.status !== 'completed'

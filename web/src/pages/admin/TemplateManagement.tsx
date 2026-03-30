@@ -1,19 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createColumnHelper } from '@tanstack/react-table'
 import {
     createReverseRouteTemplate,
     createRouteTemplate,
-    createRouteTemplateSegmentTariff,
-    createRouteTemplateStop,
     deleteRouteTemplate,
-    deleteRouteTemplateSegmentTariff,
-    deleteRouteTemplateStop,
     getOffices,
     getRouteTemplates,
     updateRouteTemplate,
-    updateRouteTemplateSegmentTariff,
-    updateRouteTemplateStop,
 } from '../../api/admin'
 import { Button } from '../../components/ui/Button'
 import { DataTable } from '../../components/ui/DataTable'
@@ -21,8 +16,6 @@ import { Modal } from '../../components/ui/Modal'
 import {
     ArrowLeftRight,
     Edit,
-    GitBranch,
-    GripVertical,
     Plus,
     Route,
     ShieldAlert,
@@ -31,8 +24,6 @@ import {
 import type {
     Office,
     RouteTemplate as RouteTemplateType,
-    RouteTemplateSegmentTariff,
-    RouteTemplateStop,
 } from '../../types/admin'
 
 const templateColumnHelper = createColumnHelper<any>()
@@ -56,21 +47,11 @@ const TEMPLATE_EMPTY: TemplateFormState = {
 }
 
 export function TemplateManagement() {
+    const navigate = useNavigate()
     const queryClient = useQueryClient()
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
     const [editingTemplate, setEditingTemplate] = useState<RouteTemplateType | null>(null)
     const [templateForm, setTemplateForm] = useState<TemplateFormState>(TEMPLATE_EMPTY)
-    const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null)
-    const [draggedStopId, setDraggedStopId] = useState<number | null>(null)
-
-    const [newStopOfficeId, setNewStopOfficeId] = useState<number | ''>('')
-    const [newStopOrder, setNewStopOrder] = useState<number>(1)
-
-    const [newSegmentFromStop, setNewSegmentFromStop] = useState<number | ''>('')
-    const [newSegmentToStop, setNewSegmentToStop] = useState<number | ''>('')
-    const [newSegmentPrice, setNewSegmentPrice] = useState<number>(0)
-    const [newSegmentCurrency, setNewSegmentCurrency] = useState<string>('DZD')
-    const [newSegmentActive, setNewSegmentActive] = useState<boolean>(true)
 
     const { data: templatesData, isLoading: isTemplatesLoading } = useQuery({
         queryKey: ['admin_route_templates'],
@@ -83,32 +64,11 @@ export function TemplateManagement() {
     })
 
     const offices = officesData?.results || []
+    const activeOffices = useMemo(
+        () => offices.filter((office: Office) => office.is_active),
+        [offices],
+    )
     const templates = templatesData?.results || []
-
-    useEffect(() => {
-        if (templates.length === 0) {
-            setSelectedTemplateId(null)
-            return
-        }
-        if (selectedTemplateId == null || !templates.some((template) => template.id === selectedTemplateId)) {
-            setSelectedTemplateId(templates[0].id)
-        }
-    }, [templates, selectedTemplateId])
-
-    const selectedTemplate = useMemo(
-        () => templates.find((template) => template.id === selectedTemplateId) || null,
-        [templates, selectedTemplateId]
-    )
-
-    const sortedStops = useMemo(
-        () => [...(selectedTemplate?.stops || [])].sort((a, b) => a.stop_order - b.stop_order),
-        [selectedTemplate]
-    )
-
-    const sortedSegments = useMemo(
-        () => [...(selectedTemplate?.segment_tariffs || [])].sort((a, b) => a.from_stop_order - b.from_stop_order),
-        [selectedTemplate]
-    )
 
     const invalidateTemplates = () => {
         queryClient.invalidateQueries({ queryKey: ['admin_route_templates'] })
@@ -125,8 +85,8 @@ export function TemplateManagement() {
             setIsTemplateModalOpen(false)
             setEditingTemplate(null)
             setTemplateForm(TEMPLATE_EMPTY)
-            setSelectedTemplateId(template.id)
             invalidateTemplates()
+            navigate(`/admin/templates/${template.id}/configure`)
         },
     })
 
@@ -138,123 +98,22 @@ export function TemplateManagement() {
     const reverseMutation = useMutation({
         mutationFn: (id: number) => createReverseRouteTemplate(id),
         onSuccess: (created) => {
-            setSelectedTemplateId(created.id)
             invalidateTemplates()
+            navigate(`/admin/templates/${created.id}/configure`)
         },
     })
 
-    const stopMutation = useMutation({
-        mutationFn: (payload: Partial<RouteTemplateStop> & { id?: number }) => {
-            if (payload.id) {
-                const { id, ...rest } = payload
-                return updateRouteTemplateStop(id, rest)
-            }
-            return createRouteTemplateStop(payload)
-        },
-        onSuccess: () => {
-            invalidateTemplates()
-            setNewStopOfficeId('')
-            setNewStopOrder((sortedStops[sortedStops.length - 1]?.stop_order || 0) + 1)
-        },
-    })
-
-    const stopDeleteMutation = useMutation({
-        mutationFn: (id: number) => deleteRouteTemplateStop(id),
-        onSuccess: () => invalidateTemplates(),
-    })
-
-    const reorderStopsMutation = useMutation({
-        mutationFn: async (orderedStops: RouteTemplateStop[]) => {
-            const updates = orderedStops
-                .map((stop, index) => ({
-                    id: stop.id,
-                    nextOrder: index + 1,
-                    currentOrder: stop.stop_order,
-                }))
-                .filter((entry) => entry.nextOrder !== entry.currentOrder)
-
-            for (const update of updates) {
-                await updateRouteTemplateStop(update.id, { stop_order: update.nextOrder })
-            }
-        },
-        onSuccess: () => invalidateTemplates(),
-    })
-
-    const segmentMutation = useMutation({
-        mutationFn: (payload: Partial<RouteTemplateSegmentTariff> & { id?: number }) => {
-            if (payload.id) {
-                const { id, ...rest } = payload
-                return updateRouteTemplateSegmentTariff(id, rest)
-            }
-            return createRouteTemplateSegmentTariff(payload)
-        },
-        onSuccess: () => {
-            invalidateTemplates()
-            setNewSegmentFromStop('')
-            setNewSegmentToStop('')
-            setNewSegmentPrice(0)
-            setNewSegmentCurrency('DZD')
-            setNewSegmentActive(true)
-        },
-    })
-
-    const segmentDeleteMutation = useMutation({
-        mutationFn: (id: number) => deleteRouteTemplateSegmentTariff(id),
-        onSuccess: () => invalidateTemplates(),
-    })
-
-    const autoFillSegmentsMutation = useMutation({
-        mutationFn: async (template: RouteTemplateType) => {
-            const stops = [...template.stops].sort((a, b) => a.stop_order - b.stop_order)
-            if (stops.length < 2) {
-                return
-            }
-
-            const existingPairs = new Set(
-                template.segment_tariffs.map((segment) => `${segment.from_stop}:${segment.to_stop}`)
-            )
-            const defaultPrice = template.segment_tariffs[0]?.passenger_price || 100
-            const defaultCurrency = template.segment_tariffs[0]?.currency || 'DZD'
-
-            for (let index = 0; index < stops.length - 1; index += 1) {
-                const fromStop = stops[index]
-                const toStop = stops[index + 1]
-                const key = `${fromStop.id}:${toStop.id}`
-                if (existingPairs.has(key)) {
-                    continue
-                }
-                await createRouteTemplateSegmentTariff({
-                    route_template: template.id,
-                    from_stop: fromStop.id,
-                    to_stop: toStop.id,
-                    passenger_price: defaultPrice,
-                    currency: defaultCurrency,
-                    is_active: true,
-                })
-            }
-        },
-        onSuccess: () => invalidateTemplates(),
-    })
-
-    const handleDropStop = (targetStopId: number) => {
-        if (!selectedTemplate || draggedStopId == null || draggedStopId === targetStopId) {
-            setDraggedStopId(null)
-            return
+    const formatApiError = (value: unknown): string => {
+        if (!value) return 'Une erreur est survenue.'
+        if (typeof value === 'string') return value
+        if (typeof value === 'object') {
+            const detail = (value as { detail?: unknown }).detail
+            if (typeof detail === 'string') return detail
+            return JSON.stringify(value)
         }
-
-        const current = [...sortedStops]
-        const fromIndex = current.findIndex((stop) => stop.id === draggedStopId)
-        const toIndex = current.findIndex((stop) => stop.id === targetStopId)
-        if (fromIndex === -1 || toIndex === -1) {
-            setDraggedStopId(null)
-            return
-        }
-
-        const [moved] = current.splice(fromIndex, 1)
-        current.splice(toIndex, 0, moved)
-        setDraggedStopId(null)
-        reorderStopsMutation.mutate(current)
+        return String(value)
     }
+
 
     const openCreateTemplateModal = () => {
         setEditingTemplate(null)
@@ -278,7 +137,22 @@ export function TemplateManagement() {
     const templateColumns = [
         templateColumnHelper.accessor('name', {
             header: 'Template',
-            cell: (info) => <span className="font-semibold text-text-primary">{info.getValue()}</span>,
+            cell: (info) => {
+                const row = info.row.original as RouteTemplateType
+                return (
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            navigate(`/admin/templates/${row.id}/configure`)
+                        }}
+                        className="font-semibold text-text-primary hover:text-brand-300"
+                        title="Configurer ce template"
+                    >
+                        {info.getValue()}
+                    </button>
+                )
+            },
         }),
         templateColumnHelper.accessor('code', {
             header: 'Code',
@@ -321,6 +195,17 @@ export function TemplateManagement() {
                             <Edit className="w-4 h-4" />
                         </Button>
                         <Button
+                            variant="secondary"
+                            className="p-1.5 h-auto"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/admin/templates/${template.id}/configure`)
+                            }}
+                            title="Configurer"
+                        >
+                            <Route className="w-4 h-4" />
+                        </Button>
+                        <Button
                             variant="ghost"
                             className="p-1.5 h-auto text-accent-400 hover:bg-accent-500/10"
                             onClick={(e) => {
@@ -354,10 +239,6 @@ export function TemplateManagement() {
 
     const currentTemplateError = (templateMutation.error as any)?.response?.data
     const sectionError =
-        (stopMutation.error as any)?.response?.data ||
-        (reorderStopsMutation.error as any)?.response?.data ||
-        (segmentMutation.error as any)?.response?.data ||
-        (autoFillSegmentsMutation.error as any)?.response?.data ||
         (reverseMutation.error as any)?.response?.data
 
     return (
@@ -386,209 +267,15 @@ export function TemplateManagement() {
                     pageCount={1}
                     pageIndex={0}
                     onPageChange={() => {}}
-                    onRowClick={(row) => setSelectedTemplateId(row.id)}
+                    onRowClick={(row) => navigate(`/admin/templates/${row.id}/configure`)}
                     emptyMessage="Aucun template trouve."
                 />
             </div>
 
-            {selectedTemplate && (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-5 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-                                <GitBranch className="w-5 h-5 text-brand-400" />
-                                Stops - {selectedTemplate.name}
-                            </h2>
-                            <span className="text-xs text-text-muted">Drag and drop pour reordonner</span>
-                        </div>
-
-                        <div className="space-y-2">
-                            {sortedStops.map((stop) => (
-                                <div
-                                    key={stop.id}
-                                    draggable
-                                    onDragStart={() => setDraggedStopId(stop.id)}
-                                    onDragOver={(event) => event.preventDefault()}
-                                    onDrop={() => handleDropStop(stop.id)}
-                                    className={`flex items-center gap-3 bg-surface-900 border rounded-lg px-3 py-2 transition-colors ${
-                                        draggedStopId === stop.id
-                                            ? 'border-brand-500/60 bg-brand-500/10'
-                                            : 'border-surface-700'
-                                    }`}
-                                >
-                                    <GripVertical className="w-4 h-4 text-text-muted cursor-grab" />
-                                    <span className="w-8 text-center text-xs font-bold text-brand-300">#{stop.stop_order}</span>
-                                    <span className="flex-1 text-sm text-text-primary">{stop.office_name}</span>
-                                    <Button
-                                        variant="danger"
-                                        className="p-1.5 h-auto"
-                                        onClick={() => {
-                                            if (confirm('Supprimer cet arret ?')) {
-                                                stopDeleteMutation.mutate(stop.id)
-                                            }
-                                        }}
-                                        isLoading={stopDeleteMutation.isPending && stopDeleteMutation.variables === stop.id}
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            ))}
-                            {sortedStops.length === 0 && (
-                                <p className="text-sm text-text-muted">Aucun arret configure.</p>
-                            )}
-                        </div>
-
-                        <div className="pt-3 border-t border-surface-700 grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <select
-                                className="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
-                                value={newStopOfficeId}
-                                onChange={(e) => setNewStopOfficeId(e.target.value ? Number(e.target.value) : '')}
-                            >
-                                <option value="">Agence</option>
-                                {offices.map((office: Office) => (
-                                    <option key={office.id} value={office.id}>
-                                        {office.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <input
-                                type="number"
-                                min={1}
-                                className="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
-                                value={newStopOrder}
-                                onChange={(e) => setNewStopOrder(Number(e.target.value) || 1)}
-                            />
-                            <Button
-                                onClick={() => {
-                                    if (!newStopOfficeId) return
-                                    stopMutation.mutate({
-                                        route_template: selectedTemplate.id,
-                                        office: newStopOfficeId,
-                                        stop_order: newStopOrder,
-                                    })
-                                }}
-                                isLoading={stopMutation.isPending}
-                            >
-                                Ajouter stop
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="bg-surface-800/80 backdrop-blur-md border border-surface-700 rounded-xl p-5 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-text-primary">Segment Tariffs</h2>
-                            <Button
-                                variant="secondary"
-                                onClick={() => autoFillSegmentsMutation.mutate(selectedTemplate)}
-                                isLoading={autoFillSegmentsMutation.isPending}
-                                className="text-xs"
-                            >
-                                Auto-fill adjacent
-                            </Button>
-                        </div>
-
-                        <div className="space-y-2">
-                            {sortedSegments.map((segment) => (
-                                <div key={segment.id} className="flex items-center gap-2 bg-surface-900 border border-surface-700 rounded-lg px-3 py-2">
-                                    <span className="text-xs text-text-muted">{segment.from_stop_order} {'->'} {segment.to_stop_order}</span>
-                                    <span className="font-semibold text-sm text-text-primary ml-1">{segment.passenger_price} {segment.currency}</span>
-                                    <span className={`ml-auto px-2 py-0.5 rounded text-[10px] border ${segment.is_active ? 'bg-status-success/10 text-emerald-400 border-status-success/20' : 'bg-red-500/10 text-red-400 border-status-error/20'}`}>
-                                        {segment.is_active ? 'Actif' : 'Inactif'}
-                                    </span>
-                                    <Button
-                                        variant="ghost"
-                                        className="p-1.5 h-auto text-brand-400"
-                                        onClick={() => {
-                                            segmentMutation.mutate({ id: segment.id, is_active: !segment.is_active })
-                                        }}
-                                        isLoading={segmentMutation.isPending}
-                                    >
-                                        <Edit className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                        variant="danger"
-                                        className="p-1.5 h-auto"
-                                        onClick={() => {
-                                            if (confirm('Supprimer ce segment ?')) {
-                                                segmentDeleteMutation.mutate(segment.id)
-                                            }
-                                        }}
-                                        isLoading={segmentDeleteMutation.isPending && segmentDeleteMutation.variables === segment.id}
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            ))}
-                            {sortedSegments.length === 0 && (
-                                <p className="text-sm text-text-muted">Aucun segment configure.</p>
-                            )}
-                        </div>
-
-                        <div className="pt-3 border-t border-surface-700 grid grid-cols-1 md:grid-cols-5 gap-3">
-                            <select
-                                className="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
-                                value={newSegmentFromStop}
-                                onChange={(e) => setNewSegmentFromStop(e.target.value ? Number(e.target.value) : '')}
-                            >
-                                <option value="">From stop</option>
-                                {sortedStops.map((stop) => (
-                                    <option key={stop.id} value={stop.id}>
-                                        #{stop.stop_order} {stop.office_name}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                className="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
-                                value={newSegmentToStop}
-                                onChange={(e) => setNewSegmentToStop(e.target.value ? Number(e.target.value) : '')}
-                            >
-                                <option value="">To stop</option>
-                                {sortedStops.map((stop) => (
-                                    <option key={stop.id} value={stop.id}>
-                                        #{stop.stop_order} {stop.office_name}
-                                    </option>
-                                ))}
-                            </select>
-                            <input
-                                type="number"
-                                min={0}
-                                className="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
-                                value={newSegmentPrice}
-                                onChange={(e) => setNewSegmentPrice(Number(e.target.value) || 0)}
-                                placeholder="Prix"
-                            />
-                            <input
-                                type="text"
-                                className="bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-text-primary"
-                                value={newSegmentCurrency}
-                                onChange={(e) => setNewSegmentCurrency(e.target.value.toUpperCase().slice(0, 3))}
-                                placeholder="DZD"
-                            />
-                            <Button
-                                onClick={() => {
-                                    if (!newSegmentFromStop || !newSegmentToStop) return
-                                    segmentMutation.mutate({
-                                        route_template: selectedTemplate.id,
-                                        from_stop: newSegmentFromStop,
-                                        to_stop: newSegmentToStop,
-                                        passenger_price: newSegmentPrice,
-                                        currency: newSegmentCurrency || 'DZD',
-                                        is_active: newSegmentActive,
-                                    })
-                                }}
-                                isLoading={segmentMutation.isPending}
-                            >
-                                Ajouter segment
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {(currentTemplateError || sectionError) && (
                 <div className="bg-red-500/10 border border-status-error/30 text-red-400 p-3 rounded-lg text-sm flex items-start gap-2">
                     <ShieldAlert className="w-5 h-5 shrink-0" />
-                    <p>{JSON.stringify(currentTemplateError || sectionError)}</p>
+                    <p>{formatApiError(currentTemplateError || sectionError)}</p>
                 </div>
             )}
 
@@ -656,7 +343,7 @@ export function TemplateManagement() {
                                 onChange={(e) => setTemplateForm((prev) => ({ ...prev, start_office: e.target.value ? Number(e.target.value) : '' }))}
                             >
                                 <option value="">Selectionner</option>
-                                {offices.map((office: Office) => (
+                                {activeOffices.map((office: Office) => (
                                     <option key={office.id} value={office.id}>
                                         {office.name}
                                     </option>
@@ -672,7 +359,7 @@ export function TemplateManagement() {
                                 onChange={(e) => setTemplateForm((prev) => ({ ...prev, end_office: e.target.value ? Number(e.target.value) : '' }))}
                             >
                                 <option value="">Selectionner</option>
-                                {offices.map((office: Office) => (
+                                {activeOffices.map((office: Office) => (
                                     <option key={office.id} value={office.id}>
                                         {office.name}
                                     </option>

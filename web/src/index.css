@@ -57,10 +57,55 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+:root {
+  --sidebar-bg: color-mix(in srgb, var(--color-surface-800) 95%, transparent);
+  --sidebar-border: var(--color-surface-700);
+  --sidebar-border-soft: color-mix(in srgb, var(--color-surface-700) 55%, transparent);
+  --sidebar-text: var(--color-text-primary);
+  --sidebar-muted: var(--color-text-secondary);
+  --sidebar-accent: var(--color-accent-500);
+  --sidebar-active-bg: color-mix(in srgb, var(--color-brand-500) 16%, transparent);
+  --sidebar-active-text: var(--color-accent-400);
+  --sidebar-hover-bg: color-mix(in srgb, var(--color-surface-700) 60%, transparent);
+  --sidebar-logo-from: var(--color-brand-600);
+  --sidebar-logo-to: var(--color-brand-900);
+}
+
+[data-theme='light'] {
+  --color-surface-900: #edf3fb;
+  --color-surface-800: #ffffff;
+  --color-surface-700: #c8d7ec;
+  --color-surface-600: #aec4e3;
+  --color-surface-500: #89a8d2;
+  --color-surface-400: #6e93c5;
+
+  --color-text-primary: #0f2742;
+  --color-text-secondary: #33557e;
+  --color-text-muted: #54739a;
+
+  --color-brand-400: #2d78d8;
+  --color-brand-500: #1a66cc;
+  --color-brand-600: #1554aa;
+  --color-brand-700: #12458d;
+
+  --sidebar-bg: linear-gradient(180deg, #1767d1 0%, #1254af 100%);
+  --sidebar-border: #0f4690;
+  --sidebar-border-soft: rgba(255, 255, 255, 0.28);
+  --sidebar-text: #ffffff;
+  --sidebar-muted: #d6e7ff;
+  --sidebar-accent: #ffd869;
+  --sidebar-active-bg: rgba(255, 255, 255, 0.22);
+  --sidebar-active-text: #ffffff;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.14);
+  --sidebar-logo-from: #2a80e0;
+  --sidebar-logo-to: #1552a8;
+}
+
 /* Base styles */
 body {
   @apply bg-surface-900 text-text-primary font-sans antialiased;
   margin: 0;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 /* Scrollbar */

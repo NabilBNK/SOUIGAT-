@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تذكرة سفر - شركة آل سويقات</title>
+    <style>
+        /* --- CORE STYLES --- */
+        :root {
+            --black: #000;
+            --bg-color: #fff;
+            --font-main: 'Arial', sans-serif;
+            --font-number: 'Times New Roman', serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: #f4f4f4;
+            color: var(--black);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* --- TICKET CONTAINER --- */
+        .ticket {
+            width: 320px; /* Standard POS printer width */
+            background-color: var(--bg-color);
+            padding: 15px;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* --- HEADER --- */
+        .header { text-align: center; margin-bottom: 8px; }
+        
+        .company-name {
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        /* Phone Numbers - Forced to One Line */
+        .phone-line {
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            white-space: nowrap; 
+        }
+
+        .phone-numbers {
+            direction: ltr; 
+            display: inline-block;
+        }
+
+        .route-box {
+            border: 2px solid var(--black);
+            border-radius: 6px; 
+            padding: 4px;
+            font-size: 20px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        /* --- MIDDLE SECTION (Title & Ticket Number) --- */
+        .middle-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .main-title {
+            font-size: 42px; 
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+
+        .sub-title {
+            font-size: 16px; /* Increased size slightly */
+            font-weight: 900; /* Extra bold */
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        /* Ticket Number Wrapper - Left Aligned */
+        .ticket-number-wrapper {
+            width: 100%;
+            display: flex;
+            direction: ltr; /* Forces LTR so it goes to the visual left side */
+            justify-content: flex-start; /* Aligns to the left edge */
+            padding-left: 10px;
+            margin-top: 5px;
+            align-items: center;
+        }
+
+        .no-symbol {
+            font-family: var(--font-number);
+            font-size: 28px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .ticket-number {
+            font-family: var(--font-number);
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        /* --- LOWER DETAILS (Lines & Boxes) --- */
+        .detail-row {
+            display: flex;
+            align-items: flex-end;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .dotted-line {
+            flex-grow: 1;
+            border-bottom: 2px dotted var(--black);
+            margin: 0 8px;
+            min-width: 40px;
+            text-align: center;
+            padding-bottom: 2px;
+            font-size: 15px;
+        }
+
+        .price-box {
+            border: 1.5px solid var(--black);
+            width: 80px;
+            height: 26px;
+            margin: 0 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+        }
+
+        /* --- FOOTER --- */
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1.5;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #ccc; 
+        }
+
+        /* --- PRINT OPTIMIZATION --- */
+        @media print {
+            @page { margin: 0; }
+            body { background-color: var(--bg-color); margin: 0; padding: 0; display: block; }
+            .ticket { box-shadow: none; border: none; width: 100%; max-width: 320px; padding: 10px; margin: 0 auto; page-break-inside: avoid; }
+            .footer { border-top: 1px dashed var(--black); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ticket">
+        
+        <!-- Header -->
+        <div class="header">
+            <h1 class="company-name">شركة آل سويقات لنقل المسافرين</h1>
+            
+            <div class="phone-line">
+                النقال : <span class="phone-numbers">0660 82 69 83 / 0671 75 75 42 / 0671 75 75 41</span>
+            </div>
+            
+            <div class="route-box">حاسي مسعود - ورقلة - أدرار</div>
+        </div>
+
+        <!-- Middle Section -->
+        <div class="middle-section">
+            <div class="main-title">تذكرة سفر</div>
+            <div class="sub-title">ممنوع التدخين</div>
+            
+            <!-- Ticket Number (Left Aligned) -->
+            <div class="ticket-number-wrapper">
+                <span class="no-symbol">№</span>
+                <span class="ticket-number" id="val_ticket_no"></span>
+            </div>
+        </div>
+
+        <!-- Lower Details -->
+        <div class="detail-row">
+            <span>الصعود</span>
+            <span class="dotted-line" id="val_boarding"></span>
+            <span>النزول</span>
+            <span class="dotted-line" id="val_destination"></span>
+        </div>
+
+        <div class="detail-row">
+            <span>السعر</span>
+            <div class="price-box" id="val_price"></div>
+            <span>دج - التاريخ</span>
+            <span class="dotted-line" id="val_date"></span>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            إحتفظ بالتذكرة مدة السفر لتقديمها عند الطلب<br>
+            المؤسسة غير مسؤولة عن الأمتعة الغير مسجلة
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT: Dynamic Variables -->
+    <script>
+        // 1. Define variables
+        const appData = {
+            ticketNo: "011684",
+            boardingCity: "ورقلة",      
+            destinationCity: "أدرار",    
+            price: "1200",             
+            date: "29-03-2026",        
+        };
+
+        // 2. Map data to the HTML
+        function populateTicket(data) {
+            document.getElementById('val_ticket_no').textContent = data.ticketNo || '';
+            document.getElementById('val_boarding').textContent = data.boardingCity || '';
+            document.getElementById('val_destination').textContent = data.destinationCity || '';
+            document.getElementById('val_price').textContent = data.price || '';
+            document.getElementById('val_date').textContent = data.date || '';
+        }
+
+        // 3. Execute the function
+        populateTicket(appData);
+
+    </script>
+</body>
+</html>

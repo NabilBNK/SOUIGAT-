@@ -7,6 +7,7 @@ data class TripFormHeaderUiModel(
     val tripId: Long,
     val origin: String,
     val destination: String,
+    val routeTemplateName: String,
     val busPlate: String,
     val departureLabel: String,
     val currency: String,

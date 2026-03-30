@@ -12,6 +12,8 @@ export const COLLECTION_BY_ENTITY: Record<SyncEntityType, string> = {
     cargo_ticket: 'cargo_ticket_mirror_v1',
     trip_expense: 'trip_expense_mirror_v1',
     settlement: 'settlement_mirror_v1',
+    pricing_config: 'pricing_config_mirror_v1',
+    route_template: 'route_template_mirror_v1',
 }
 
 function toObject(payload: unknown): LooseObject {
@@ -181,6 +183,11 @@ export function mapEntityUpsertDocument(
 
     if (entityType === 'trip_expense') {
         return mapTripExpense(toObject(payload), opId, sourceUpdatedAt)
+    }
+
+    if (entityType === 'pricing_config' || entityType === 'route_template') {
+        // Backend mirrors these directly — pass through the raw payload as-is.
+        return { ...toObject(payload), last_op_id: opId, source_updated_at: sourceUpdatedAt }
     }
 
     return mapSettlement(payload as Settlement, opId, sourceUpdatedAt)

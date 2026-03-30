@@ -1,0 +1,5 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-agent-memory@0.2.0"]
+
+}

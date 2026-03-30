@@ -1,2 +1,0 @@
-[GET] http://localhost:5173/api/auth/me/ => [200] OK
-[GET] http://localhost:5173/api/trips/reference-data/?current_office_id=1 => [200] OK

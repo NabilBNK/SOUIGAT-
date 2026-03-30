@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from api.models import CargoTicket, PassengerTicket, PricingConfig, Settlement, Trip, TripExpense
+from api.models import CargoTicket, PassengerTicket, PricingConfig, RouteTemplate, Settlement, Trip, TripExpense
 from api.services.firebase_mirror import enqueue_instance_upsert
 from api.tasks import process_firebase_mirror_event
 
@@ -12,6 +12,7 @@ ENTITY_CHOICES = (
     'trip_expense',
     'settlement',
     'pricing_config',
+    'route_template',
 )
 
 
@@ -64,6 +65,7 @@ class Command(BaseCommand):
             'trip_expense',
             'settlement',
             'pricing_config',
+            'route_template',
         ]
 
         summary = {}
@@ -121,6 +123,15 @@ class Command(BaseCommand):
             return PricingConfig.all_objects.select_related(
                 'origin_office',
                 'destination_office',
+            ).order_by('id')
+        if target == 'route_template':
+            return RouteTemplate.all_objects.select_related(
+                'start_office',
+                'end_office',
+            ).prefetch_related(
+                'stops__office',
+                'segment_tariffs__from_stop',
+                'segment_tariffs__to_stop',
             ).order_by('id')
         raise CommandError(f'Unsupported entity target: {target}')
 

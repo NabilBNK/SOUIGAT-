@@ -42,11 +42,22 @@ class ReportTests(TestCase):
             destination_office=self.office_b,
             conductor=self.conductor, bus=bus,
             departure_datetime=timezone.now(),
-            status='in_progress',
+            status='completed',
             passenger_base_price=1000,
             cargo_small_price=500,
             cargo_medium_price=1000,
             cargo_large_price=1500,
+        )
+        self.settlement = Settlement.objects.create(
+            trip=self.trip,
+            office=self.office_b,
+            conductor=self.conductor,
+            expected_passenger_cash=2000,
+            expected_cargo_cash=500,
+            expected_total_cash=2500,
+            expenses_to_reimburse=300,
+            net_cash_expected=2200,
+            status=Settlement.STATUS_SETTLED,
         )
         # Create test data
         PassengerTicket.objects.create(
@@ -69,22 +80,23 @@ class ReportTests(TestCase):
         self.client = APIClient()
 
     def test_daily_report_aggregation(self):
-        """Daily report shows an array of per-office rows with correct totals."""
+        """Admin all-offices daily report counts each trip once globally."""
         self.client.force_authenticate(self.admin)
         today = timezone.now().strftime('%Y-%m-%d')
         resp = self.client.get(f'/api/reports/daily/?date_from={today}&date_to={today}')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(type(resp.data), list)
-        
-        # Admin gets all offices, but we only have trips for Algiers
-        algiers_row = next((r for r in resp.data if r['office_id'] == self.office.id), None)
-        self.assertIsNotNone(algiers_row)
-        
-        self.assertEqual(algiers_row['passenger_revenue'], 2000)
-        self.assertEqual(algiers_row['cargo_revenue'], 500)
-        self.assertEqual(algiers_row['expense_total'], 300)
-        self.assertEqual(algiers_row['net_revenue'], 2200)
-        self.assertEqual(algiers_row['total_passengers'], 2)
+        self.assertEqual(len(resp.data), 1)
+
+        global_row = resp.data[0]
+        self.assertEqual(global_row['office_id'], 0)
+        self.assertEqual(global_row['office_name'], 'Toutes les agences')
+        self.assertEqual(global_row['total_trips'], 1)
+        self.assertEqual(global_row['passenger_revenue'], 2000)
+        self.assertEqual(global_row['cargo_revenue'], 500)
+        self.assertEqual(global_row['expense_total'], 300)
+        self.assertEqual(global_row['net_revenue'], 2200)
+        self.assertEqual(global_row['total_passengers'], 2)
         
     def test_daily_report_office_filter(self):
         """Admin can filter daily report by office_id."""
@@ -118,15 +130,12 @@ class ReportTests(TestCase):
         self.assertEqual(resp.data[0]['trip_count'], 1)
         self.assertIn('total_revenue', resp.data[0])
 
-    def test_staff_scoped_to_office(self):
-        """Staff only sees reports for their office's trips."""
+    def test_staff_denied_reports(self):
+        """Office staff are denied report endpoints."""
         self.client.force_authenticate(self.staff)
         today = timezone.now().strftime('%Y-%m-%d')
         resp = self.client.get(f'/api/reports/daily/?date_from={today}&date_to={today}')
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(type(resp.data), list)
-        self.assertEqual(len(resp.data), 1) # One row for their office
-        self.assertEqual(resp.data[0]['office_id'], self.office.id)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_conductor_cannot_access_reports(self):
         """Conductors are denied access to reports."""
@@ -165,21 +174,22 @@ class ReportTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(resp.data['error_code'], 'DATE_RANGE_TOO_LARGE')
 
+    def test_daily_report_excludes_unsettled_trip(self):
+        self.settlement.status = Settlement.STATUS_PENDING
+        self.settlement.save(update_fields=['status', 'updated_at'])
+
+        self.client.force_authenticate(self.admin)
+        today = timezone.now().strftime('%Y-%m-%d')
+        resp = self.client.get(f'/api/reports/daily/?date_from={today}&date_to={today}')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['total_trips'], 0)
+
     def test_daily_report_prefers_settled_snapshot(self):
         self.trip.status = 'completed'
         self.trip.save()
 
-        settlement = Settlement.objects.create(
-            trip=self.trip,
-            office=self.office_b,
-            conductor=self.conductor,
-            expected_passenger_cash=2000,
-            expected_cargo_cash=500,
-            expected_total_cash=2500,
-            expenses_to_reimburse=300,
-            net_cash_expected=2200,
-            status=Settlement.STATUS_SETTLED,
-        )
+        settlement = self.settlement
         upsert_trip_report_snapshots_for_trip(self.trip)
 
         PassengerTicket.objects.filter(trip=self.trip).update(status='cancelled')
@@ -191,9 +201,10 @@ class ReportTests(TestCase):
         resp = self.client.get(f'/api/reports/daily/?date_from={today}&date_to={today}')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-        algiers_row = next((r for r in resp.data if r['office_id'] == self.office.id), None)
-        self.assertIsNotNone(algiers_row)
-        self.assertEqual(algiers_row['passenger_revenue'], 2000)
-        self.assertEqual(algiers_row['cargo_revenue'], 500)
-        self.assertEqual(algiers_row['expense_total'], 300)
-        self.assertEqual(algiers_row['net_revenue'], 2200)
+        self.assertEqual(len(resp.data), 1)
+        global_row = resp.data[0]
+        self.assertEqual(global_row['office_id'], 0)
+        self.assertEqual(global_row['passenger_revenue'], 2000)
+        self.assertEqual(global_row['cargo_revenue'], 500)
+        self.assertEqual(global_row['expense_total'], 300)
+        self.assertEqual(global_row['net_revenue'], 2200)

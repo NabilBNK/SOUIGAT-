@@ -528,6 +528,7 @@ class FirebaseTripDataSource @Inject constructor(
             busPlate = data.stringValue("bus_plate") ?: "",
             originName = data.stringValue("origin_office_name") ?: "",
             destinationName = data.stringValue("destination_office_name") ?: "",
+            routeTemplateName = data.stringValue("route_template_name") ?: "",
             routeStops = mapToTripRouteStops(data),
             routeSegmentTariffs = mapToTripRouteSegmentTariffs(data),
         )
@@ -619,12 +620,18 @@ private fun mapToTripRouteStops(data: Map<String, Any>): List<TripRouteStop> {
     }
     return raw.mapNotNull { item ->
         val stop = item as? Map<*, *> ?: return@mapNotNull null
-        val officeName = stop["office_name"] as? String ?: return@mapNotNull null
-        val officeId = numberToInt(stop["office_id"]) ?: return@mapNotNull null
+        val stopName = (stop["stop_name"] as? String)?.trim().orEmpty()
+        val officeName = (stop["office_name"] as? String)?.trim().orEmpty()
+        val displayName = when {
+            stopName.isNotBlank() -> stopName
+            officeName.isNotBlank() -> officeName
+            else -> return@mapNotNull null
+        }
+        val officeId = numberToInt(stop["office_id"]) ?: -1
         val stopOrder = numberToInt(stop["stop_order"]) ?: return@mapNotNull null
         TripRouteStop(
             officeId = officeId,
-            officeName = officeName,
+            officeName = displayName,
             stopOrder = stopOrder,
         )
     }.sortedBy { it.stopOrder }

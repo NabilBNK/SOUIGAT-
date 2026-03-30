@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from api.models import CargoTicket, Trip
+from api.services.ticket_numbering import generate_ticket_number
 from api.serializers.cargo import CargoTicketSerializer, CargoTransitionSerializer
 from api.permissions import RBACPermission, MatrixPermission, OfficeScopePermission
 
@@ -87,12 +88,9 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
             # Row lock serializes concurrent ticket creation for this trip
             trip = Trip.objects.select_for_update().select_related('origin_office', 'destination_office').get(pk=trip_id)
 
-            if request.user.role == 'office_staff' and request.user.office_id not in (
-                trip.origin_office_id,
-                trip.destination_office_id,
-            ):
+            if request.user.role == 'office_staff' and request.user.office_id != trip.origin_office_id:
                 raise PermissionDenied(
-                    'Office staff can only create cargo tickets for trips linked to their office.'
+                    'Office staff can only create cargo tickets for trips starting from their office.'
                 )
 
             valid_tiers = {'small', 'medium', 'large'}
@@ -109,7 +107,11 @@ class CargoTicketViewSet(viewsets.ModelViewSet):
             price = price_map[tier]
 
             count = CargoTicket.objects.filter(trip=trip).count()
-            ticket_number = f'CT-{trip.id}-{count + 1:03d}'
+            ticket_number = generate_ticket_number(
+                departure_datetime=trip.departure_datetime,
+                trip_id=trip.id,
+                order_number=count + 1,
+            )
 
             cargo = CargoTicket.objects.create(
                 trip=trip,
